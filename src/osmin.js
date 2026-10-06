@@ -26,7 +26,7 @@ import {WIDGET_CLASSES} from './widgets/registry.js';
 import {animDuration, fadeIn, fadeOut} from './utils/animation.js';
 import {
     HOVER_INTENT_MS, HOVER_LEAVE_MS, INTERACTION_GRACE_MS, Layout, Motion, OPEN_DWELL_MS,
-    OPEN_LEAVE_MS, State,
+    OPEN_LEAVE_MS, SCROLL_LOCK_MS, SCROLL_THRESHOLD, State,
 } from './utils/constants.js';
 import {EventType} from './utils/events.js';
 import {getScaleFactor, scaled} from './utils/scale.js';
@@ -67,8 +67,10 @@ export class Osmin {
         this._dragArmed = false;
         this._compactActivity = null;
         this._openPage = null;
+        this._destroying = false;
         this._grab = null;
         this._onTextInputEnd = null;
+        this._scrollAccumulator = 0;
     }
 
     /** Sources emit events here: `osmin.events.emit({...})`. */
@@ -141,6 +143,9 @@ export class Osmin {
     }
 
     destroy() {
+        // Widgets end their activities while being destroyed: stop reacting to that first.
+        this._destroying = true;
+        this._services?.activities.disconnectObject(this);
         this._endTextInput();
         this._timers.destroy();
         this._signals.disconnectAll();
@@ -352,8 +357,24 @@ export class Osmin {
             this._content.add_child(view);
         }
 
+        // The shell may destroy the actor first (at shutdown): stop touching it then.
+        this._actor.connect('destroy', () => {
+            this._destroying = true;
+            this._actor = null;
+        });
         this._actor.connect('notify::hover', () => this._onHoverChanged());
         this._actor.connect('clicked', () => this._onClicked());
+        // Middle click on the collapsed capsule: the next ongoing activity.
+        this._actor.connect('button-press-event', (_actor, event) => {
+            if (event.get_button() === Clutter.BUTTON_MIDDLE &&
+                (this._state === State.CLOSED || this._state === State.HOVER) &&
+                this._services.activities.cycle(1)) {
+                this._timers.clear('dwell'); // the user is flipping through, not opening
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+        this._actor.connect('scroll-event', (_actor, event) => this._onScroll(event));
         // Remember when the user last used the open capsule, to not close it under their hand.
         this._actor.connect('captured-event', (_actor, event) => {
             // While the keyboard is grabbed, a click outside the capsule ends text input.
@@ -522,8 +543,55 @@ export class Osmin {
         }
     }
 
+    /**
+     * Scrolling over the capsule: pages of the open panel, or the ongoing
+     * activities of the collapsed capsule. Deliberately hard to trigger by
+     * accident: one step per notch / swipe, then a short lock.
+     */
+    _onScroll(event) {
+        let step = 0;
+        switch (event.get_scroll_direction()) {
+        case Clutter.ScrollDirection.UP:
+        case Clutter.ScrollDirection.LEFT:
+            step = -1;
+            break;
+        case Clutter.ScrollDirection.DOWN:
+        case Clutter.ScrollDirection.RIGHT:
+            step = 1;
+            break;
+        case Clutter.ScrollDirection.SMOOTH: {
+            const [dx, dy] = event.get_scroll_delta();
+            this._scrollAccumulator += Math.abs(dx) > Math.abs(dy) ? dx : dy;
+            // A pause between swipes starts a new gesture.
+            this._timers.set('scroll-reset', 250, () => {
+                this._scrollAccumulator = 0;
+            });
+            if (Math.abs(this._scrollAccumulator) >= SCROLL_THRESHOLD)
+                step = Math.sign(this._scrollAccumulator);
+            break;
+        }
+        default:
+            return Clutter.EVENT_PROPAGATE;
+        }
+
+        if (this._state !== State.OPEN && this._state !== State.CLOSED && this._state !== State.HOVER)
+            return Clutter.EVENT_PROPAGATE;
+        if (step === 0 || this._timers.has('scroll-lock'))
+            return Clutter.EVENT_STOP;
+
+        this._scrollAccumulator = 0;
+        this._timers.set('scroll-lock', SCROLL_LOCK_MS, () => {});
+        if (this._state === State.OPEN)
+            this._panelView.showPage(this._panelView.pageIndex + step);
+        else
+            this._services.activities.cycle(step);
+        return Clutter.EVENT_STOP;
+    }
+
     /** Shows the ongoing activity with the highest priority in the collapsed capsule. */
     _syncCompact() {
+        if (this._destroying || !this._actor)
+            return;
         const activity = this._services.activities.compact;
         if (activity === this._compactActivity)
             return;
@@ -534,7 +602,7 @@ export class Osmin {
 
     /** The compact content changed: the collapsed capsule follows its width. */
     _onCompactResized() {
-        if (!this._actor)
+        if (this._destroying || !this._actor)
             return;
         if (this._state === State.CLOSED || this._state === State.HOVER)
             this._applyGeometry({duration: 220});

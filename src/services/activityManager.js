@@ -20,6 +20,7 @@ export class ActivityManager extends Signals.EventEmitter {
         super();
         this._events = events;
         this._ongoing = new Map();
+        this._pinned = null; // chosen by scrolling; otherwise the highest priority
         this._cards = null;
         this._isOpen = () => false;
     }
@@ -36,6 +37,8 @@ export class ActivityManager extends Signals.EventEmitter {
 
     /** The activity shown in the collapsed capsule, or null. */
     get compact() {
+        if (this._pinned && this._ongoing.has(this._pinned))
+            return this._ongoing.get(this._pinned);
         let best = null;
         for (const activity of this._ongoing.values()) {
             if (!best || activity.compactPriority > best.compactPriority)
@@ -44,9 +47,26 @@ export class ActivityManager extends Signals.EventEmitter {
         return best;
     }
 
+    /**
+     * Shows the next / previous ongoing activity in the collapsed capsule.
+     * @param {number} direction 1 or -1
+     * @returns {boolean} whether there was something to switch to
+     */
+    cycle(direction) {
+        const list = this.ongoing.sort((a, b) => b.compactPriority - a.compactPriority);
+        if (list.length < 2)
+            return false;
+        const index = list.indexOf(this.compact);
+        this._pinned = list[(index + direction + list.length) % list.length].id;
+        this.emit('ongoing-changed');
+        return true;
+    }
+
     start(activity) {
         if (this._ongoing.get(activity.id) === activity)
             return;
+        if (!this._ongoing.has(activity.id))
+            this._pinned = null; // something new: show the most important one again
         this._ongoing.get(activity.id)?.disconnectObject(this);
         this._ongoing.set(activity.id, activity);
         activity.connectObject('changed', () => this.emit('compact-resized'), this);
@@ -59,6 +79,8 @@ export class ActivityManager extends Signals.EventEmitter {
             return;
         activity.disconnectObject(this);
         this._ongoing.delete(id);
+        if (this._pinned === id)
+            this._pinned = null;
         this.emit('ongoing-changed');
     }
 

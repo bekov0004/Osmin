@@ -20,6 +20,10 @@ export class Timers {
         this._sources.set(name, id);
     }
 
+    has(name) {
+        return this._sources.has(name);
+    }
+
     clear(name) {
         const id = this._sources.get(name);
         if (id === undefined)

@@ -21,6 +21,8 @@ export class CalendarService extends Signals.EventEmitter {
     constructor() {
         super();
         this._proxy = null;
+        this._signalIds = [];
+        this._notifyIds = [];
         this._events = new Map();
         this._ranges = new Map();
         this._begin = null;
@@ -51,15 +53,20 @@ export class CalendarService extends Signals.EventEmitter {
                 return;
             }
         }
-        this._proxy.connectSignal('EventsAddedOrUpdated', (_p, _sender, args) => this._onAdded(args[0] ?? []));
-        this._proxy.connectSignal('EventsRemoved', (_p, _sender, args) => this._onRemoved(args[0] ?? []));
-        this._proxy.connectSignal('ClientDisappeared', (_p, _sender, args) => this._removeMatching(`${args[0] ?? ''}\n`));
-        this._proxy.connect('notify::g-name-owner', () => {
-            this._events.clear();
-            this._requestRange(true);
-            this.emit('changed');
-        });
-        this._proxy.connect('g-properties-changed', () => this.emit('changed'));
+        const proxy = this._proxy;
+        if (!proxy)
+            return; // destroyed while connecting
+        this._signalIds.push(
+            proxy.connectSignal('EventsAddedOrUpdated', (_p, _sender, args) => this._onAdded(args[0] ?? [])),
+            proxy.connectSignal('EventsRemoved', (_p, _sender, args) => this._onRemoved(args[0] ?? [])),
+            proxy.connectSignal('ClientDisappeared', (_p, _sender, args) => this._removeMatching(`${args[0] ?? ''}\n`)));
+        this._notifyIds.push(
+            proxy.connect('notify::g-name-owner', () => {
+                this._events.clear();
+                this._requestRange(true);
+                this.emit('changed');
+            }),
+            proxy.connect('g-properties-changed', () => this.emit('changed')));
         this._requestRange(true);
     }
 
@@ -98,7 +105,14 @@ export class CalendarService extends Signals.EventEmitter {
 
     destroy() {
         this._cancellable.cancel();
-        this._proxy?.run_dispose();
+        if (this._proxy) {
+            for (const id of this._signalIds)
+                this._proxy.disconnectSignal(id);
+            for (const id of this._notifyIds)
+                this._proxy.disconnect(id);
+        }
+        this._signalIds = [];
+        this._notifyIds = [];
         this._proxy = null;
         this._events.clear();
     }

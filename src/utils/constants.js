@@ -43,6 +43,12 @@ export const Motion = Object.freeze({
     [State.DROP]: {duration: 260, mode: Clutter.AnimationMode.EASE_OUT_BACK},
 });
 
+// Scrolling over the capsule: a gesture needs this much smooth-scroll distance
+// (about one wheel notch) and then ignores further scrolling for a moment, so
+// touchpad momentum does not skip several pages.
+export const SCROLL_THRESHOLD = 1.0;
+export const SCROLL_LOCK_MS = 380;
+
 export const HOVER_INTENT_MS = 50;    // pointer must rest this long before the capsule reacts
 export const OPEN_DWELL_MS = 150;     // ...and this long more before it opens
 export const HOVER_LEAVE_MS = 80;     // pointer left a hovering capsule
