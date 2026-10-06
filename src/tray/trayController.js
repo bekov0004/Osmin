@@ -7,12 +7,16 @@ import {TrayView} from './trayView.js';
  * it is the capsule's second mode (the "Tray" tab and the drop target).
  */
 export class TrayController {
-    constructor({services, settings}) {
+    constructor({services, settings, dragOut = null}) {
         this._files = services.files;
         this._activities = services.activities;
         this._settings = settings;
         this._activity = new FilesActivity();
-        this.view = new TrayView(this._files);
+        this.view = new TrayView(this._files, dragOut && {
+            prepare: uri => dragOut.prepare([uri]),
+            begin: () => dragOut.begin(),
+            cancel: () => dragOut.cancel(),
+        });
     }
 
     start() {

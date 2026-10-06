@@ -15,7 +15,7 @@ export class TrayView extends St.BoxLayout {
     }
 
     /** @param {FileService} files */
-    constructor(files) {
+    constructor(files, drag = null) {
         super({
             vertical: true,
             style_class: 'osmin-tray',
@@ -23,6 +23,7 @@ export class TrayView extends St.BoxLayout {
             y_expand: true,
         });
         this._files = files;
+        this._drag = drag;
         this._drop = {active: false, zone: null, count: 0};
 
         const header = new St.BoxLayout({style_class: 'osmin-tray-header'});
@@ -187,6 +188,7 @@ export class TrayView extends St.BoxLayout {
                 onShowInFolder: uri => this._files.showInFolder(uri),
                 onCopy: uri => this._files.copyToClipboard([uri]),
                 onRemove: uri => this._files.remove(uri),
+                drag: this._drag,
             }));
         }
         this._update();

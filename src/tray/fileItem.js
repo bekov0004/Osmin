@@ -11,8 +11,11 @@ export class FileItem extends St.Widget {
         GObject.registerClass({GTypeName: 'OsminFileItem'}, this);
     }
 
-    /** @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove}} params */
-    constructor({item, onOpen, onShowInFolder, onCopy, onRemove}) {
+    /**
+     * @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove, drag?: {prepare, begin, cancel}}} params
+     *   drag: hooks that let the file be dragged out into other applications
+     */
+    constructor({item, onOpen, onShowInFolder, onCopy, onRemove, drag}) {
         super({
             style_class: 'osmin-file-item',
             layout_manager: new Clutter.BinLayout(),
@@ -60,6 +63,37 @@ export class FileItem extends St.Widget {
             }));
         }
         this.add_child(this._actions);
+
+        if (drag) {
+            let origin = null;
+            let started = false;
+            this.connect('captured-event', (_actor, event) => {
+                switch (event.type()) {
+                case Clutter.EventType.BUTTON_PRESS:
+                    if (event.get_button() === Clutter.BUTTON_PRIMARY) {
+                        origin = event.get_coords();
+                        started = false;
+                        drag.prepare(item.uri);
+                    }
+                    break;
+                case Clutter.EventType.MOTION:
+                    if (origin && !started) {
+                        const [x, y] = event.get_coords();
+                        if (Math.hypot(x - origin[0], y - origin[1]) > 10) {
+                            started = true;
+                            drag.begin();
+                        }
+                    }
+                    break;
+                case Clutter.EventType.BUTTON_RELEASE:
+                    if (origin && !started)
+                        drag.cancel();
+                    origin = null;
+                    break;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            });
+        }
         this.connect('notify::hover', () => this._actions.ease({
             opacity: this.hover ? 255 : 0,
             duration: 120,

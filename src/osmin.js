@@ -18,6 +18,7 @@ import {MediaService} from './services/mediaService.js';
 import {PanelService} from './services/panelService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
+import {DragOutService} from './tray/dragOut.js';
 import {TrayController} from './tray/trayController.js';
 import {ClosedView} from './ui/closedView.js';
 import {Ear} from './ui/ear.js';
@@ -122,7 +123,11 @@ export class Osmin {
             isOpen: () => this._state === State.OPEN,
         });
         this._drag = new DragService();
-        this._tray = new TrayController({services: this._services, settings: this._settings});
+        this._dragOut = new DragOutService({
+            onBegin: () => this._beginDragOut(),
+            onEnd: () => this._endDragOut(),
+        });
+        this._tray = new TrayController({services: this._services, settings: this._settings, dragOut: this._dragOut});
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
@@ -187,6 +192,8 @@ export class Osmin {
         this._widgets = null;
         this._tray?.destroy();
         this._tray = null;
+        this._dragOut?.destroy();
+        this._dragOut = null;
         this._drag?.destroy();
         this._drag = null;
         this._services?.media.destroy();
@@ -591,6 +598,27 @@ export class Osmin {
         this._panelView?.setDrop({active: false});
         if (this._state === State.DROP)
             this._setState(State.CLOSED);
+    }
+
+    // --- dragging files out of the tray ----------------------------------------
+
+    /** The capsule steps aside so the file can be dropped on whatever is below. */
+    _beginDragOut() {
+        this._timers.clear('leave');
+        this._draggingOut = true;
+        this._actor.hide();
+        for (const ear of this._ears)
+            ear.hide();
+    }
+
+    _endDragOut() {
+        this._draggingOut = false;
+        if (!this._actor)
+            return;
+        this._actor.show();
+        // Ears belong to the open capsule only: it settles back to the collapsed one.
+        if (this._state === State.OPEN)
+            this._settle();
     }
 
     // --- keyboard input for widgets (the to-do entry) -------------------------
