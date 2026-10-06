@@ -6,7 +6,8 @@
  *
  * Subclasses set the static `id`, `title` and `iconName`, and implement
  * createView(). Optional hooks: start() (once, when Osmin is enabled; the place
- * to publish live activities), onTick(now), onPageShown(), onPageHidden().
+ * to publish live activities), syncActivity(), onTick(now), onPageShown(),
+ * onPageHidden().
  */
 export class OsminWidget {
     static id = 'widget';
@@ -31,6 +32,9 @@ export class OsminWidget {
     createView() {
         throw new Error(`${this.constructor.name}.createView() is not implemented`);
     }
+
+    /** The user turned this widget's Live Activity on or off: publish or withdraw it. */
+    syncActivity() {}
 
     /** The view exists now (a place for the first update; `this.view` is usable). */
     onViewCreated() {}

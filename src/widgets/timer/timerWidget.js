@@ -8,7 +8,7 @@ import {OsminWidget} from '../widget.js';
 import {TimerActivity} from './timerActivity.js';
 
 const MINUTE = 60 * 1000;
-const PRESETS = [5, 10, 25, 45];
+const PRESETS = [5, 10, 25];
 
 /** Set a time, start, pause, resume, reset. A Live Activity while it runs. */
 export class TimerWidget extends OsminWidget {
@@ -20,6 +20,7 @@ export class TimerWidget extends OsminWidget {
         super(context);
         this._timer = context.services.timer;
         this._activities = context.services.activities;
+        this._settings = context.settings;
         this._activity = null;
     }
 
@@ -39,9 +40,13 @@ export class TimerWidget extends OsminWidget {
         this._onChanged();
     }
 
+    syncActivity() {
+        this._onChanged();
+    }
+
     _onChanged() {
         this._activity.notifyChanged();
-        if (this._timer.active)
+        if (this._timer.active && this._settings.get('activity-timer'))
             this._activities.start(this._activity);
         else
             this._activities.end('timer');
@@ -68,8 +73,8 @@ export class TimerWidget extends OsminWidget {
             style_class: 'osmin-widget osmin-timer',
             x_expand: true,
             y_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
         });
-        root.add_child(new St.Label({text: 'TIMER', style_class: 'osmin-timer-caption'}));
 
         const display = new St.BoxLayout({
             style_class: 'osmin-timer-display',

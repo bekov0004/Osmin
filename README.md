@@ -9,27 +9,41 @@ are touched, and disabling the extension brings the stock clock back.
 
 ## Features
 
-- **Media** – any MPRIS player (Spotify, browsers, VLC, Rhythmbox, ...): artwork, title, artist,
-  progress (click to seek), previous / play-pause / next.
-- **Calendar** – month grid, event dots, upcoming events and a per-day agenda, from the system
-  calendars (the same `org.gnome.Shell.CalendarServer` service the GNOME calendar uses).
-- **Files** – a shelf: drag files from any app and release them over the capsule. Files are
-  referenced, never copied or moved; the shelf is persistent, shows thumbnails, and lets you open
-  a file, show it in the file manager, copy it to the clipboard, or remove it.
-- **Mirror** – webcam preview (GStreamer: PipeWire, then `/dev/video0`). The camera is opened only
-  when you press *Turn on* and released when you close the preview, change page or close the capsule.
-  Nothing is recorded or saved.
-- **Timer** – set, start, pause, resume, reset; survives suspend and restarts.
-- **To-do** – a local task list (`~/.local/share/osmin/todo.json`).
+The capsule has two parts: a small **collapsed** island in the top bar (the time, or
+what is going on) and an **expanded** container that hangs from the top edge of the screen:
+
+```
+  ┌──────────────────────────────────────────────────┐
+  │ [Osmin] [Tray]                  ● (camera)      ⚙ │   header: in the band of the top bar
+  ├────────────────┬─────────────────┬───────────────┤
+  │  Media Player  │    Calendar     │   Mirror      │   widgets, side by side
+  └────────────────┴─────────────────┴───────────────┘
+```
+
+- **Osmin tab – widgets**, in the order you choose, each with its own width (in cells). The capsule
+  grows or shrinks with them; if they do not fit on the screen they go on extra pages.
+  - **Media Player** – any MPRIS player: artwork with the player's icon, title, album, artist,
+    previous / play-pause / next, a small activity indicator, a thin progress line (click to seek).
+  - **Calendar** – the month and a strip of days around the selected one (today accented), and that
+    day's events from the system calendars (`org.gnome.Shell.CalendarServer`, the service the GNOME
+    calendar uses).
+  - **Mirror** – a round webcam preview (GStreamer: PipeWire, then `/dev/video0`). The camera is
+    opened only when you click the circle and released when you click it again, change tab or page, or
+    close the capsule; a green dot in the header shows it is on. Nothing is recorded.
+  - **Timer** and **To-do** – optional widgets (off by default; enable them in the settings).
+- **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
+  expands into the tray and shows the drop target; release to add them. Files are referenced, never
+  copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
+  manager, copy to the clipboard, remove. The wheel scrolls the row sideways.
 - **Live Activities** – a running timer, music, or a meeting within 10 minutes takes the place of
-  the time in the collapsed capsule; track changes, meetings, a finished timer and added files pop
-  out as short cards. Clicking a card opens its widget.
-- **Gestures** – hover swells the capsule and, if you rest, opens it; click opens at once;
-  mouse wheel / two-finger swipe switches pages (one step per gesture); middle click on the
-  collapsed capsule flips between ongoing activities; drag & drop files onto it.
-- **Appearance** (GNOME Extensions preferences) – panel size, corner radius, opacity, animation
-  speed, open on hover, collapse on leave, activities in the collapsed capsule, and which
-  widgets are enabled.
+  the time in the collapsed capsule; track changes, meetings, a finished timer and added files pop out
+  as short cards hanging from the top. Clicking a card opens its widget.
+- **Gestures** – the pointer approaching the collapsed capsule wakes it; if it rests, the capsule
+  swells and then opens (click opens at once); the wheel / a swipe switches pages; middle click on the
+  collapsed capsule flips between ongoing activities; drag & drop onto it.
+- **Settings** (the ⚙ in the header, or `gnome-extensions prefs`) – General, Widgets (on/off, order,
+  width in cells, a live preview of the layout, auto or fixed capsule width), Appearance (corner radius,
+  transparency, shadow, height, padding, spacing, dividers), Tray, Live Activities. Changes apply live.
 
 `Super+V` (the "toggle calendar" shortcut) toggles Osmin instead of the hidden calendar popup.
 
@@ -87,6 +101,10 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep -i osmin
   positioned from the anchor. Its top edge never moves: only x, width and height are animated,
   so it reads as one object growing out of the top bar. Sizes are CSS px (scaled by the UI scale);
   the expanded width is a share of the monitor width, clamped.
+- Layout: `ui/osminLayout.js` computes the expanded size from the enabled widgets (cells × cell width +
+  spacing + padding), the screen width and the UI scale, so nothing is tied to one resolution. The
+  header is exactly as tall as the top bar; the content hangs below it, and two small "ears" (cairo
+  fillets) join the capsule to the bar so it reads as one shape.
 - Dragged files: GNOME Shell cannot be a real Wayland drop target, but it is told where the pointer
   is during a drag (`global.backend.get_dnd()`) and can read what is dragged (`Meta.Selection`,
   `SELECTION_DND`). Osmin treats "button released over the capsule" as a drop (Escape leaves the
@@ -129,8 +147,9 @@ src/
     calendarService.js                        org.gnome.Shell.CalendarServer
     fileService.js  dragService.js            file tray, drag detection
     timerService.js  todoService.js  cameraService.js
-  ui/                      closedView, osminPanel, dropView, cards, liveActivity, button
-  widgets/                 media/ calendar/ files/ timer/ todo/ mirror/  + widget.js, registry.js
+  ui/                      closedView, osminPanel (header, tabs, pages), osminLayout, ear, cards, liveActivity, button
+  tray/                    trayView, trayController, fileItem, filesActivity
+  widgets/                 media/ calendar/ mirror/ timer/ todo/  + widget.js, registry.js
   debug/testEvents.js      sample events for development
   utils/                   constants, events, animation, scale, signals, timers, jsonStore, widgetInfo
 ```
@@ -139,8 +158,10 @@ src/
 
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
+- Shortcuts, Notes and Quick Apps (also in similar apps) are not implemented.
 - A shell extension cannot start a drag into another application. Files are moved out through
   *Copy* (they go to the clipboard as `text/uri-list`) or *Open* / *Show in folder*.
 - The Mirror was verified with a test video source; the PipeWire / V4L2 path needs a camera
   your user may access (a seated desktop user normally can).
 - Dragging files over the capsule while a card is showing is ignored until the card is gone.
+- Osmin lives on the primary monitor (where the top bar is).

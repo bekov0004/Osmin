@@ -18,20 +18,16 @@ export const Layout = Object.freeze({
     PANEL_INSET: 3,
     // How much the capsule swells on hover, before it opens.
     HOVER_GROW: 14,
-    // Expanded capsule: a share of the monitor width, clamped.
-    OPEN_WIDTH_RATIO: 0.38,
-    OPEN_MIN_WIDTH: 660,
-    OPEN_MAX_WIDTH: 820,
-    // Widgets shown side by side on one page of the expanded capsule.
-    COLUMNS: 3,
     SCREEN_MARGIN: 24,
     OPEN_MAX_HEIGHT_RATIO: 0.5,
-    // The capsule while files are dragged near it, and the area that wakes it up.
-    DROP_WIDTH: 340,
-    DROP_HEIGHT: 68,
-    DROP_HOT_HALF_WIDTH: 240,
-    DROP_HOT_HEIGHT: 140,
+    // The fillet where the expanded capsule meets the top bar.
+    EAR_RADIUS: 14,
+    // The area that wakes the capsule up when files are dragged near it.
+    DROP_HOT_HALF_WIDTH: 260,
+    DROP_HOT_HEIGHT: 150,
     DROP_ARM_MARGIN: 20,
+    // The pointer counts as "near" the collapsed capsule this far from it.
+    APPROACH_MARGIN: 12,
 });
 
 // Duration (ms) and easing used when the capsule morphs INTO a state.
@@ -40,7 +36,7 @@ export const Motion = Object.freeze({
     [State.HOVER]: {duration: 170, mode: Clutter.AnimationMode.EASE_OUT_BACK},
     [State.OPEN]: {duration: 340, mode: Clutter.AnimationMode.EASE_OUT_QUINT},
     [State.CARD]: {duration: 320, mode: Clutter.AnimationMode.EASE_OUT_BACK},
-    [State.DROP]: {duration: 260, mode: Clutter.AnimationMode.EASE_OUT_BACK},
+    [State.DROP]: {duration: 340, mode: Clutter.AnimationMode.EASE_OUT_QUINT},
 });
 
 // Scrolling over the capsule: a gesture needs this much smooth-scroll distance

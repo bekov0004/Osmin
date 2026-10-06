@@ -20,8 +20,10 @@ const MAX_ITEMS = 60;
  * Signals: 'changed', 'adding' (count), 'added' (count of new files).
  */
 export class FileService extends Signals.EventEmitter {
-    constructor() {
+    /** @param {{persist?: () => boolean}} [options] persist: whether the tray survives restarts */
+    constructor({persist = () => true} = {}) {
         super();
+        this._persist = persist;
         this._items = [];
         this._monitors = new Map();
         this._cancellable = new Gio.Cancellable();
@@ -35,7 +37,17 @@ export class FileService extends Signals.EventEmitter {
         return this._items;
     }
 
+    /** The "keep files" setting changed: save the tray now, or forget the saved one. */
+    persistChanged() {
+        this._save();
+    }
+
     async load() {
+        if (!this._persist()) {
+            this._save(); // forget what an earlier session kept
+            this.emit('changed');
+            return;
+        }
         const data = this._store.load();
         const uris = Array.isArray(data?.files) ? data.files.filter(u => typeof u === 'string') : [];
         for (const uri of uris)
@@ -197,6 +209,9 @@ export class FileService extends Signals.EventEmitter {
     }
 
     _save() {
-        this._store.save({version: 1, files: this._items.map(item => item.uri)});
+        this._store.save({
+            version: 1,
+            files: this._persist() ? this._items.map(item => item.uri) : [],
+        });
     }
 }

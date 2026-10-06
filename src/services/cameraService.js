@@ -5,10 +5,12 @@ import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
 const FRAME_INTERVAL_MS = 40;      // ~25 fps
 const START_TIMEOUT_MS = 4000;
-const PREVIEW_WIDTH = 320;
+const PREVIEW_SIZE = 240;
 
-// The common tail: scale to a small preview and hand BGRA frames to an appsink.
-const TAIL = `! videoconvert ! videoscale ! video/x-raw,format=BGRA,width=${PREVIEW_WIDTH} ` +
+// The common tail: crop to a square (it is shown in a circle), scale to a small
+// preview and hand BGRA frames to an appsink.
+const TAIL = '! aspectratiocrop aspect-ratio=1/1 ! videoconvert ! videoscale ' +
+    `! video/x-raw,format=BGRA,width=${PREVIEW_SIZE},height=${PREVIEW_SIZE} ` +
     '! appsink name=sink max-buffers=1 drop=true sync=false';
 
 export const CameraState = Object.freeze({
@@ -34,7 +36,7 @@ export const CameraState = Object.freeze({
 export class CameraService extends Signals.EventEmitter {
     constructor() {
         super();
-        this.content = St.ImageContent.new_with_preferred_size(PREVIEW_WIDTH, PREVIEW_WIDTH * 3 / 4);
+        this.content = St.ImageContent.new_with_preferred_size(PREVIEW_SIZE, PREVIEW_SIZE);
         this.error = '';
         this.frames = 0;
         this._state = CameraState.OFF;

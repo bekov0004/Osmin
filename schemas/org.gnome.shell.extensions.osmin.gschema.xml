@@ -10,7 +10,7 @@
     </key>
 
     <key name="corner-radius" type="i">
-      <default>36</default>
+      <default>32</default>
       <range min="8" max="44"/>
       <summary>Corner radius</summary>
       <description>Corner radius of the capsule in pixels.</description>
@@ -49,9 +49,96 @@
     </key>
 
     <key name="enabled-widgets" type="as">
-      <default>['media', 'calendar', 'files', 'timer', 'todo', 'mirror']</default>
-      <summary>Enabled widgets</summary>
-      <description>The widgets shown in the expanded capsule.</description>
+      <default>['media', 'calendar', 'mirror']</default>
+      <summary>Widgets and their order</summary>
+      <description>The widgets shown in the expanded capsule, in display order.</description>
+    </key>
+
+    <key name="widget-cells" type="a{si}">
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4}</default>
+      <summary>Widget widths</summary>
+      <description>The width of each widget in cells.</description>
+    </key>
+
+    <key name="width-mode" type="s">
+      <choices>
+        <choice value="auto"/>
+        <choice value="fixed"/>
+      </choices>
+      <default>'auto'</default>
+      <summary>Width mode</summary>
+      <description>auto: the width follows the enabled widgets. fixed: a share of the screen width.</description>
+    </key>
+
+    <key name="fixed-width" type="d">
+      <default>0.4</default>
+      <range min="0.25" max="0.9"/>
+      <summary>Fixed width</summary>
+      <description>The width of the expanded capsule as a share of the screen width (fixed width mode).</description>
+    </key>
+
+    <key name="row-height" type="i">
+      <default>112</default>
+      <range min="90" max="220"/>
+      <summary>Widget area height</summary>
+      <description>Height of the widget area in pixels.</description>
+    </key>
+
+    <key name="content-padding" type="i">
+      <default>16</default>
+      <range min="6" max="32"/>
+      <summary>Content padding</summary>
+      <description>Space around the widgets in pixels.</description>
+    </key>
+
+    <key name="widget-spacing" type="i">
+      <default>16</default>
+      <range min="0" max="40"/>
+      <summary>Widget spacing</summary>
+      <description>Space between widgets in pixels.</description>
+    </key>
+
+    <key name="show-dividers" type="b">
+      <default>true</default>
+      <summary>Show dividers</summary>
+      <description>Thin lines between widgets.</description>
+    </key>
+
+    <key name="shadow-strength" type="d">
+      <default>0.6</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Shadow</summary>
+      <description>How strong the shadow under the capsule is.</description>
+    </key>
+
+    <key name="tray-keep-files" type="b">
+      <default>true</default>
+      <summary>Keep tray files</summary>
+      <description>Remember the files in the tray after a restart or logout.</description>
+    </key>
+
+    <key name="activity-media" type="b">
+      <default>true</default>
+      <summary>Music activity</summary>
+      <description>Show the music that is playing as a live activity.</description>
+    </key>
+
+    <key name="activity-timer" type="b">
+      <default>true</default>
+      <summary>Timer activity</summary>
+      <description>Show a running timer as a live activity.</description>
+    </key>
+
+    <key name="activity-calendar" type="b">
+      <default>true</default>
+      <summary>Calendar activity</summary>
+      <description>Show a meeting that is about to start as a live activity.</description>
+    </key>
+
+    <key name="activity-files" type="b">
+      <default>true</default>
+      <summary>Tray activity</summary>
+      <description>Show a card when files are added to the tray.</description>
     </key>
 
   </schema>

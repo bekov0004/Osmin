@@ -1,12 +1,12 @@
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
-import {LiveActivity} from '../../ui/liveActivity.js';
+import {LiveActivity} from '../ui/liveActivity.js';
 
 /** Files being added to the tray: a peek only (not ongoing). */
 export class FilesActivity extends LiveActivity {
     constructor() {
-        super({id: 'files', widgetId: 'files'});
+        super({id: 'files', widgetId: 'tray'});
         this.count = 0;
         this.done = false;
     }

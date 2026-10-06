@@ -1,16 +1,29 @@
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
-import {WIDGET_INFO} from '../utils/widgetInfo.js';
+import {DEFAULT_WIDGETS, WIDGET_INFO} from '../utils/widgetInfo.js';
 
 export const DEFAULTS = Object.freeze({
     'size-scale': 1.0,
-    'corner-radius': 36,
+    'corner-radius': 32,
     'background-opacity': 0.96,
     'animation-speed': 1.0,
     'open-on-hover': true,
     'auto-collapse': true,
     'activities-in-collapsed': true,
-    'enabled-widgets': WIDGET_INFO.map(w => w.id),
+    'enabled-widgets': [...DEFAULT_WIDGETS],
+    'widget-cells': Object.fromEntries(WIDGET_INFO.map(w => [w.id, w.cells])),
+    'width-mode': 'auto',
+    'fixed-width': 0.4,
+    'row-height': 112,
+    'content-padding': 16,
+    'widget-spacing': 16,
+    'show-dividers': true,
+    'shadow-strength': 0.6,
+    'tray-keep-files': true,
+    'activity-media': true,
+    'activity-timer': true,
+    'activity-calendar': true,
+    'activity-files': true,
 });
 
 /**
@@ -36,26 +49,29 @@ export class SettingsService extends Signals.EventEmitter {
         if (!this._settings)
             return DEFAULTS[key];
         try {
-            switch (typeof DEFAULTS[key]) {
-            case 'boolean':
-                return this._settings.get_boolean(key);
-            case 'number':
-                return Number.isInteger(DEFAULTS[key]) && key === 'corner-radius'
-                    ? this._settings.get_int(key) : this._settings.get_double(key);
-            default:
-                return this._settings.get_strv(key);
-            }
+            return this._settings.get_value(key).recursiveUnpack();
         } catch (e) {
             console.warn(`[osmin] reading setting ${key} failed: ${e.message}`);
             return DEFAULTS[key];
         }
     }
 
-    /** The ids of the enabled widgets, in display order; never empty. */
+    /** The ids of the enabled widgets in the order the user chose; never empty. */
     get enabledWidgets() {
-        const wanted = new Set(this.get('enabled-widgets'));
-        const ids = WIDGET_INFO.map(w => w.id).filter(id => wanted.has(id));
-        return ids.length > 0 ? ids : WIDGET_INFO.map(w => w.id);
+        const known = new Set(WIDGET_INFO.map(w => w.id));
+        const ids = [];
+        for (const id of this.get('enabled-widgets')) {
+            if (known.has(id) && !ids.includes(id))
+                ids.push(id);
+        }
+        return ids.length > 0 ? ids : [...DEFAULT_WIDGETS];
+    }
+
+    /** Width of a widget in cells. */
+    cellsFor(id) {
+        const info = WIDGET_INFO.find(w => w.id === id);
+        const value = Number(this.get('widget-cells')?.[id]);
+        return Number.isFinite(value) && value > 0 ? Math.round(value) : (info?.cells ?? 4);
     }
 
     destroy() {

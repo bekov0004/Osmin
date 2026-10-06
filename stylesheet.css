@@ -1,10 +1,12 @@
-/* Osmin — the capsule that replaces the GNOME clock. Sizes are CSS px (scaled by the shell). */
+/* Osmin — a dark capsule that hangs from the top bar, like a Dynamic Island.
+   Sizes are CSS px (the shell scales them). Inline styles from the extension
+   override the corner radius, background, shadow and paddings. */
 
 .osmin {
     background-color: rgba(14, 14, 16, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 36px;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.50);
+    border-radius: 32px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     padding: 0;
 }
 
@@ -26,46 +28,49 @@
     background-color: #f2a93b;
 }
 
-/* Open: pages of widget columns + footer */
+/* ---- Expanded: header (tabs, status, settings) ------------------------- */
+
 .osmin-panel {
-    padding: 14px 0 8px 0;
+    padding: 0;
 }
 
-.osmin-pages {
-    height: 172px;
+.osmin-tabs {
+    spacing: 4px;
 }
 
-.osmin-page {
-    spacing: 0;
-}
-
-.osmin-column {
-    padding: 0 18px;
-}
-
-.osmin-column-separated {
-    border-left-width: 1px;
-    border-color: rgba(255, 255, 255, 0.12);
-}
-
-.osmin-widget {
-    spacing: 8px;
-}
-
-.osmin-placeholder-icon {
-    icon-size: 28px;
-    color: rgba(255, 255, 255, 0.28);
-}
-
-.osmin-placeholder-title {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.osmin-footer {
-    padding: 6px 18px 0 18px;
+.osmin-button.osmin-tab {
     height: 24px;
+    padding: 0 10px;
+    border-radius: 12px;
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.osmin-button.osmin-tab:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-button.osmin-tab:active {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.13);
+}
+
+.osmin-tab .osmin-button-content {
+    spacing: 6px;
+}
+
+.osmin-tab .osmin-button-icon {
+    icon-size: 13px;
+}
+
+.osmin-tab .osmin-button-label {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.osmin-header-status {
+    spacing: 8px;
 }
 
 .osmin-dots {
@@ -73,8 +78,8 @@
 }
 
 .osmin-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 3px;
     background-color: rgba(255, 255, 255, 0.22);
 }
@@ -83,26 +88,189 @@
     background-color: rgba(255, 255, 255, 0.85);
 }
 
-/* Calendar widget */
+.osmin-camera-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+    background-color: #34c759;
+}
+
+.osmin-button.osmin-gear {
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.osmin-button.osmin-gear:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-gear .osmin-button-icon {
+    icon-size: 14px;
+}
+
+/* ---- Expanded: widgets ---------------------------------------------------- */
+
+.osmin-page {
+    spacing: 0;
+}
+
+.osmin-column-separated {
+    border-left-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-widget {
+    spacing: 6px;
+}
+
+/* Media player */
+.osmin-media-card {
+    spacing: 8px;
+}
+
+.osmin-media-top {
+    spacing: 12px;
+}
+
+.osmin-media-art {
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-media-art-icon {
+    icon-size: 26px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.osmin-media-badge {
+    icon-size: 18px;
+    margin: 0 -5px -5px 0;
+    border-radius: 5px;
+}
+
+.osmin-media-texts {
+    spacing: 1px;
+}
+
+.osmin-media-title {
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.osmin-media-album {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+}
+
+.osmin-media-artist {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 11px;
+}
+
+.osmin-media-controls {
+    spacing: 2px;
+    margin-top: 2px;
+}
+
+.osmin-button.osmin-media-button {
+    width: 26px;
+    height: 24px;
+    border-radius: 12px;
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-button.osmin-media-button:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.osmin-media-button .osmin-button-icon {
+    icon-size: 14px;
+}
+
+.osmin-button.osmin-media-play .osmin-button-icon {
+    icon-size: 16px;
+}
+
+.osmin-media-eq {
+    spacing: 2px;
+    margin-right: 4px;
+    height: 14px;
+}
+
+.osmin-media-eq-bar {
+    width: 3px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+.osmin-media-progress {
+    spacing: 8px;
+}
+
+.osmin-media-seek {
+    height: 10px;
+}
+
+.osmin-media-bar {
+    height: 3px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.osmin-media-fill {
+    border-radius: 2px;
+    background-color: white;
+}
+
+.osmin-media-time {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 9px;
+}
+
+.osmin-media-empty {
+    spacing: 6px;
+}
+
+.osmin-media-empty-icon {
+    icon-size: 28px;
+    color: rgba(255, 255, 255, 0.28);
+}
+
+.osmin-media-empty-text {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Calendar */
 .osmin-calendar {
-    spacing: 3px;
+    spacing: 4px;
 }
 
 .osmin-cal-header {
     spacing: 2px;
 }
 
-.osmin-cal-title {
+.osmin-cal-month {
     color: white;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 800;
 }
 
 .osmin-cal-nav {
     width: 20px;
     height: 20px;
     border-radius: 10px;
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(255, 255, 255, 0.45);
 }
 
 .osmin-cal-nav:hover {
@@ -114,46 +282,46 @@
     icon-size: 12px;
 }
 
-.osmin-cal-weekday {
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 8px;
-    font-weight: 700;
+.osmin-cal-strip {
+    spacing: 0;
 }
 
 .osmin-cal-day {
-    border-radius: 8px;
-    padding: 1px 0 0 0;
-    height: 17px;
+    border-radius: 10px;
+    padding: 3px 0;
 }
 
 .osmin-cal-day:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.osmin-cal-number {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 10px;
-    font-weight: 600;
-}
-
-.osmin-cal-other .osmin-cal-number {
-    color: rgba(255, 255, 255, 0.25);
-}
-
-.osmin-cal-today {
-    background-color: white;
-}
-
-.osmin-cal-today:hover {
-    background-color: rgba(255, 255, 255, 0.85);
-}
-
-.osmin-cal-today .osmin-cal-number {
-    color: black;
+    background-color: rgba(255, 255, 255, 0.07);
 }
 
 .osmin-cal-selected {
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+.osmin-cal-weekday {
+    color: rgba(255, 255, 255, 0.32);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.osmin-cal-number {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.osmin-cal-weekend .osmin-cal-number {
+    color: rgba(255, 105, 105, 0.85);
+}
+
+.osmin-cal-today .osmin-cal-number {
+    color: #4d8dff;
+    font-weight: 800;
+}
+
+.osmin-cal-today .osmin-cal-weekday {
+    color: #4d8dff;
 }
 
 .osmin-cal-event-dot {
@@ -163,194 +331,349 @@
     background-color: #f2a93b;
 }
 
-.osmin-cal-today .osmin-cal-event-dot {
-    background-color: #c4730c;
-}
-
 .osmin-cal-agenda {
-    spacing: 1px;
-    margin-top: 3px;
-}
-
-.osmin-cal-heading {
-    color: rgba(255, 255, 255, 0.38);
-    font-size: 8px;
-    font-weight: 700;
+    spacing: 2px;
+    margin-top: 4px;
 }
 
 .osmin-cal-empty {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 10px;
-}
-
-.osmin-cal-event {
     spacing: 6px;
 }
 
-.osmin-cal-event-title {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 10px;
-    font-weight: 600;
+.osmin-cal-empty-icon {
+    icon-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
 }
 
-.osmin-cal-event-time {
+.osmin-cal-empty-text {
     color: rgba(255, 255, 255, 0.5);
-    font-size: 10px;
-}
-
-/* Media widget */
-.osmin-media-card {
-    spacing: 7px;
-}
-
-.osmin-media-source {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 10px;
-    font-weight: 700;
-}
-
-.osmin-media-top {
-    spacing: 10px;
-}
-
-.osmin-media-art {
-    width: 58px;
-    height: 58px;
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.07);
-}
-
-.osmin-media-art-icon {
-    icon-size: 24px;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.osmin-media-texts {
-    spacing: 2px;
-}
-
-.osmin-media-title {
-    color: white;
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.osmin-media-artist {
-    color: rgba(255, 255, 255, 0.55);
     font-size: 11px;
 }
 
-.osmin-media-seek {
-    height: 14px;
+.osmin-cal-event {
+    spacing: 8px;
 }
 
-.osmin-media-bar {
+.osmin-cal-event-time {
+    color: #4d8dff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-cal-event-title {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Mirror */
+.osmin-mirror {
+    spacing: 0;
+}
+
+.osmin-mirror-stage {
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.osmin-mirror-stage:hover {
+    background-color: rgba(255, 255, 255, 0.11);
+}
+
+.osmin-mirror-face {
+    spacing: 4px;
+}
+
+.osmin-mirror-icon {
+    icon-size: 22px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-mirror-message {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.osmin-mirror-controls {
+    spacing: 4px;
+    padding-bottom: 8px;
+}
+
+.osmin-button.osmin-mirror-control {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+.osmin-mirror-control .osmin-button-icon {
+    icon-size: 12px;
+}
+
+/* Timer */
+.osmin-timer {
+    spacing: 3px;
+}
+
+.osmin-timer-display {
+    spacing: 4px;
+}
+
+.osmin-timer-time {
+    min-width: 76px;
+    color: white;
+    font-size: 28px;
+    font-weight: 300;
+    text-align: center;
+}
+
+.osmin-timer-time:done {
+    color: #f2a93b;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.osmin-button.osmin-timer-step {
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+}
+
+.osmin-timer-step .osmin-button-icon {
+    icon-size: 11px;
+}
+
+.osmin-timer-bar {
     height: 4px;
     border-radius: 2px;
     background-color: rgba(255, 255, 255, 0.14);
+    margin: 4px 0;
 }
 
-.osmin-media-fill {
+.osmin-timer-fill {
     border-radius: 2px;
     background-color: white;
 }
 
-.osmin-media-time {
-    color: rgba(255, 255, 255, 0.4);
+.osmin-timer-presets {
+    spacing: 4px;
+}
+
+.osmin-button.osmin-timer-chip {
+    height: 20px;
+    border-radius: 10px;
+}
+
+.osmin-timer-chip .osmin-button-label {
     font-size: 10px;
 }
 
-.osmin-media-controls {
-    spacing: 10px;
+.osmin-timer-actions {
+    spacing: 6px;
+    margin-top: 2px;
 }
 
-.osmin-button.osmin-media-button {
-    width: 30px;
-    height: 30px;
-    border-radius: 15px;
-    background-color: transparent;
-    color: rgba(255, 255, 255, 0.85);
+.osmin-button.osmin-timer-action {
+    height: 26px;
+    border-radius: 13px;
 }
 
-.osmin-button.osmin-media-button:hover {
-    background-color: rgba(255, 255, 255, 0.12);
+.osmin-timer-action .osmin-button-label {
+    font-size: 11px;
 }
 
-.osmin-media-button .osmin-button-icon {
-    icon-size: 16px;
-}
-
-.osmin-button.osmin-media-play {
+.osmin-button.osmin-timer-primary {
     background-color: white;
     color: black;
 }
 
-.osmin-button.osmin-media-play:hover {
+.osmin-button.osmin-timer-primary:hover {
     background-color: rgba(255, 255, 255, 0.85);
 }
 
-/* Drop view */
-.osmin-drop-view {
-    spacing: 14px;
+/* To-do */
+.osmin-todo {
+    spacing: 3px;
 }
 
-.osmin-drop-icon {
-    icon-size: 26px;
-    color: rgba(255, 255, 255, 0.6);
-}
-
-.osmin-drop-view:active .osmin-drop-icon {
-    color: white;
-}
-
-.osmin-drop-title {
-    color: white;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.osmin-drop-hint {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 11px;
-}
-
-/* Files widget */
-.osmin-files {
+.osmin-todo-header {
     spacing: 6px;
 }
 
-.osmin-files-header {
-    spacing: 6px;
-}
-
-.osmin-files-caption {
+.osmin-todo-caption {
     color: rgba(255, 255, 255, 0.4);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
 }
 
-.osmin-files-clear {
+.osmin-todo-clear {
     color: rgba(255, 255, 255, 0.5);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     padding: 0 6px;
     border-radius: 8px;
 }
 
-.osmin-files-clear:hover {
+.osmin-todo-clear:hover {
     color: white;
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-.osmin-files-grid {
-    spacing: 4px;
+.osmin-todo-empty {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 11px;
 }
 
-.osmin-files-row {
-    spacing: 4px;
+.osmin-todo-list {
+    spacing: 0;
+}
+
+.osmin-todo-item {
+    border-radius: 8px;
+}
+
+.osmin-todo-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.osmin-todo-row {
+    spacing: 8px;
+    padding: 2px 4px;
+}
+
+.osmin-todo-check {
+    width: 13px;
+    height: 13px;
+    border-radius: 7px;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.osmin-todo-done .osmin-todo-check {
+    background-color: white;
+    border-color: white;
+}
+
+.osmin-todo-check-icon {
+    icon-size: 9px;
+    color: black;
+}
+
+.osmin-todo-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+}
+
+.osmin-todo-done .osmin-todo-text {
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: line-through;
+}
+
+.osmin-button.osmin-todo-remove {
+    width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    margin-right: 3px;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.osmin-todo-remove .osmin-button-icon {
+    icon-size: 9px;
+}
+
+.osmin-todo-entry {
+    height: 22px;
+    padding: 0 10px;
+    border-radius: 11px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid transparent;
+    color: white;
+    font-size: 11px;
+    caret-color: white;
+    selection-background-color: rgba(255, 255, 255, 0.3);
+}
+
+.osmin-todo-entry:focus {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.osmin-todo-entry StLabel.hint-text {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ---- Tray ------------------------------------------------------------------- */
+
+.osmin-tray {
+    spacing: 6px;
+    padding: 0 18px;
+}
+
+.osmin-tray-header {
+    spacing: 6px;
+}
+
+.osmin-tray-caption {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.osmin-tray-clear {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 0 6px;
+    border-radius: 8px;
+}
+
+.osmin-tray-clear:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-tray-row {
+    spacing: 6px;
+}
+
+.osmin-tray-target {
+    border-radius: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.16);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.osmin-tray-target:active {
+    border-color: rgba(255, 255, 255, 0.75);
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+.osmin-tray-target-box {
+    spacing: 14px;
+}
+
+.osmin-tray-target-icon {
+    icon-size: 26px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.osmin-tray-target:active .osmin-tray-target-icon {
+    color: white;
+}
+
+.osmin-tray-target-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.osmin-tray-target-hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
 }
 
 .osmin-file-item {
+    width: 80px;
     border-radius: 12px;
 }
 
@@ -365,11 +688,11 @@
 }
 
 .osmin-file-icon {
-    icon-size: 40px;
+    icon-size: 42px;
 }
 
 .osmin-file-name {
-    width: 84px;
+    width: 72px;
     color: rgba(255, 255, 255, 0.8);
     font-size: 10px;
     text-align: center;
@@ -381,8 +704,8 @@
 }
 
 .osmin-button.osmin-file-action {
-    width: 18px;
-    height: 18px;
+    width: 17px;
+    height: 17px;
     border-radius: 9px;
     background-color: rgba(0, 0, 0, 0.7);
 }
@@ -395,7 +718,8 @@
     icon-size: 10px;
 }
 
-/* Buttons */
+/* ---- Buttons ------------------------------------------------------------------ */
+
 .osmin-button {
     border-radius: 14px;
     color: rgba(255, 255, 255, 0.9);
@@ -429,242 +753,6 @@
     width: 24px;
     height: 24px;
     border-radius: 12px;
-}
-
-/* Mirror widget */
-.osmin-mirror {
-    spacing: 6px;
-}
-
-.osmin-mirror-caption {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 10px;
-    font-weight: 700;
-}
-
-.osmin-mirror-stage {
-    border-radius: 14px;
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.osmin-mirror-message {
-    color: rgba(255, 255, 255, 0.45);
-    font-size: 11px;
-    text-align: center;
-    padding: 0 10px;
-}
-
-.osmin-mirror-controls {
-    spacing: 4px;
-    padding: 6px;
-}
-
-.osmin-button.osmin-mirror-control {
-    width: 22px;
-    height: 22px;
-    border-radius: 11px;
-    background-color: rgba(0, 0, 0, 0.55);
-}
-
-.osmin-mirror-control .osmin-button-icon {
-    icon-size: 12px;
-}
-
-.osmin-button.osmin-mirror-toggle {
-    height: 28px;
-    border-radius: 14px;
-}
-
-/* To-do widget */
-.osmin-todo {
-    spacing: 4px;
-}
-
-.osmin-todo-header {
-    spacing: 6px;
-}
-
-.osmin-todo-caption {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 10px;
-    font-weight: 700;
-}
-
-.osmin-todo-clear {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 10px;
-    font-weight: 600;
-    padding: 0 6px;
-    border-radius: 8px;
-}
-
-.osmin-todo-clear:hover {
-    color: white;
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.osmin-todo-empty {
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 11px;
-}
-
-.osmin-todo-list {
-    spacing: 1px;
-}
-
-.osmin-todo-item {
-    border-radius: 8px;
-}
-
-.osmin-todo-item:hover {
-    background-color: rgba(255, 255, 255, 0.06);
-}
-
-.osmin-todo-row {
-    spacing: 8px;
-    padding: 3px 4px;
-}
-
-.osmin-todo-check {
-    width: 14px;
-    height: 14px;
-    border-radius: 7px;
-    border: 1.5px solid rgba(255, 255, 255, 0.4);
-}
-
-.osmin-todo-done .osmin-todo-check {
-    background-color: white;
-    border-color: white;
-}
-
-.osmin-todo-check-icon {
-    icon-size: 10px;
-    color: black;
-}
-
-.osmin-todo-text {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 12px;
-}
-
-.osmin-todo-done .osmin-todo-text {
-    color: rgba(255, 255, 255, 0.35);
-    text-decoration: line-through;
-}
-
-.osmin-button.osmin-todo-remove {
-    width: 18px;
-    height: 18px;
-    border-radius: 9px;
-    margin-right: 3px;
-    background-color: rgba(0, 0, 0, 0.7);
-}
-
-.osmin-todo-remove .osmin-button-icon {
-    icon-size: 10px;
-}
-
-.osmin-todo-entry {
-    height: 24px;
-    padding: 0 10px;
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.08);
-    color: white;
-    font-size: 12px;
-    caret-color: white;
-    selection-background-color: rgba(255, 255, 255, 0.3);
-}
-
-.osmin-todo-entry {
-    border: 1px solid transparent;
-}
-
-.osmin-todo-entry:focus {
-    background-color: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.35);
-}
-
-.osmin-todo-entry StLabel.hint-text {
-    color: rgba(255, 255, 255, 0.4);
-}
-
-/* Timer widget */
-.osmin-timer {
-    spacing: 4px;
-}
-
-.osmin-timer-caption {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 10px;
-    font-weight: 700;
-}
-
-.osmin-timer-display {
-    spacing: 6px;
-}
-
-.osmin-timer-time {
-    min-width: 96px;
-    color: white;
-    font-size: 34px;
-    font-weight: 300;
-    text-align: center;
-}
-
-.osmin-timer-time:done {
-    color: #f2a93b;
-    font-size: 28px;
-    font-weight: 700;
-}
-
-.osmin-button.osmin-timer-step {
-    width: 24px;
-    height: 24px;
-    border-radius: 12px;
-}
-
-.osmin-timer-bar {
-    height: 4px;
-    border-radius: 2px;
-    background-color: rgba(255, 255, 255, 0.14);
-    margin: 4px 0;
-}
-
-.osmin-timer-fill {
-    border-radius: 2px;
-    background-color: white;
-}
-
-.osmin-timer-presets {
-    spacing: 4px;
-}
-
-.osmin-button.osmin-timer-chip {
-    height: 22px;
-    border-radius: 11px;
-}
-
-.osmin-timer-chip .osmin-button-label {
-    font-size: 11px;
-}
-
-.osmin-timer-actions {
-    spacing: 6px;
-    margin-top: 2px;
-}
-
-.osmin-button.osmin-timer-action {
-    height: 30px;
-    border-radius: 15px;
-}
-
-.osmin-button.osmin-timer-primary {
-    background-color: white;
-    color: black;
-}
-
-.osmin-button.osmin-timer-primary:hover {
-    background-color: rgba(255, 255, 255, 0.85);
 }
 
 /* Live activities */

@@ -6,9 +6,9 @@ import {createButton} from '../../ui/button.js';
 import {OsminWidget} from '../widget.js';
 
 /**
- * Mirror: a live webcam preview. The camera is opened only when you press
- * "Turn on" and is released as soon as you close the preview, leave this page
- * or close the capsule. Nothing is recorded or saved.
+ * Mirror: a round webcam preview, like looking in a small mirror. The camera
+ * is opened only when you click the circle and is released when you click it
+ * again, leave the page or close the capsule. Nothing is recorded or saved.
  */
 export class MirrorWidget extends OsminWidget {
     static id = 'mirror';
@@ -19,6 +19,7 @@ export class MirrorWidget extends OsminWidget {
         super(context);
         this._camera = context.services.camera;
         this._flipped = true; // a mirror: left and right swapped
+        this._effect = null;
     }
 
     createView() {
@@ -28,41 +29,78 @@ export class MirrorWidget extends OsminWidget {
             x_expand: true,
             y_expand: true,
         });
-        root.add_child(new St.Label({text: 'MIRROR', style_class: 'osmin-mirror-caption'}));
 
-        // The preview, with the controls laid over it.
+        // The circle: as big as fits the column.
         this._stage = new St.Widget({
             style_class: 'osmin-mirror-stage',
             layout_manager: new Clutter.BinLayout(),
-            x_expand: true,
-            y_expand: true,
+            reactive: true,
+            track_hover: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
         });
+        this._stage.connect('button-press-event', (_actor, event) => {
+            // A press on the flip button belongs to the button.
+            const [x, y] = event.get_coords();
+            const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+            if (target && this._controls.contains(target))
+                return Clutter.EVENT_PROPAGATE;
+            this._toggle();
+            return Clutter.EVENT_STOP;
+        });
+        this._stage.connect('notify::hover', () => this._updateControls());
+        root.connect('notify::allocation', () => this._fitCircle());
+        root.connect('notify::mapped', () => this._fitCircle());
 
         this._video = new St.Widget({
             style_class: 'osmin-mirror-video',
             x_expand: true,
             y_expand: true,
-            content_gravity: Clutter.ContentGravity.RESIZE_ASPECT,
+            content_gravity: Clutter.ContentGravity.RESIZE_FILL,
             content: this._camera.content,
         });
         this._video.set_pivot_point(0.5, 0.5);
+        try {
+            // Imported lazily: a GLSL problem only costs the round shape.
+            import('./circleEffect.js').then(({CircleEffect}) => {
+                if (this._video) {
+                    this._effect = new CircleEffect();
+                    this._video.add_effect(this._effect);
+                }
+            }).catch(e => console.warn(`[osmin] round mirror unavailable: ${e.message}`));
+        } catch (e) {
+            console.warn(`[osmin] round mirror unavailable: ${e.message}`);
+        }
         this._stage.add_child(this._video);
 
-        this._message = new St.Label({
-            style_class: 'osmin-mirror-message',
+        this._face = new St.BoxLayout({
+            vertical: true,
+            style_class: 'osmin-mirror-face',
             x_expand: true,
             y_expand: true,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this._stage.add_child(this._message);
+        this._icon = new St.Icon({
+            icon_name: 'camera-web-symbolic',
+            style_class: 'osmin-mirror-icon',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        this._message = new St.Label({
+            style_class: 'osmin-mirror-message',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        this._face.add_child(this._icon);
+        this._face.add_child(this._message);
+        this._stage.add_child(this._face);
 
         this._controls = new St.BoxLayout({
             style_class: 'osmin-mirror-controls',
             x_expand: true,
             y_expand: true,
-            x_align: Clutter.ActorAlign.END,
-            y_align: Clutter.ActorAlign.START,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.END,
+            opacity: 0,
         });
         this._controls.add_child(createButton({
             iconName: 'object-flip-horizontal-symbolic',
@@ -72,22 +110,8 @@ export class MirrorWidget extends OsminWidget {
                 this._applyFlip();
             },
         }));
-        this._controls.add_child(createButton({
-            iconName: 'window-close-symbolic',
-            styleClass: 'osmin-mirror-control',
-            onClick: () => this._camera.stop(),
-        }));
         this._stage.add_child(this._controls);
         root.add_child(this._stage);
-
-        this._toggle = createButton({
-            label: 'Turn on',
-            iconName: 'camera-web-symbolic',
-            styleClass: 'osmin-mirror-toggle',
-            expand: true,
-            onClick: () => this._camera.start(),
-        });
-        root.add_child(this._toggle);
 
         this._camera.connectObject('state-changed', () => this._update(), this);
         return root;
@@ -98,6 +122,10 @@ export class MirrorWidget extends OsminWidget {
         this._update();
     }
 
+    onPageShown() {
+        this._fitCircle();
+    }
+
     onPageHidden() {
         this._camera.stop();
     }
@@ -105,11 +133,42 @@ export class MirrorWidget extends OsminWidget {
     destroy() {
         this._camera.disconnectObject(this);
         this._camera.stop();
+        if (this._effect) {
+            this._video?.remove_effect(this._effect);
+            this._effect = null;
+        }
         super.destroy();
+    }
+
+    _toggle() {
+        if (this._camera.state === CameraState.ON || this._camera.state === CameraState.STARTING)
+            this._camera.stop();
+        else
+            this._camera.start();
+    }
+
+    /** The largest square that fits in the widget's column. */
+    _fitCircle() {
+        const root = this._view;
+        if (!root?.mapped)
+            return;
+        const side = Math.max(Math.min(root.width, root.height) - 4, 0);
+        if (side > 0 && Math.round(this._stage.width) !== side)
+            this._stage.set_size(side, side);
     }
 
     _applyFlip() {
         this._video.scale_x = this._flipped ? -1 : 1;
+    }
+
+    _updateControls() {
+        if (!this._controls)
+            return;
+        this._controls.ease({
+            opacity: this._stage.hover && this._camera.state === CameraState.ON ? 255 : 0,
+            duration: 140,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
     }
 
     _update() {
@@ -118,22 +177,18 @@ export class MirrorWidget extends OsminWidget {
         const state = this._camera.state;
         const on = state === CameraState.ON;
         this._video.visible = on;
+        this._face.visible = !on;
         this._controls.visible = on;
-        this._message.visible = !on;
-        this._toggle.visible = !on;
-
         switch (state) {
         case CameraState.STARTING:
-            this._message.text = 'Starting the camera…';
-            this._toggle.visible = false;
+            this._message.text = 'Starting…';
             break;
         case CameraState.ERROR:
-            this._message.text = this._camera.error || 'Camera unavailable';
-            this._toggle.get_child().get_last_child().text = 'Try again';
+            this._message.text = this._camera.error || 'No camera';
             break;
         default:
-            this._message.text = 'The camera is off';
-            this._toggle.get_child().get_last_child().text = 'Turn on';
+            this._message.text = 'Mirror';
         }
+        this._updateControls();
     }
 }

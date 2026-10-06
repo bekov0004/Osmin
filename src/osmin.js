@@ -5,21 +5,23 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
-import {CardManager} from './services/cardManager.js';
-import {CalendarService} from './services/calendarService.js';
-import {CameraService} from './services/cameraService.js';
-import {ClockService} from './services/clockService.js';
-import {DragService} from './services/dragService.js';
-import {FileService} from './services/fileService.js';
 import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
+import {CalendarService} from './services/calendarService.js';
+import {CameraService, CameraState} from './services/cameraService.js';
+import {CardManager} from './services/cardManager.js';
+import {ClockService} from './services/clockService.js';
+import {DragService} from './services/dragService.js';
 import {EventManager} from './services/eventManager.js';
+import {FileService} from './services/fileService.js';
 import {MediaService} from './services/mediaService.js';
+import {PanelService} from './services/panelService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
-import {PanelService} from './services/panelService.js';
+import {TrayController} from './tray/trayController.js';
 import {ClosedView} from './ui/closedView.js';
-import {DropView} from './ui/dropView.js';
+import {Ear} from './ui/ear.js';
+import {computeLayout} from './ui/osminLayout.js';
 import {OsminPanel} from './ui/osminPanel.js';
 import {cardClassFor, createCard} from './ui/cardFactory.js';
 import {WIDGET_CLASSES} from './widgets/registry.js';
@@ -36,28 +38,37 @@ import {Timers} from './utils/timers.js';
 // Resizing between two cards, or after a card update: calm, no overshoot.
 const RESIZE = {duration: 220, mode: Clutter.AnimationMode.EASE_OUT_CUBIC};
 
+// States in which the capsule hangs from the top edge (the rest sit inside the bar).
+const HANGING = new Set([State.OPEN, State.CARD, State.DROP]);
+// States that show the panel (widgets / tray).
+const PANEL_STATES = new Set([State.OPEN, State.DROP]);
+
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 /**
  * The capsule that replaces the GNOME clock in the top bar.
  *
- * One actor morphs between four states: CLOSED (the time), HOVER (slightly
- * swollen, about to open), OPEN (wide, with sections) and CARD (an event
- * card). Its top edge never moves; x, width and height are animated.
+ * One actor morphs between five states: CLOSED (the time), HOVER (slightly
+ * swollen, about to open), OPEN (the widgets or the tray), CARD (an event or
+ * live-activity card) and DROP (files are dragged over it: the tray as a drop
+ * target). Collapsed it floats inside the top bar; expanded it hangs from the
+ * top edge, with the header in the band of the bar and the content below.
  *
- *   EventManager --events--> CardManager --host calls--> Osmin --> OsminCard
- *
- * Osmin is also the "host" of the CardManager: it renders cards and animates
- * the capsule around them.
+ *   EventManager --events--> CardManager --host calls--> Osmin --> cards
  */
 export class Osmin {
-    /** @param {SettingsService} settings */
-    constructor(settings) {
+    /**
+     * @param {SettingsService} settings
+     * @param {{openPreferences?: Function}} [options]
+     */
+    constructor(settings, {openPreferences = () => {}} = {}) {
         this._settings = settings;
+        this._openPreferences = openPreferences;
         this._state = null;
         this._signals = new SignalTracker();
         this._timers = new Timers();
         this._actor = null;
+        this._ears = [];
         this._cardWidget = null;
         this._cardSize = null;
         this._cardToken = 0;
@@ -73,6 +84,8 @@ export class Osmin {
         this._grab = null;
         this._onTextInputEnd = null;
         this._scrollAccumulator = 0;
+        this._approach = false;
+        this._stageMotionId = 0;
     }
 
     /** Sources emit events here: `osmin.events.emit({...})`. */
@@ -90,14 +103,14 @@ export class Osmin {
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
             this._cards.show(event);
-            if (this._state !== State.OPEN && event.type !== EventType.ACTIVITY)
+            if (!PANEL_STATES.has(this._state) && event.type !== EventType.ACTIVITY)
                 this._closedView.setActivity(true);
         });
 
         this._services = {
             media: new MediaService(),
             artwork: new ArtworkService(),
-            files: new FileService(),
+            files: new FileService({persist: () => this._settings.get('tray-keep-files')}),
             calendar: new CalendarService(),
             activities: new ActivityManager(this._events),
             timer: new TimerService(),
@@ -109,21 +122,35 @@ export class Osmin {
             isOpen: () => this._state === State.OPEN,
         });
         this._drag = new DragService();
+        this._tray = new TrayController({services: this._services, settings: this._settings});
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         this._panel.enable();
         Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
+        for (const ear of this._ears)
+            Main.layoutManager.addChrome(ear, {trackFullscreen: true});
 
         this._signals.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this._relayout());
+        // Notice the pointer approaching the collapsed capsule, not only touching it.
+        this._stageMotionId = global.stage.connect('captured-event', (_stage, event) => {
+            if (event.type() === Clutter.EventType.MOTION)
+                this._onStageMotion(event);
+            return Clutter.EVENT_PROPAGATE;
+        });
 
         this._services.activities.connectObject(
             'ongoing-changed', () => this._syncCompact(),
             'compact-resized', () => this._onCompactResized(),
             this);
+        this._services.camera.connectObject(
+            'state-changed',
+            () => this._panelView.setCameraActive(this._services.camera.state === CameraState.ON),
+            this);
         this._widgets.forEach(widget => widget.start());
+        this._tray.start();
         this._services.timer.load();
         this._services.todo.load();
         this._clock.start();
@@ -144,6 +171,11 @@ export class Osmin {
         this._destroying = true;
         this._settings?.disconnectObject(this);
         this._services?.activities.disconnectObject(this);
+        this._services?.camera.disconnectObject(this);
+        if (this._stageMotionId) {
+            global.stage.disconnect(this._stageMotionId);
+            this._stageMotionId = 0;
+        }
         this._endTextInput();
         this._timers.destroy();
         this._signals.disconnectAll();
@@ -153,6 +185,8 @@ export class Osmin {
         this._clock?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
         this._widgets = null;
+        this._tray?.destroy();
+        this._tray = null;
         this._drag?.destroy();
         this._drag = null;
         this._services?.media.destroy();
@@ -167,6 +201,10 @@ export class Osmin {
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;
 
+        for (const ear of this._ears.splice(0)) {
+            Main.layoutManager.removeChrome(ear);
+            ear.destroy();
+        }
         if (this._actor) {
             Main.layoutManager.removeChrome(this._actor);
             this._actor.destroy();
@@ -202,13 +240,15 @@ export class Osmin {
             this.open({pinned: true});
     }
 
-    /** The widgets the user enabled, in display order. */
+    /** The widgets the user enabled, in the order they chose. */
     _createWidgets() {
-        const enabled = new Set(this._settings.enabledWidgets);
-        return WIDGET_CLASSES.filter(WidgetClass => enabled.has(WidgetClass.id))
-            .map(WidgetClass => new WidgetClass({
+        const byId = new Map(WIDGET_CLASSES.map(WidgetClass => [WidgetClass.id, WidgetClass]));
+        return this._settings.enabledWidgets
+            .filter(id => byId.has(id))
+            .map(id => new (byId.get(id))({
                 events: this._events,
                 services: this._services,
+                settings: this._settings,
                 ui: {
                     beginTextInput: onEnd => this._beginTextInput(onEnd),
                     endTextInput: () => this._endTextInput(),
@@ -218,11 +258,26 @@ export class Osmin {
 
     // --- settings ---------------------------------------------------------
 
+    /** Colours, shadow and corner shape; the shape depends on whether the capsule hangs from the top. */
     _applyAppearance() {
+        if (!this._actor)
+            return;
         setAnimationSpeed(this._settings.get('animation-speed'));
         const radius = this._settings.get('corner-radius');
         const opacity = this._settings.get('background-opacity');
-        this._actor.style = `border-radius: ${radius}px; background-color: rgba(14, 14, 16, ${opacity});`;
+        const shadow = this._settings.get('shadow-strength');
+        const background = `rgba(14, 14, 16, ${opacity})`;
+
+        if (HANGING.has(this._state)) {
+            this._actor.style = `border-radius: 0 0 ${radius}px ${radius}px; ` +
+                `background-color: ${background}; border-width: 0 1px 1px 1px; ` +
+                `box-shadow: 0 14px 36px rgba(0, 0, 0, ${(0.55 * shadow).toFixed(2)});`;
+        } else {
+            this._actor.style = `border-radius: ${radius}px; background-color: ${background}; ` +
+                `box-shadow: 0 2px 10px rgba(0, 0, 0, ${(0.4 * shadow).toFixed(2)});`;
+        }
+        for (const ear of this._ears)
+            ear.setColor(14, 14, 16, opacity);
     }
 
     _onSettingChanged(key) {
@@ -232,14 +287,30 @@ export class Osmin {
         case 'animation-speed':
         case 'corner-radius':
         case 'background-opacity':
+        case 'shadow-strength':
             this._applyAppearance();
             break;
         case 'size-scale':
+        case 'width-mode':
+        case 'fixed-width':
+        case 'row-height':
+        case 'content-padding':
+        case 'widget-spacing':
+        case 'show-dividers':
+        case 'widget-cells':
             this._relayout();
-            this._applyGeometry({duration: 240});
+            this._applyGeometry({duration: 260, mode: Clutter.AnimationMode.EASE_OUT_CUBIC});
             break;
         case 'activities-in-collapsed':
             this._syncCompact({force: true});
+            break;
+        case 'activity-media':
+        case 'activity-timer':
+        case 'activity-calendar':
+            this._widgets.forEach(widget => widget.syncActivity());
+            break;
+        case 'tray-keep-files':
+            this._services.files.persistChanged();
             break;
         case 'enabled-widgets':
             this._rebuildWidgets();
@@ -247,28 +318,45 @@ export class Osmin {
         }
     }
 
-    /** The enabled widgets changed: rebuild the pages of the expanded capsule. */
+    /** The enabled widgets or their order changed: rebuild the content of the expanded capsule. */
     _rebuildWidgets() {
         const wanted = this._settings.enabledWidgets.join();
         if (wanted === this._widgets.map(w => w.constructor.id).join())
             return;
-        if (this._state === State.OPEN)
+        if (PANEL_STATES.has(this._state))
             this._setState(State.CLOSED);
         this._endTextInput();
 
+        // Widgets first: stopping the camera or ending an activity reports to the old panel.
+        this._widgets.forEach(widget => widget.destroy());
         const old = this._panelView;
         this._content.remove_child(old);
+        // The tray view is owned by the tray controller: take it out before destroying the panel.
+        old.remove_tray();
         old.destroy();
-        this._widgets.forEach(widget => widget.destroy());
 
         this._widgets = this._createWidgets();
-        this._panelView = new OsminPanel({widgets: this._widgets, onClose: () => this.close()});
-        this._views[State.OPEN] = this._panelView;
+        this._panelView = this._createPanelView();
+        this._views[State.OPEN] = this._views[State.DROP] = this._panelView;
         this._panelView.opacity = 0;
         this._panelView.hide();
         this._content.add_child(this._panelView);
         this._widgets.forEach(widget => widget.start());
         this._panelView.tick(GLib.DateTime.new_now_local());
+        this._relayout();
+    }
+
+    _createPanelView() {
+        const panel = new OsminPanel({
+            widgets: this._widgets,
+            tray: this._tray.view,
+            onOpenSettings: () => {
+                this._settle();
+                this._openPreferences();
+            },
+        });
+        panel.setCameraActive(this._services.camera.state === CameraState.ON);
+        return panel;
     }
 
     // --- CardManager host interface -------------------------------------
@@ -294,7 +382,7 @@ export class Osmin {
 
         fadeIn(widget, {
             duration: 170,
-            delay: alreadyCard ? 30 : 80,
+            delay: alreadyCard ? 30 : 110,
             onComplete: () => {
                 if (token === this._cardToken)
                     onShown();
@@ -400,29 +488,27 @@ export class Osmin {
         this._actor.set_child(this._content);
 
         this._closedView = new ClosedView();
-        this._dropView = new DropView();
+        // Cards sit below the band of the top bar.
         this._cardLayer = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
         });
-        this._panelView = new OsminPanel({
-            widgets: this._widgets,
-            onClose: () => this.close(),
-        });
-        // CLOSED and HOVER share one view: only the capsule size differs.
+        this._panelView = this._createPanelView();
+        // CLOSED/HOVER share one view, OPEN/DROP share another: only the capsule differs.
         this._views = {
             [State.CLOSED]: this._closedView,
             [State.HOVER]: this._closedView,
             [State.OPEN]: this._panelView,
+            [State.DROP]: this._panelView,
             [State.CARD]: this._cardLayer,
-            [State.DROP]: this._dropView,
         };
         for (const view of new Set(Object.values(this._views))) {
             view.opacity = 0;
             view.hide();
             this._content.add_child(view);
         }
+        this._ears = [new Ear('left'), new Ear('right')];
 
         // The shell may destroy the actor first (at shutdown): stop touching it then.
         this._actor.connect('destroy', () => {
@@ -469,7 +555,7 @@ export class Osmin {
     _onDragStarted(uris) {
         this._dragUris = uris;
         this._dragArmed = false;
-        this._dropView.setCount(uris.length);
+        this._panelView.tray.setDrop({active: false, count: uris.length});
     }
 
     _onDragMoved(x, y) {
@@ -491,7 +577,7 @@ export class Osmin {
             const t = this._target;
             this._dragArmed = x >= t.x - margin && x <= t.x + t.width + margin &&
                 y >= t.y - margin && y <= t.y + t.height + margin;
-            this._dropView.setArmed(this._dragArmed);
+            this._panelView.setDrop({active: true, armed: this._dragArmed, count: this._dragUris.length});
         }
     }
 
@@ -499,11 +585,11 @@ export class Osmin {
         const armed = this._dragArmed;
         this._dragUris = null;
         this._dragArmed = false;
-        this._dropView.setArmed(false);
 
-        // The files widget shows the "Adding / Added" activity.
+        // The tray's activity shows the "Adding / Added" card.
         if (dropped && armed)
             await this._services.files.add(uris);
+        this._panelView?.setDrop({active: false});
         if (this._state === State.DROP)
             this._setState(State.CLOSED);
     }
@@ -547,8 +633,36 @@ export class Osmin {
             this._syncAnchor();
     }
 
+    // --- pointer ---------------------------------------------------------
+
+    /**
+     * The pointer near the collapsed capsule (within a margin, including the
+     * very top edge of the screen) counts as hovering it, so it is easy to hit.
+     */
+    _onStageMotion(event) {
+        if (this._destroying || !this._actor)
+            return;
+        if (this._state !== State.CLOSED && !this._approach)
+            return;
+        const [x, y] = event.get_coords();
+        const t = this._target;
+        const margin = scaled(Layout.APPROACH_MARGIN);
+        const near = !!t && this._state === State.CLOSED &&
+            x >= t.x - margin && x <= t.x + t.width + margin &&
+            y >= this._panel.getGeometry().top && y <= t.y + t.height + margin;
+        if (near !== this._approach) {
+            this._approach = near;
+            if (!this._actor.hover)
+                this._onHoverChanged();
+        }
+    }
+
+    _hovered() {
+        return this._actor.hover || (this._approach && this._state === State.CLOSED);
+    }
+
     _onHoverChanged() {
-        const hovered = this._actor.hover;
+        const hovered = this._hovered();
         this._timers.clear('hover');
 
         switch (this._state) {
@@ -595,6 +709,7 @@ export class Osmin {
     _onClicked() {
         switch (this._state) {
         case State.OPEN:
+        case State.DROP:
             break;
         case State.CARD: {
             // A Live Activity card opens its widget; any other card is dismissed.
@@ -644,6 +759,9 @@ export class Osmin {
         }
 
         if (this._state !== State.OPEN && this._state !== State.CLOSED && this._state !== State.HOVER)
+            return Clutter.EVENT_PROPAGATE;
+        // In the tray the wheel belongs to the row of files.
+        if (this._state === State.OPEN && this._panelView.mode !== 'osmin')
             return Clutter.EVENT_PROPAGATE;
         if (step === 0 || this._timers.has('scroll-lock'))
             return Clutter.EVENT_STOP;
@@ -700,6 +818,7 @@ export class Osmin {
         this._timers.clear('leave');
         if (state !== State.HOVER)
             this._timers.clear('dwell');
+        this._approach = false;
 
         if (previous !== State.CARD && state !== State.CARD)
             this._resumeOpen = false;
@@ -708,15 +827,29 @@ export class Osmin {
             this._cardSize = null;
         }
 
-        // Fade the old view out quickly and the new one in once the capsule has
-        // started to grow. The card layer is not faded: the cards fade themselves.
+        const wasPanel = PANEL_STATES.has(previous);
+        const isPanel = PANEL_STATES.has(state);
+        if (wasPanel && !isPanel) {
+            this._endTextInput();
+            this._panelView.setOpen(false);
+            this._panelView.conceal();
+        }
+
+        // The old view fades out quickly. The panel's content reveals itself piece by
+        // piece (header, then each widget); the other views fade in once the capsule
+        // has started to grow. The card layer is not faded: the cards fade themselves.
         const previousView = previous ? this._views[previous] : null;
         const nextView = this._views[state];
         if (previousView && previousView !== nextView)
-            fadeOut(previousView, {duration: 80});
+            fadeOut(previousView, {duration: 90});
         if (previousView !== nextView) {
-            if (animate && state !== State.CARD) {
-                fadeIn(nextView, {duration: 170, delay: state === State.CLOSED ? 70 : 90});
+            if (isPanel && animate) {
+                nextView.remove_all_transitions();
+                nextView.show();
+                nextView.opacity = 255;
+                this._panelView.reveal();
+            } else if (animate && state !== State.CARD) {
+                fadeIn(nextView, {duration: 170, delay: state === State.CLOSED ? 90 : 90});
             } else {
                 nextView.remove_all_transitions();
                 nextView.show();
@@ -724,14 +857,12 @@ export class Osmin {
             }
         }
 
-        if (previous === State.OPEN) {
-            this._endTextInput();
-            this._panelView.setOpen(false);
-        }
         if (state === State.OPEN) {
             // Open on the widget of the ongoing activity (or the one that was clicked).
             const page = this._openPage ?? this._compactActivity?.widgetId;
             this._openPage = null;
+            if (this._panelView.mode !== 'osmin' && !page)
+                this._panelView.setMode('osmin', {animate: false});
             if (page)
                 this._panelView.showWidget(page);
             this._panelView.setOpen(true);
@@ -741,8 +872,15 @@ export class Osmin {
         } else {
             this._pinned = false;
         }
+        if (state === State.DROP) {
+            this._panelView.setOpen(false);
+            this._panelView.setDrop({active: true, count: this._dragUris?.length ?? 0});
+        }
 
-        this._applyGeometry(animate ? Motion[state] : {duration: 0});
+        this._applyAppearance();
+        // Closing: the content fades first, then the container shrinks.
+        const delay = wasPanel && !isPanel && animate ? 70 : 0;
+        this._applyGeometry(animate ? {...Motion[state], delay} : {duration: 0});
     }
 
     // --- geometry (all values below are real px, already scaled) ---------
@@ -756,16 +894,17 @@ export class Osmin {
         };
     }
 
-    /** Adapts to the monitor: a share of its width, clamped, never wider than the screen. */
+    /** The expanded size follows from the layout engine: widgets, spacing, paddings. */
     _openSize(geo) {
         const scale = getScaleFactor();
-        const availableCss = geo.monitor.width / scale;
-        const k = this._settings.get('size-scale');
-        const widthCss = Math.min(
-            clamp(availableCss * Layout.OPEN_WIDTH_RATIO * k, Layout.OPEN_MIN_WIDTH * k, Layout.OPEN_MAX_WIDTH * k),
-            availableCss - 2 * Layout.SCREEN_MARGIN);
-        const width = Math.round(widthCss * scale);
-        this._panelView.setWidth(width);
+        const layout = computeLayout({
+            monitorCss: geo.monitor.width / scale,
+            widgetIds: this._widgets.map(widget => widget.constructor.id),
+            cellsFor: id => this._settings.cellsFor(id),
+            settings: this._settings,
+        });
+        this._panelView.applyLayout(layout, {scale, headerHeight: geo.height});
+        const width = Math.round(layout.widthCss * scale);
         const height = Math.min(this._panelView.getHeightForWidth(width),
             Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO));
         return {width, height};
@@ -778,14 +917,13 @@ export class Osmin {
             return {width: closed.width + scaled(Layout.HOVER_GROW), height: closed.height};
         }
         case State.OPEN:
-            return this._openSize(geo);
         case State.DROP:
-            return {width: scaled(Layout.DROP_WIDTH), height: scaled(Layout.DROP_HEIGHT)};
+            return this._openSize(geo);
         case State.CARD:
             if (this._cardSize) {
                 return {
                     width: scaled(this._cardSize.width),
-                    height: scaled(this._cardSize.height),
+                    height: geo.height + scaled(this._cardSize.height),
                 };
             }
             return this._closedSize(geo);
@@ -801,17 +939,53 @@ export class Osmin {
         const x = clamp(Math.round(geo.centerX - size.width / 2),
             geo.monitor.x + margin,
             Math.max(geo.monitor.x + margin, geo.monitor.x + geo.monitor.width - size.width - margin));
-        // The top edge is the same in every state: the capsule only grows downwards.
-        return {x, y: geo.top + scaled(Layout.PANEL_INSET), ...size};
+        // Collapsed it floats inside the bar; expanded it hangs from the top edge.
+        const y = HANGING.has(state) ? geo.top : geo.top + scaled(Layout.PANEL_INSET);
+        return {x, y, ...size};
     }
 
-    _applyGeometry({duration, mode = Clutter.AnimationMode.EASE_OUT_CUBIC}) {
+    _applyGeometry({duration, mode = Clutter.AnimationMode.EASE_OUT_CUBIC, delay = 0}) {
         this._syncAnchor();
         this._target = this._geometryFor(this._state);
-        this._actor.ease({
-            ...this._target,
-            duration: animDuration(duration),
-            mode,
+        const params = {duration: animDuration(duration), delay: animDuration(delay), mode};
+        this._actor.ease({...this._target, ...params});
+        this._placeEars(params);
+    }
+
+    /** The ears follow the capsule's sides, at the bottom edge of the bar. */
+    _placeEars(params = null) {
+        if (this._ears.length === 0)
+            return;
+        const geo = this._panel.getGeometry();
+        const target = this._target;
+        const radius = scaled(Layout.EAR_RADIUS);
+        const show = HANGING.has(this._state);
+        const x = [target.x - radius, target.x + target.width];
+        this._ears.forEach((ear, i) => {
+            ear.set_size(radius, radius);
+            ear.y = geo.top + geo.height;
+            if (show) {
+                ear.show();
+                if (params)
+                    ear.ease({x: x[i], ...params});
+                else
+                    ear.x = x[i];
+                // Fade in once the capsule is under way; fade out with it.
+                ear.ease({
+                    opacity: 255,
+                    duration: animDuration(params ? 160 : 0),
+                    delay: animDuration(params ? 120 : 0),
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            } else {
+                ear.x = x[i];
+                ear.ease({
+                    opacity: 0,
+                    duration: animDuration(params ? 90 : 0),
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    onComplete: () => ear.hide(),
+                });
+            }
         });
     }
 
@@ -819,7 +993,14 @@ export class Osmin {
     _syncAnchor() {
         if (!this._actor)
             return;
-        this._panel.setAnchorWidth(this._closedSize(this._panel.getGeometry()).width);
+        const geo = this._panel.getGeometry();
+        this._panel.setAnchorWidth(this._closedSize(geo).width);
+        // Cards hang below the band of the top bar.
+        const top = Math.round(geo.height / getScaleFactor());
+        if (this._cardTop !== top) {
+            this._cardTop = top;
+            this._cardLayer.style = `padding-top: ${top}px;`;
+        }
     }
 
     /** Re-applies the geometry without animation (monitor, scale or panel changes). */
@@ -836,5 +1017,7 @@ export class Osmin {
         this._actor.remove_all_transitions();
         this._actor.set_position(target.x, target.y);
         this._actor.set_size(target.width, target.height);
+        this._ears.forEach(ear => ear.remove_all_transitions());
+        this._placeEars();
     }
 }

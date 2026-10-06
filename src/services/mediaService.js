@@ -50,6 +50,11 @@ export class MprisPlayer extends Signals.EventEmitter {
         return this.status === PlaybackStatus.PLAYING;
     }
 
+    /** The player's desktop entry (e.g. "spotify"), for its icon. */
+    get desktopEntry() {
+        return this._rootProp('DesktopEntry') ?? '';
+    }
+
     get identity() {
         return this._rootProp('Identity') ?? this.busName.slice(MPRIS_PREFIX.length);
     }

@@ -3,7 +3,7 @@ import GObject from 'gi://GObject';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 
-import {createButton} from '../../ui/button.js';
+import {createButton} from '../ui/button.js';
 
 /** One file in the tray: icon or thumbnail, name, and actions shown on hover. */
 export class FileItem extends St.Widget {
@@ -18,7 +18,6 @@ export class FileItem extends St.Widget {
             layout_manager: new Clutter.BinLayout(),
             reactive: true,
             track_hover: true,
-            x_expand: true,
         });
 
         const main = new St.Button({
