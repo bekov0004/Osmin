@@ -21,7 +21,7 @@ export const Layout = Object.freeze({
     SCREEN_MARGIN: 24,
     OPEN_MAX_HEIGHT_RATIO: 0.5,
     // The fillet where the expanded capsule meets the top bar.
-    EAR_RADIUS: 14,
+    EAR_RADIUS: 18,
     // The area that wakes the capsule up when files are dragged near it.
     DROP_HOT_HALF_WIDTH: 260,
     DROP_HOT_HEIGHT: 150,

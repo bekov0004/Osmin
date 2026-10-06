@@ -147,6 +147,7 @@ export class Osmin {
         this._applyAppearance();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         this._panel.enable();
+        this._applyBarLook();
         Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
         for (const ear of this._ears)
             Main.layoutManager.addChrome(ear, {trackFullscreen: true});
@@ -306,6 +307,14 @@ export class Osmin {
             ear.setColor(14, 14, 16, opacity);
     }
 
+    /** The top bar's colour and transparency (transparent by default, so the capsule hangs from the edge). */
+    _applyBarLook() {
+        this._panel.setBarLook({
+            color: this._settings.get('panel-color'),
+            opacity: this._settings.get('panel-opacity'),
+        });
+    }
+
     _onSettingChanged(key) {
         if (this._destroying || !this._actor)
             return;
@@ -318,6 +327,10 @@ export class Osmin {
             break;
         case 'collapsed-width-adjust':
             this._relayout();
+            break;
+        case 'panel-color':
+        case 'panel-opacity':
+            this._applyBarLook();
             break;
         case 'size-scale':
         case 'width-mode':
@@ -1068,7 +1081,7 @@ export class Osmin {
         this._placeEars(params);
     }
 
-    /** The ears follow the capsule's sides, at the bottom edge of the bar. */
+    /** The ears follow the capsule's sides, at the very top edge of the screen where it hangs from. */
     _placeEars(params = null) {
         if (this._ears.length === 0)
             return;
@@ -1079,7 +1092,7 @@ export class Osmin {
         const x = [target.x - radius, target.x + target.width];
         this._ears.forEach((ear, i) => {
             ear.set_size(radius, radius);
-            ear.y = geo.top + geo.height;
+            ear.y = geo.top;
             if (show) {
                 ear.show();
                 if (params)

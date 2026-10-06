@@ -185,6 +185,19 @@
       <description>Clicking an item puts it in the app you were using (Ctrl+V). If off, it is only copied.</description>
     </key>
 
+    <key name="panel-color" type="s">
+      <default>'#000000'</default>
+      <summary>Top bar colour</summary>
+      <description>The colour of the top bar while Osmin is enabled, as #rrggbb.</description>
+    </key>
+
+    <key name="panel-opacity" type="d">
+      <range min="0.0" max="1.0"/>
+      <default>0.0</default>
+      <summary>Top bar opacity</summary>
+      <description>How opaque the top bar is while Osmin is enabled. 0 is fully transparent.</description>
+    </key>
+
     <key name="tray-keep-files" type="b">
       <default>true</default>
       <summary>Keep tray files</summary>

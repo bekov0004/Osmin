@@ -138,7 +138,7 @@ const WIDGET_ICONS = {
     shortcuts: 'view-app-grid-symbolic',
 };
 
-const ALL_APPEARANCE_KEYS = ['corner-radius', 'background-opacity', 'shadow-strength',
+const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
     'row-height', 'content-padding', 'widget-spacing', 'show-dividers'];
 
 export default class OsminPreferences extends ExtensionPreferences {
@@ -741,6 +741,29 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Background opacity: 1.00 is fully opaque.'));
         this._row(form, _('Shadow'), this._slider(settings, 'shadow-strength', [0, 1, 0.1], 1),
             _('0 turns the shadow off.'));
+
+        this._rule(form);
+        const picker = new Gtk.ColorDialogButton({dialog: new Gtk.ColorDialog({with_alpha: false})});
+        const parse = hex => {
+            const rgba = new Gdk.RGBA();
+            return rgba.parse(hex) ? rgba : null;
+        };
+        const toHex = rgba => '#' + [rgba.red, rgba.green, rgba.blue]
+            .map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+        picker.rgba = parse(settings.get_string('panel-color')) ?? parse('#000000');
+        picker.connect('notify::rgba', () => {
+            const hex = toHex(picker.rgba);
+            if (hex !== settings.get_string('panel-color'))
+                settings.set_string('panel-color', hex);
+        });
+        settings.connect('changed::panel-color', () => {
+            const rgba = parse(settings.get_string('panel-color'));
+            if (rgba && toHex(rgba) !== toHex(picker.rgba))
+                picker.rgba = rgba;
+        });
+        this._row(form, _('Top bar color'), picker, _('The color of the GNOME top bar while Osmin is on.'));
+        this._row(form, _('Top bar opacity'), this._slider(settings, 'panel-opacity', [0, 1, 0.05], 2),
+            _('0 is fully transparent: the capsule hangs from the very top of the screen.'));
 
         this._rule(form);
         this._row(form, _('Height'), this._slider(settings, 'row-height', [90, 220, 2]),

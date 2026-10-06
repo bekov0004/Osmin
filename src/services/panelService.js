@@ -28,6 +28,9 @@ export class PanelService {
         this._dateMenu = null;
         this._wasVisible = true;
         this._anchorWidth = 0;
+        this._styled = false;
+        this._originalStyle = '';
+        this._corners = [];
     }
 
     enable() {
@@ -49,7 +52,45 @@ export class PanelService {
         });
     }
 
+    /**
+     * Gives the top bar its own background: a colour with an opacity (0 is fully
+     * transparent, like the macOS menu bar). The shell's own style is put back
+     * by destroy(). The rounded black corners of the bar are hidden meanwhile.
+     * @param {{color: string, opacity: number}} look  colour as '#rrggbb'
+     */
+    setBarLook({color, opacity}) {
+        const panel = Main.panel;
+        if (!this._styled) {
+            this._styled = true;
+            this._originalStyle = panel.style ?? '';
+            this._corners = [panel._leftCorner, panel._rightCorner]
+                .filter(corner => corner)
+                .map(corner => ({corner, visible: corner.visible}));
+        }
+        const match = /^#?([0-9a-f]{6})$/i.exec(color ?? '');
+        const hex = match ? match[1] : '000000';
+        const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
+        const alpha = Math.min(Math.max(Number(opacity) || 0, 0), 1);
+        panel.set_style(`background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)}); ` +
+            `${this._originalStyle}`);
+        for (const {corner} of this._corners)
+            corner.hide();
+    }
+
+    _restoreBar() {
+        if (!this._styled)
+            return;
+        Main.panel.set_style(this._originalStyle || null);
+        for (const {corner, visible} of this._corners) {
+            if (visible)
+                corner.show();
+        }
+        this._corners = [];
+        this._styled = false;
+    }
+
     destroy() {
+        this._restoreBar();
         this._injections.clear();
         this._signals.disconnectAll();
         this._anchor?.destroy();
