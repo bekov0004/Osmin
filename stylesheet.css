@@ -3,7 +3,7 @@
    override the corner radius, background, shadow and paddings. */
 
 .osmin {
-    background-color: rgba(14, 14, 16, 0.96);
+    background-color: rgba(0, 0, 0, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 32px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);

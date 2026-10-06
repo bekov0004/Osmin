@@ -15,7 +15,7 @@ export class Ear extends St.DrawingArea {
     constructor(side) {
         super({reactive: false, visible: false, opacity: 0});
         this._side = side;
-        this._color = [14, 14, 16, 0.96];
+        this._color = [0, 0, 0, 0.96];
     }
 
     setColor(r, g, b, a) {

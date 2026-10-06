@@ -193,7 +193,7 @@
 
     <key name="panel-opacity" type="d">
       <range min="0.0" max="1.0"/>
-      <default>0.0</default>
+      <default>0.5</default>
       <summary>Top bar opacity</summary>
       <description>How opaque the top bar is while Osmin is enabled. 0 is fully transparent.</description>
     </key>

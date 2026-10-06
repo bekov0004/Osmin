@@ -31,7 +31,7 @@ export const DEFAULTS = Object.freeze({
     'clipboard-max-items': 30,
     'clipboard-click-pastes': true,
     'panel-color': '#000000',
-    'panel-opacity': 0.0,
+    'panel-opacity': 0.5,
     'tray-keep-files': true,
     'album-corner-radius': 10,
     'media-effect': 'bars',

@@ -293,7 +293,7 @@ export class Osmin {
         const radius = this._settings.get('corner-radius');
         const opacity = this._settings.get('background-opacity');
         const shadow = this._settings.get('shadow-strength');
-        const background = `rgba(14, 14, 16, ${opacity})`;
+        const background = `rgba(0, 0, 0, ${opacity})`;
 
         if (HANGING.has(this._state)) {
             this._actor.style = `border-radius: 0 0 ${radius}px ${radius}px; ` +
@@ -304,7 +304,7 @@ export class Osmin {
                 `box-shadow: 0 2px 10px rgba(0, 0, 0, ${(0.4 * shadow).toFixed(2)});`;
         }
         for (const ear of this._ears)
-            ear.setColor(14, 14, 16, opacity);
+            ear.setColor(0, 0, 0, opacity);
     }
 
     /** The top bar's colour and transparency (transparent by default, so the capsule hangs from the edge). */

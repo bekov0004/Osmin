@@ -763,7 +763,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         });
         this._row(form, _('Top bar color'), picker, _('The color of the GNOME top bar while Osmin is on.'));
         this._row(form, _('Top bar opacity'), this._slider(settings, 'panel-opacity', [0, 1, 0.05], 2),
-            _('0 is fully transparent: the capsule hangs from the very top of the screen.'));
+            _('0 is fully transparent, 1 is solid.'));
 
         this._rule(form);
         this._row(form, _('Height'), this._slider(settings, 'row-height', [90, 220, 2]),
