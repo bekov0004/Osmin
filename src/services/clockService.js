@@ -1,31 +1,37 @@
 import GLib from 'gi://GLib';
+import GnomeDesktop from 'gi://GnomeDesktop';
 
-/** Ticks once per second while started and hands out the local time. */
+/**
+ * Calls `onTick(GLib.DateTime)` right after start() and then whenever the
+ * minute (or the time zone) changes. Uses the same WallClock as the GNOME
+ * date menu, so it follows suspend/resume and system time changes.
+ */
 export class ClockService {
     constructor(onTick) {
         this._onTick = onTick;
-        this._sourceId = 0;
+        this._clock = null;
+        this._ids = [];
     }
 
     start() {
-        if (this._sourceId)
+        if (this._clock)
             return;
-        this._onTick(GLib.DateTime.new_now_local());
-        this._sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
-            this._onTick(GLib.DateTime.new_now_local());
-            return GLib.SOURCE_CONTINUE;
-        });
-        GLib.Source.set_name_by_id(this._sourceId, '[osmin] clock');
+        this._clock = new GnomeDesktop.WallClock();
+        for (const name of ['notify::clock', 'notify::timezone'])
+            this._ids.push(this._clock.connect(name, () => this._tick()));
+        this._tick();
     }
 
-    stop() {
-        if (!this._sourceId)
-            return;
-        GLib.source_remove(this._sourceId);
-        this._sourceId = 0;
+    _tick() {
+        this._onTick(GLib.DateTime.new_now_local());
     }
 
     destroy() {
-        this.stop();
+        if (!this._clock)
+            return;
+        for (const id of this._ids)
+            this._clock.disconnect(id);
+        this._ids = [];
+        this._clock = null;
     }
 }

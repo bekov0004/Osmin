@@ -6,7 +6,8 @@ export function animDuration(ms) {
     return St.Settings.get().enable_animations ? ms : 0;
 }
 
-export function fadeIn(actor, {duration = 220, delay = 0} = {}) {
+/** Fades `actor` in. `onComplete` runs only if the fade was not interrupted. */
+export function fadeIn(actor, {duration = 220, delay = 0, onComplete} = {}) {
     actor.remove_all_transitions();
     actor.show();
     actor.ease({
@@ -14,15 +15,21 @@ export function fadeIn(actor, {duration = 220, delay = 0} = {}) {
         duration: animDuration(duration),
         delay: animDuration(delay),
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        onComplete,
     });
 }
 
-export function fadeOut(actor, {duration = 120} = {}) {
+/** Fades `actor` out; hides it afterwards unless `hide` is false. */
+export function fadeOut(actor, {duration = 120, hide = true, onComplete} = {}) {
     actor.remove_all_transitions();
     actor.ease({
         opacity: 0,
         duration: animDuration(duration),
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => actor.hide(),
+        onComplete: () => {
+            if (hide)
+                actor.hide();
+            onComplete?.();
+        },
     });
 }

@@ -2,14 +2,14 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 /** A flat button with an optional symbolic icon and label. */
-export function createButton({label = null, iconName = null, styleClass = '', onClick}) {
+export function createButton({label = null, iconName = null, styleClass = '', expand = false, onClick}) {
     const button = new St.Button({
         style_class: `osmin-button ${styleClass}`.trim(),
         reactive: true,
         can_focus: true,
         track_hover: true,
         button_mask: St.ButtonMask.ONE,
-        x_expand: false,
+        x_expand: expand,
     });
 
     const box = new St.BoxLayout({

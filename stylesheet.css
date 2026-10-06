@@ -1,52 +1,104 @@
-/* Osmin — dark, minimal, large radii. Sizes here are scaled by the shell. */
+/* Osmin — the capsule that replaces the GNOME clock. Sizes are CSS px (scaled by the shell). */
 
 .osmin {
-    background-color: rgba(10, 10, 12, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 32px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    background-color: rgba(14, 14, 16, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 36px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.50);
     padding: 0;
 }
 
-/* Closed */
-.osmin-dot {
+/* Collapsed / hover */
+.osmin-closed-view {
+    spacing: 6px;
+}
+
+.osmin-closed-time {
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.osmin-activity-dot {
     width: 6px;
     height: 6px;
     border-radius: 3px;
-    background-color: rgba(255, 255, 255, 0.28);
+    background-color: #f2a93b;
 }
 
-/* Hover */
-.osmin-hover-label {
-    color: rgba(255, 255, 255, 0.86);
+/* Open: LEFT | CENTER | RIGHT */
+.osmin-open-view {
+    padding: 16px 18px;
+}
+
+.osmin-sections {
+    spacing: 0;
+}
+
+.osmin-section {
+    spacing: 8px;
+}
+
+.osmin-divider {
+    width: 1px;
+    margin: 4px 14px;
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.osmin-media-section,
+.osmin-status-section {
+    width: 176px;
+}
+
+.osmin-calendar-section {
+    spacing: 10px;
+}
+
+/* Media (placeholder) */
+.osmin-media-top {
+    spacing: 10px;
+}
+
+.osmin-media-art {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-media-art-icon {
+    icon-size: 22px;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.osmin-media-texts {
+    spacing: 1px;
+}
+
+.osmin-media-title {
+    color: rgba(255, 255, 255, 0.85);
     font-size: 13px;
     font-weight: 600;
 }
 
-/* Open */
-.osmin-open-view {
-    width: 340px;
-    padding: 12px 0 0 0;
-    spacing: 6px;
+.osmin-media-subtitle {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
 }
 
-.osmin-header {
-    spacing: 8px;
+.osmin-media-controls {
+    spacing: 18px;
 }
 
-.osmin-title {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 12px;
-    font-weight: 600;
+.osmin-media-control {
+    icon-size: 16px;
+    color: rgba(255, 255, 255, 0.28);
 }
 
-.osmin-body {
-    spacing: 12px;
-}
-
+/* Clock and week */
 .osmin-clock-time {
     color: white;
-    font-size: 38px;
+    font-size: 36px;
     font-weight: 300;
 }
 
@@ -55,23 +107,97 @@
     font-size: 12px;
 }
 
-.osmin-workspace {
-    background-color: rgba(255, 255, 255, 0.07);
-    border-radius: 16px;
-    padding: 8px 14px;
+.osmin-week {
     spacing: 2px;
 }
 
-.osmin-workspace-caption {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 10px;
+.osmin-week-day {
+    padding: 4px 0;
+    border-radius: 12px;
+    spacing: 1px;
+}
+
+.osmin-week-name {
+    color: rgba(255, 255, 255, 0.38);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.osmin-week-number {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
     font-weight: 600;
 }
 
+.osmin-week-today {
+    background-color: white;
+}
+
+.osmin-week-today .osmin-week-name {
+    color: rgba(0, 0, 0, 0.55);
+}
+
+.osmin-week-today .osmin-week-number {
+    color: black;
+}
+
+/* Status */
+.osmin-status-header {
+    spacing: 6px;
+}
+
+.osmin-workspace {
+    background-color: rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 4px 10px;
+    spacing: 6px;
+}
+
+.osmin-workspace-icon {
+    icon-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
 .osmin-workspace-value {
-    color: white;
-    font-size: 16px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
     font-weight: 600;
+}
+
+.osmin-quick {
+    spacing: 6px;
+}
+
+.osmin-quick-tile {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 6px 8px;
+    spacing: 5px;
+}
+
+.osmin-quick-icon {
+    icon-size: 14px;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.osmin-quick-label {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.osmin-notifications {
+    spacing: 6px;
+}
+
+.osmin-notifications-icon {
+    icon-size: 13px;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.osmin-notifications-label {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
 }
 
 /* Buttons */
@@ -100,7 +226,7 @@
 }
 
 .osmin-button-label {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -110,31 +236,77 @@
     border-radius: 12px;
 }
 
-.osmin-action-button {
-    height: 36px;
-    margin-top: 4px;
-    margin-bottom: 14px;
+/* Temporary test-events strip */
+.osmin-debug-strip {
+    spacing: 6px;
+    margin-top: 12px;
 }
 
-/* Notification */
-.osmin-notify-view {
+.osmin-debug-button {
+    height: 28px;
+    border-radius: 12px;
+}
+
+/* Cards */
+.osmin-card {
+    width: 280px;
     spacing: 12px;
 }
 
-.osmin-notify-badge {
-    width: 28px;
-    height: 28px;
-    border-radius: 14px;
-    background-color: #3fb97a;
+.osmin-card-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 15px;
+    background-color: rgba(255, 255, 255, 0.14);
 }
 
-.osmin-notify-icon {
+.osmin-card-icon {
     icon-size: 16px;
-    color: #06150d;
+    color: white;
 }
 
-.osmin-notify-label {
+.osmin-card-texts {
+    spacing: 1px;
+}
+
+.osmin-card-title {
     color: white;
     font-size: 14px;
     font-weight: 600;
+}
+
+.osmin-card-description {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
+
+.osmin-card-pending {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.osmin-card-dismiss {
+    icon-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.osmin-card-low .osmin-card-badge {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-card-low .osmin-card-title {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.osmin-card-high .osmin-card-badge {
+    background-color: #f2a93b;
+}
+
+.osmin-card-high .osmin-card-icon {
+    color: #231500;
+}
+
+.osmin-card-critical .osmin-card-badge {
+    background-color: #e5484d;
 }

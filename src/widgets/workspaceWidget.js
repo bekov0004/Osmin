@@ -1,26 +1,28 @@
+import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 
-/** Small card showing "<active> / <total>" for workspaces. */
+/** Chip showing "Workspace <active> / <total>". */
 export class WorkspaceWidget extends St.BoxLayout {
     static {
-        GObject.registerClass(this);
+        GObject.registerClass({GTypeName: 'OsminWorkspaceWidget'}, this);
     }
 
     constructor() {
-        super({
-            vertical: true,
-            style_class: 'osmin-workspace',
-        });
-        this.add_child(new St.Label({
-            text: 'Workspace',
-            style_class: 'osmin-workspace-caption',
+        super({style_class: 'osmin-workspace'});
+        this.add_child(new St.Icon({
+            icon_name: 'view-grid-symbolic',
+            style_class: 'osmin-workspace-icon',
+            y_align: Clutter.ActorAlign.CENTER,
         }));
-        this._value = new St.Label({style_class: 'osmin-workspace-value'});
+        this._value = new St.Label({
+            style_class: 'osmin-workspace-value',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
         this.add_child(this._value);
     }
 
     update({index, total}) {
-        this._value.text = `${index} / ${total}`;
+        this._value.text = `Workspace ${index} / ${total}`;
     }
 }
