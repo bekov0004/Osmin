@@ -13,6 +13,7 @@ import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {EventManager} from './services/eventManager.js';
 import {MediaService} from './services/mediaService.js';
+import {TimerService} from './services/timerService.js';
 import {PanelService} from './services/panelService.js';
 import {ClosedView} from './ui/closedView.js';
 import {DropView} from './ui/dropView.js';
@@ -90,6 +91,7 @@ export class Osmin {
             files: new FileService(),
             calendar: new CalendarService(),
             activities: new ActivityManager(this._events),
+            timer: new TimerService(),
         };
         this._services.activities.attach({
             cards: this._cards,
@@ -112,6 +114,7 @@ export class Osmin {
             'compact-resized', () => this._onCompactResized(),
             this);
         this._widgets.forEach(widget => widget.start());
+        this._services.timer.load();
         this._clock.start();
         this._services.media.start();
         this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
@@ -141,6 +144,7 @@ export class Osmin {
         this._services?.files.destroy();
         this._services?.calendar.destroy();
         this._services?.activities.destroy();
+        this._services?.timer.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;

@@ -3,6 +3,8 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
+import {JsonStore} from '../utils/jsonStore.js';
+
 const INFO_ATTRIBUTES = [
     'standard::display-name', 'standard::icon', 'standard::content-type',
     'standard::type', 'standard::size', 'thumbnail::path',
@@ -23,7 +25,7 @@ export class FileService extends Signals.EventEmitter {
         this._items = [];
         this._monitors = new Map();
         this._cancellable = new Gio.Cancellable();
-        this._storePath = GLib.build_filenamev([GLib.get_user_data_dir(), 'osmin', 'tray.json']);
+        this._store = new JsonStore('tray.json');
         this._loaded = false;
         this._source = null;
     }
@@ -34,15 +36,8 @@ export class FileService extends Signals.EventEmitter {
     }
 
     async load() {
-        let uris = [];
-        try {
-            const [, contents] = Gio.File.new_for_path(this._storePath).load_contents(null);
-            const data = JSON.parse(new TextDecoder().decode(contents));
-            uris = Array.isArray(data.files) ? data.files.filter(u => typeof u === 'string') : [];
-        } catch (e) {
-            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
-                console.warn(`[osmin] reading the file tray failed: ${e.message}`);
-        }
+        const data = this._store.load();
+        const uris = Array.isArray(data?.files) ? data.files.filter(u => typeof u === 'string') : [];
         for (const uri of uris)
             await this._addItem(uri, {save: false});
         this._loaded = true;
@@ -202,20 +197,6 @@ export class FileService extends Signals.EventEmitter {
     }
 
     _save() {
-        const data = JSON.stringify({version: 1, files: this._items.map(item => item.uri)});
-        try {
-            GLib.mkdir_with_parents(GLib.path_get_dirname(this._storePath), 0o700);
-            Gio.File.new_for_path(this._storePath).replace_contents_bytes_async(
-                new GLib.Bytes(new TextEncoder().encode(data)), null, false,
-                Gio.FileCreateFlags.PRIVATE, null, (f, res) => {
-                    try {
-                        f.replace_contents_finish(res);
-                    } catch (e) {
-                        console.warn(`[osmin] saving the file tray failed: ${e.message}`);
-                    }
-                });
-        } catch (e) {
-            console.warn(`[osmin] saving the file tray failed: ${e.message}`);
-        }
+        this._store.save({version: 1, files: this._items.map(item => item.uri)});
     }
 }

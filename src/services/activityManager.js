@@ -68,10 +68,11 @@ export class ActivityManager extends Signals.EventEmitter {
 
     /**
      * @param {LiveActivity} activity
-     * @param {{duration?: number, priority?: string, persistent?: boolean}} [options]
+     * @param {{duration?: number, priority?: string, persistent?: boolean, force?: boolean}} [options]
+     *   `force` shows the peek even while the panel is open (alarms).
      */
-    peek(activity, {duration = 4000, priority = Priority.NORMAL, persistent = false} = {}) {
-        if (this._isOpen())
+    peek(activity, {duration = 4000, priority = Priority.NORMAL, persistent = false, force = false} = {}) {
+        if (this._isOpen() && !force)
             return;
         this._events.emit({
             id: `activity:${activity.id}`,
