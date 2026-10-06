@@ -78,7 +78,9 @@ export class PanelService {
      *   spot where the GNOME clock used to be.
      */
     getGeometry() {
-        const monitor = Main.layoutManager.primaryMonitor;
+        // The monitor may not exist yet while the shell is still starting up.
+        const monitor = Main.layoutManager.primaryMonitor ??
+            {x: 0, y: 0, width: global.stage.width || 1920, height: global.stage.height || 1080, index: 0};
         const panelBox = Main.layoutManager.panelBox;
 
         let centerX = monitor.x + monitor.width / 2;
