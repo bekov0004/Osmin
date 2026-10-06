@@ -30,20 +30,26 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   - **Mirror** – a round webcam preview (GStreamer: PipeWire, then `/dev/video0`). The camera is
     opened only when you click the circle and released when you click it again, change tab or page, or
     close the capsule; a green dot in the header shows it is on. Nothing is recorded.
+  - **Shortcuts** – quick launchers for apps you pick in the settings (a *Detected / In use* editor),
+    one or two columns of two rows. Off by default.
   - **Timer** and **To-do** – optional widgets (off by default; enable them in the settings).
 - **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
-  manager, copy to the clipboard, remove. The wheel scrolls the row sideways.
+  manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
+  target sends the files by Bluetooth (GNOME's *Send files* dialog). **Drag a file out of the tray**
+  into any other app or folder.
 - **Live Activities** – a running timer, music, or a meeting within 10 minutes takes the place of
   the time in the collapsed capsule; track changes, meetings, a finished timer and added files pop out
   as short cards hanging from the top. Clicking a card opens its widget.
 - **Gestures** – the pointer approaching the collapsed capsule wakes it; if it rests, the capsule
-  swells and then opens (click opens at once); the wheel / a swipe switches pages; middle click on the
-  collapsed capsule flips between ongoing activities; drag & drop onto it.
-- **Settings** (the ⚙ in the header, or `gnome-extensions prefs`) – General, Widgets (on/off, order,
-  width in cells, a live preview of the layout, auto or fixed capsule width), Appearance (corner radius,
-  transparency, shadow, height, padding, spacing, dividers), Tray, Live Activities. Changes apply live.
+  swells and then opens (click opens at once); the wheel / a swipe switches pages. Touchpad swipes:
+  down opens, up closes; sideways over the collapsed capsule skips tracks while music plays; a middle
+  click flips between activities or plays / pauses. All of it (and *invert direction*) is in the
+  Gestures settings.
+- **Settings** (the ⚙ in the header, or `gnome-extensions prefs`) – a window with these pages: General, Osmin (widgets: on/off, order, width in cells, a live preview, auto or fixed
+  capsule width), Appearance, Gestures, Tray, Live Activities (album corner radius, spectrum or waves
+  effect, colours from the album art), About. Changes apply live.
 
 `Super+V` (the "toggle calendar" shortcut) toggles Osmin instead of the hidden calendar popup.
 
@@ -158,9 +164,11 @@ src/
 
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
-- Shortcuts, Notes and Quick Apps (also in similar apps) are not implemented.
-- A shell extension cannot start a drag into another application. Files are moved out through
-  *Copy* (they go to the clipboard as `text/uri-list`) or *Open* / *Show in folder*.
+- Quick Apps are not implemented. There is
+  no AirDrop; the second drop target sends files by Bluetooth instead.
+- A shell extension cannot start a drag into another application itself. Dragging a file out of the
+  tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
+  pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.
 - The Mirror was verified with a test video source; the PipeWire / V4L2 path needs a camera
   your user may access (a seated desktop user normally can).
 - Dragging files over the capsule while a card is showing is ignored until the card is gone.

@@ -164,6 +164,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             ['gestures', _('Gestures'), 'input-touchpad-symbolic', this._gesturesPage(settings)],
             ['tray', _('Tray'), 'folder-download-symbolic', this._trayPage(settings)],
             ['activities', _('Live Activities'), 'media-playback-start-symbolic', this._activitiesPage(settings)],
+            ['about', _('About'), 'help-about-symbolic', this._aboutPage()],
         ];
 
         const stack = new Gtk.Stack({
@@ -389,6 +390,8 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Off: it stays open until you close it.'));
 
         this._rule(form);
+        this._row(form, _('Collapsed width'), this._slider(settings, 'collapsed-width-adjust', [-30, 80, 1]),
+            _('Fine tune the width of the collapsed capsule, in pixels.'));
         this._row(form, _('Animation speed'), this._slider(settings, 'animation-speed', [0.5, 2.0, 0.1], 1),
             _('Higher is faster.'));
 
@@ -751,6 +754,37 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Thin lines between widgets.'));
 
         this._resetRow(form, settings, ALL_APPEARANCE_KEYS);
+        return body;
+    }
+
+    // --- About --------------------------------------------------------------
+
+    _aboutPage() {
+        const body = this._body();
+        body.halign = Gtk.Align.CENTER;
+        body.valign = Gtk.Align.START;
+        body.margin_top = 60;
+        body.spacing = 8;
+        const logo = this._icon('view-grid-symbolic');
+        logo.set_size_request(72, 72);
+        logo.halign = Gtk.Align.CENTER;
+        logo.valign = Gtk.Align.START;
+        logo.vexpand = false;
+        body.append(logo);
+        body.append(new Gtk.Label({label: _('Osmin'), css_classes: ['osmin-page-title']}));
+        const version = this._dim(_('Version %s').format(this.metadata['version-name'] ?? ''));
+        version.halign = Gtk.Align.CENTER;
+        body.append(version);
+        body.append(new Gtk.Label({
+            label: _('A Dynamic Island for GNOME: media, calendar, mirror, shortcuts and a file tray in one capsule at the top of the screen.'),
+            wrap: true,
+            max_width_chars: 44,
+            justify: Gtk.Justification.CENTER,
+            margin_top: 8,
+        }));
+        const link = new Gtk.LinkButton({uri: this.metadata.url ?? '', label: _('Project page')});
+        link.halign = Gtk.Align.CENTER;
+        body.append(link);
         return body;
     }
 

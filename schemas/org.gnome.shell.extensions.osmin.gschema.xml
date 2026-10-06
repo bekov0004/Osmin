@@ -159,6 +159,13 @@
       <description>How many columns of shortcuts (two rows each) the widget shows.</description>
     </key>
 
+    <key name="collapsed-width-adjust" type="i">
+      <range min="-30" max="80"/>
+      <default>0</default>
+      <summary>Collapsed width fine tune</summary>
+      <description>Makes the collapsed capsule wider or narrower, in pixels.</description>
+    </key>
+
     <key name="tray-keep-files" type="b">
       <default>true</default>
       <summary>Keep tray files</summary>

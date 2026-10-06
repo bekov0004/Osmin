@@ -298,6 +298,9 @@ export class Osmin {
         case 'shadow-strength':
             this._applyAppearance();
             break;
+        case 'collapsed-width-adjust':
+            this._relayout();
+            break;
         case 'size-scale':
         case 'width-mode':
         case 'fixed-width':
@@ -968,7 +971,8 @@ export class Osmin {
         const inset = scaled(Layout.PANEL_INSET);
         return {
             width: Math.max(scaled(Layout.CLOSED_MIN_WIDTH),
-                this._closedView.getNaturalWidth() + scaled(Layout.CLOSED_PADDING)),
+                this._closedView.getNaturalWidth() + scaled(Layout.CLOSED_PADDING) +
+                scaled(this._settings.get('collapsed-width-adjust'))),
             height: Math.max(geo.height - 2 * inset, scaled(16)),
         };
     }
