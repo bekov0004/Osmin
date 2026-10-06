@@ -10,13 +10,14 @@ import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
  *
  * It has two faces, both self-updating (they listen to the activity's
  * 'changed' signal):
- *   - a compact view, shown in the collapsed capsule while the activity is
- *     ongoing (registered with ActivityManager.start());
+ *   - compact parts (one for each side of the camera dot), shown in the
+ *     collapsed capsule while the activity is ongoing (registered with
+ *     ActivityManager.start());
  *   - a peek view, shown in a card that grows out of the capsule for a few
  *     seconds (ActivityManager.peek()). Clicking its background opens the
  *     panel on the activity's widget (`widgetId`).
  *
- * Subclasses implement createCompactView() and createPeekView().
+ * Subclasses implement createCompactParts() and createPeekView().
  */
 export class LiveActivity extends Signals.EventEmitter {
     /**
@@ -41,9 +42,9 @@ export class LiveActivity extends Signals.EventEmitter {
         return {width: 320, height: 60};
     }
 
-    /** @returns {St.Actor} */
-    createCompactView() {
-        throw new Error(`${this.constructor.name}.createCompactView() is not implemented`);
+    /** @returns {{left: St.Actor, right: St.Actor}} what goes left and right of the camera dot */
+    createCompactParts() {
+        throw new Error(`${this.constructor.name}.createCompactParts() is not implemented`);
     }
 
     /** @returns {St.Actor} */
@@ -60,28 +61,26 @@ export class LiveActivity extends Signals.EventEmitter {
 }
 
 /**
- * Compact view helper: an icon followed by a text that follows `getText()`.
+ * Compact parts helper: an icon on the left, a text that follows `getText()` on the right.
  * @param {LiveActivity} activity
  * @param {string} iconName
  * @param {() => string} getText
  */
-export function createCompactRow(activity, iconName, getText) {
-    const row = new St.BoxLayout({style_class: 'osmin-compact'});
-    row.add_child(new St.Icon({
+export function createCompactParts(activity, iconName, getText) {
+    const icon = new St.Icon({
         icon_name: iconName,
         style_class: 'osmin-compact-icon',
         y_align: Clutter.ActorAlign.CENTER,
-    }));
+    });
     const label = new St.Label({
         text: getText(),
         style_class: 'osmin-compact-label',
         y_align: Clutter.ActorAlign.CENTER,
     });
     label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-    row.add_child(label);
     activity.connectObject('changed', () => {
         label.text = getText();
-    }, row);
-    row.connect('destroy', () => activity.disconnectObject(row));
-    return row;
+    }, label);
+    label.connect('destroy', () => activity.disconnectObject(label));
+    return {left: icon, right: label};
 }

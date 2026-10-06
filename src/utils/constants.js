@@ -12,8 +12,8 @@ export const State = Object.freeze({
 // with `scaled()`); the open width also adapts to the monitor.
 export const Layout = Object.freeze({
     // Collapsed capsule: as wide as its content, but at least this.
-    CLOSED_MIN_WIDTH: 88,
-    CLOSED_PADDING: 30,
+    CLOSED_MIN_WIDTH: 176,
+    CLOSED_PADDING: 4,
     // Vertical gap between the capsule and the top-bar edges.
     PANEL_INSET: 3,
     // How much the capsule swells on hover, before it opens.
@@ -22,6 +22,8 @@ export const Layout = Object.freeze({
     OPEN_MAX_HEIGHT_RATIO: 0.5,
     // The fillet where the expanded capsule meets the top bar.
     EAR_RADIUS: 26,
+    EAR_RADIUS_CLOSED: 12,
+    CLOSED_EXTRA_HEIGHT: 4,
     // The area that wakes the capsule up when files are dragged near it.
     DROP_HOT_HALF_WIDTH: 260,
     DROP_HOT_HEIGHT: 150,

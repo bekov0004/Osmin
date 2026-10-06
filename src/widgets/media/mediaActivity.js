@@ -28,21 +28,11 @@ export class MediaActivity extends LiveActivity {
         return {width: 330, height: 62};
     }
 
-    /** Album art, the title and the music effect: what the collapsed capsule shows while music plays. */
-    createCompactView() {
-        const row = new St.BoxLayout({style_class: 'osmin-compact osmin-compact-media'});
+    /** Album art on the left of the camera dot, the music effect on the right (like the Dynamic Island). */
+    createCompactParts() {
         const art = new St.Widget({style_class: 'osmin-compact-art', y_align: Clutter.ActorAlign.CENTER});
-        const label = new St.Label({
-            text: this.title,
-            style_class: 'osmin-compact-label',
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         const effect = new EffectView({kind: this._settings.get('media-effect')});
         effect.set({y_align: Clutter.ActorAlign.CENTER});
-        row.add_child(art);
-        row.add_child(label);
-        row.add_child(effect);
 
         let artUrl = null;
         let artFile = null;
@@ -56,7 +46,6 @@ export class MediaActivity extends LiveActivity {
         };
         const refresh = async () => {
             const player = this.player;
-            label.text = this.title;
             effect.setPlaying(player?.isPlaying ?? false);
             const url = player?.metadata.artUrl ?? '';
             if (url !== artUrl) {
@@ -64,24 +53,24 @@ export class MediaActivity extends LiveActivity {
                 artFile = null;
                 look();
                 const file = await this._artwork.resolve(url);
-                if (file && url === artUrl && row.get_stage?.()) {
+                if (file && url === artUrl && art.get_stage?.()) {
                     artFile = file;
                     look();
                 }
             }
         };
-        this.connectObject('changed', refresh, row);
+        this.connectObject('changed', refresh, art);
         this._settings.connectObject('changed', (_s, key) => {
             if (['album-corner-radius', 'media-effect', 'colored-effects'].includes(key))
                 look();
-        }, row);
-        row.connect('destroy', () => {
-            this.disconnectObject(row);
-            this._settings.disconnectObject(row);
+        }, art);
+        art.connect('destroy', () => {
+            this.disconnectObject(art);
+            this._settings.disconnectObject(art);
         });
         look();
         refresh();
-        return row;
+        return {left: art, right: effect};
     }
 
     createPeekView() {

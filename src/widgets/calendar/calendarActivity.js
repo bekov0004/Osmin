@@ -2,7 +2,7 @@ import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 
-import {LiveActivity, createCompactRow} from '../../ui/liveActivity.js';
+import {LiveActivity, createCompactParts} from '../../ui/liveActivity.js';
 
 /** A meeting about to start: ongoing from 10 minutes before until shortly after it starts. */
 export class CalendarActivity extends LiveActivity {
@@ -27,8 +27,8 @@ export class CalendarActivity extends LiveActivity {
         return this.minutes > 0 ? `in ${this.minutes} min` : 'Now';
     }
 
-    createCompactView() {
-        return createCompactRow(this, 'x-office-calendar-symbolic', () => this.when);
+    createCompactParts() {
+        return createCompactParts(this, 'x-office-calendar-symbolic', () => this.when);
     }
 
     createPeekView() {

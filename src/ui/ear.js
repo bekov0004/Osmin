@@ -33,7 +33,8 @@ export class Ear extends St.DrawingArea {
         cr.setFillRule(Cairo.FillRule.EVEN_ODD);
         cr.rectangle(0, 0, width, height);
         const left = this._side === 'left';
-        const radius = Math.min(width, height);
+        // The ear is `height` tall and as wide, plus a strip that lies over the capsule's side border.
+        const radius = height;
         cr.arc(left ? 0 : width, height, radius, 0, 2 * Math.PI);
         cr.fill();
 

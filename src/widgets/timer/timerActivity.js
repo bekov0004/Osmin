@@ -3,7 +3,7 @@ import St from 'gi://St';
 
 import {TimerState, formatRemaining} from '../../services/timerService.js';
 import {createButton} from '../../ui/button.js';
-import {LiveActivity, createCompactRow} from '../../ui/liveActivity.js';
+import {LiveActivity, createCompactParts} from '../../ui/liveActivity.js';
 
 /** Timer: ongoing while it runs (or waits to be dismissed); peeks when it ends. */
 export class TimerActivity extends LiveActivity {
@@ -32,8 +32,8 @@ export class TimerActivity extends LiveActivity {
         return {width: 320, height: 62};
     }
 
-    createCompactView() {
-        return createCompactRow(this, 'alarm-symbolic', () => this.text);
+    createCompactParts() {
+        return createCompactParts(this, 'alarm-symbolic', () => this.text);
     }
 
     createPeekView() {

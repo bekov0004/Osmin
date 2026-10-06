@@ -33,7 +33,7 @@ export class FilesActivity extends LiveActivity {
         return {width: 300, height: 56};
     }
 
-    createCompactView() {
+    createCompactParts() {
         throw new Error('the files activity has no compact view');
     }
 

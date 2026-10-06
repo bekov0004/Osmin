@@ -42,7 +42,9 @@ import {Timers} from './utils/timers.js';
 const RESIZE = {duration: 220, mode: Clutter.AnimationMode.EASE_OUT_CUBIC};
 
 // States in which the capsule hangs from the top edge (the rest sit inside the bar).
-const HANGING = new Set([State.OPEN, State.CARD, State.DROP]);
+// Every state hangs from the top edge of the screen, collapsed (the notch) or expanded.
+const HANGING = new Set([State.CLOSED, State.HOVER, State.OPEN, State.CARD, State.DROP]);
+const COLLAPSED = new Set([State.CLOSED, State.HOVER]);
 // States that show the panel (widgets / tray).
 const PANEL_STATES = new Set([State.OPEN, State.DROP]);
 
@@ -296,8 +298,10 @@ export class Osmin {
         const background = `rgba(0, 0, 0, ${opacity})`;
 
         if (HANGING.has(this._state)) {
-            this._actor.style = `border-radius: 0 0 ${radius}px ${radius}px; ` +
-                `background-color: ${background}; border-width: 0 1px 1px 1px; ` +
+            // The collapsed notch is only ~36px tall: its corners are smaller than the open capsule's.
+            const bottom = COLLAPSED.has(this._state) ? Math.min(radius, 14) : radius;
+            this._actor.style = `border-radius: 0 0 ${bottom}px ${bottom}px; ` +
+                `background-color: ${background}; border-top-width: 0; border-left-width: 1px; border-right-width: 1px; border-bottom-width: 1px; ` +
                 `box-shadow: 0 14px 36px rgba(0, 0, 0, ${(0.55 * shadow).toFixed(2)});`;
         } else {
             this._actor.style = `border-radius: ${radius}px; background-color: ${background}; ` +
@@ -680,7 +684,7 @@ export class Osmin {
         if (!this._actor)
             return;
         this._actor.show();
-        // Ears belong to the open capsule only: it settles back to the collapsed one.
+        this._placeEars();
         if (this._state === State.OPEN)
             this._settle();
     }
@@ -716,6 +720,7 @@ export class Osmin {
 
     _onTick(now) {
         this._closedView.setTime(formatTime(now, {timeOnly: true}));
+        this._closedView.setDate(now.format('%a %-e %b'));
         this._panelView.tick(now);
         // The collapsed capsule is as wide as its time text.
         if (this._actor && (this._state === State.CLOSED || this._state === State.HOVER))
@@ -912,7 +917,7 @@ export class Osmin {
         if (activity === this._compactActivity && !force)
             return;
         this._compactActivity = activity;
-        this._closedView.setCompact(activity ? activity.createCompactView() : null);
+        this._closedView.setCompact(activity ? activity.createCompactParts() : null);
         this._onCompactResized();
     }
 
@@ -1014,12 +1019,11 @@ export class Osmin {
     // --- geometry (all values below are real px, already scaled) ---------
 
     _closedSize(geo) {
-        const inset = scaled(Layout.PANEL_INSET);
         return {
             width: Math.max(scaled(Layout.CLOSED_MIN_WIDTH),
                 this._closedView.getNaturalWidth() + scaled(Layout.CLOSED_PADDING) +
                 scaled(this._settings.get('collapsed-width-adjust'))),
-            height: Math.max(geo.height - 2 * inset, scaled(16)),
+            height: Math.max(geo.height + scaled(Layout.CLOSED_EXTRA_HEIGHT), scaled(24)),
         };
     }
 
@@ -1087,18 +1091,22 @@ export class Osmin {
             return;
         const geo = this._panel.getGeometry();
         const target = this._target;
-        const radius = scaled(Layout.EAR_RADIUS);
-        const show = HANGING.has(this._state);
-        const x = [target.x - radius, target.x + target.width];
+        const radius = scaled(COLLAPSED.has(this._state) ? Layout.EAR_RADIUS_CLOSED : Layout.EAR_RADIUS);
+        const show = HANGING.has(this._state) && !this._draggingOut;
+        // The ears cover the capsule's 1px side border along their height, so the border
+        // turns into the curve instead of running straight up beside it.
+        const border = Math.max(1, Math.round(scaled(1)));
+        const x = [target.x - radius, target.x + target.width - border];
         this._ears.forEach((ear, i) => {
-            ear.set_size(radius, radius);
             ear.y = geo.top;
             if (show) {
                 ear.show();
-                if (params)
-                    ear.ease({x: x[i], ...params});
-                else
+                if (params) {
+                    ear.ease({x: x[i], width: radius + border, height: radius, ...params});
+                } else {
+                    ear.set_size(radius + border, radius);
                     ear.x = x[i];
+                }
                 // Fade in once the capsule is under way; fade out with it.
                 ear.ease({
                     opacity: 255,
@@ -1107,6 +1115,7 @@ export class Osmin {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
             } else {
+                ear.set_size(radius + border, radius);
                 ear.x = x[i];
                 ear.ease({
                     opacity: 0,
