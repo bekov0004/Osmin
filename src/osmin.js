@@ -6,7 +6,9 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
+import {ArtworkService} from './services/artworkService.js';
 import {EventManager} from './services/eventManager.js';
+import {MediaService} from './services/mediaService.js';
 import {PanelService} from './services/panelService.js';
 import {WorkspaceService} from './services/workspaceService.js';
 import {ClosedView} from './ui/closedView.js';
@@ -74,7 +76,11 @@ export class Osmin {
                 this._closedView.setActivity(true);
         });
 
-        this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({events: this._events}));
+        this._services = {media: new MediaService(), artwork: new ArtworkService()};
+        this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({
+            events: this._events,
+            services: this._services,
+        }));
         this._buildActor();
         this._panel.enable();
         Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
@@ -84,6 +90,7 @@ export class Osmin {
 
         this._panelView.updateWorkspace(this._workspaces.getInfo());
         this._clock.start();
+        this._services.media.start();
         this._applyState(State.CLOSED, {animate: false});
     }
 
@@ -97,6 +104,9 @@ export class Osmin {
         this._workspaces?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
         this._widgets = null;
+        this._services?.media.destroy();
+        this._services?.artwork.destroy();
+        this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = this._workspaces = null;
 

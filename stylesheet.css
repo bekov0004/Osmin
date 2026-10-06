@@ -133,6 +133,97 @@
     color: black;
 }
 
+/* Media widget */
+.osmin-media-card {
+    spacing: 7px;
+}
+
+.osmin-media-source {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-media-top {
+    spacing: 10px;
+}
+
+.osmin-media-art {
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-media-art-icon {
+    icon-size: 24px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.osmin-media-texts {
+    spacing: 2px;
+}
+
+.osmin-media-title {
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.osmin-media-artist {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 11px;
+}
+
+.osmin-media-seek {
+    height: 14px;
+}
+
+.osmin-media-bar {
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.osmin-media-fill {
+    border-radius: 2px;
+    background-color: white;
+}
+
+.osmin-media-time {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+}
+
+.osmin-media-controls {
+    spacing: 10px;
+}
+
+.osmin-button.osmin-media-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 15px;
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-button.osmin-media-button:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.osmin-media-button .osmin-button-icon {
+    icon-size: 16px;
+}
+
+.osmin-button.osmin-media-play {
+    background-color: white;
+    color: black;
+}
+
+.osmin-button.osmin-media-play:hover {
+    background-color: rgba(255, 255, 255, 0.85);
+}
+
 /* Workspace chip */
 .osmin-workspace {
     background-color: rgba(255, 255, 255, 0.07);
