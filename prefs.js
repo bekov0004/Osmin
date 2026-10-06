@@ -157,6 +157,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             ['general', _('General'), 'preferences-system-symbolic', this._generalPage(settings)],
             ['osmin', _('Osmin'), 'view-grid-symbolic', this._osminPage(settings)],
             ['appearance', _('Appearance'), 'applications-graphics-symbolic', this._appearancePage(settings)],
+            ['gestures', _('Gestures'), 'input-touchpad-symbolic', this._gesturesPage(settings)],
             ['tray', _('Tray'), 'folder-download-symbolic', this._trayPage(settings)],
             ['activities', _('Live Activities'), 'media-playback-start-symbolic', this._activitiesPage(settings)],
         ];
@@ -637,6 +638,42 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Thin lines between widgets.'));
 
         this._resetRow(form, settings, ALL_APPEARANCE_KEYS);
+        return body;
+    }
+
+    // --- Gestures -----------------------------------------------------------
+
+    _gesturesPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+
+        this._toggleRow(form, settings, 'gestures-swipe-open', _('Capsule'), _('Swipe down to open'),
+            _('Two-finger swipe down over the collapsed capsule.'));
+        this._toggleRow(form, settings, 'gestures-swipe-close', '', _('Swipe up to close'),
+            _('Two-finger swipe up over the open capsule (on its first page).'));
+        this._toggleRow(form, settings, 'gestures-invert', '', _('Invert direction'),
+            _('Reverses every swipe: up opens, down closes, and so on.'));
+
+        this._rule(form);
+        this._toggleRow(form, settings, 'gestures-media-swipe', _('Media'), _('Swipe sideways to skip tracks'),
+            _('While music is playing: left is the previous track, right the next one.'));
+
+        const values = ['activity', 'play-pause', 'off'];
+        const middle = new Gtk.DropDown({
+            model: Gtk.StringList.new([_('Next activity'), _('Play / pause'), _('Nothing')]),
+        });
+        middle.selected = Math.max(0, values.indexOf(settings.get_string('gestures-middle-click')));
+        middle.connect('notify::selected', () =>
+            settings.set_string('gestures-middle-click', values[middle.selected]));
+        settings.connect('changed::gestures-middle-click', () => {
+            middle.selected = Math.max(0, values.indexOf(settings.get_string('gestures-middle-click')));
+        });
+        this._rule(form);
+        this._row(form, _('Middle click'), middle, _('On the collapsed capsule.'));
+
+        this._resetRow(form, settings, ['gestures-swipe-open', 'gestures-swipe-close', 'gestures-media-swipe',
+            'gestures-invert', 'gestures-middle-click']);
         return body;
     }
 

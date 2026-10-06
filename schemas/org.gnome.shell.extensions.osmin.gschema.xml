@@ -111,6 +111,41 @@
       <description>How strong the shadow under the capsule is.</description>
     </key>
 
+    <key name="gestures-swipe-open" type="b">
+      <default>true</default>
+      <summary>Swipe down to open</summary>
+      <description>Scrolling or swiping down over the collapsed capsule opens it.</description>
+    </key>
+
+    <key name="gestures-swipe-close" type="b">
+      <default>true</default>
+      <summary>Swipe up to close</summary>
+      <description>Scrolling or swiping up over the open capsule closes it.</description>
+    </key>
+
+    <key name="gestures-media-swipe" type="b">
+      <default>true</default>
+      <summary>Swipe sideways to skip tracks</summary>
+      <description>While music is playing, swiping left or right over the collapsed capsule goes to the previous or next track.</description>
+    </key>
+
+    <key name="gestures-invert" type="b">
+      <default>false</default>
+      <summary>Invert swipe direction</summary>
+      <description>Reverses the direction of every swipe gesture.</description>
+    </key>
+
+    <key name="gestures-middle-click" type="s">
+      <choices>
+        <choice value="activity"/>
+        <choice value="play-pause"/>
+        <choice value="off"/>
+      </choices>
+      <default>'activity'</default>
+      <summary>Middle click</summary>
+      <description>What a middle click on the collapsed capsule does.</description>
+    </key>
+
     <key name="tray-keep-files" type="b">
       <default>true</default>
       <summary>Keep tray files</summary>

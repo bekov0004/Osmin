@@ -524,15 +524,29 @@ export class Osmin {
         });
         this._actor.connect('notify::hover', () => this._onHoverChanged());
         this._actor.connect('clicked', () => this._onClicked());
-        // Middle click on the collapsed capsule: the next ongoing activity.
+        // Middle click on the collapsed capsule: the next activity, or play / pause.
         this._actor.connect('button-press-event', (_actor, event) => {
-            if (event.get_button() === Clutter.BUTTON_MIDDLE &&
-                (this._state === State.CLOSED || this._state === State.HOVER) &&
-                this._services.activities.cycle(1)) {
-                this._timers.clear('dwell'); // the user is flipping through, not opening
+            if (event.get_button() !== Clutter.BUTTON_MIDDLE ||
+                (this._state !== State.CLOSED && this._state !== State.HOVER))
+                return Clutter.EVENT_PROPAGATE;
+            switch (this._settings.get('gestures-middle-click')) {
+            case 'play-pause': {
+                const player = this._services.media.active;
+                if (!player)
+                    return Clutter.EVENT_PROPAGATE;
+                this._timers.clear('dwell');
+                player.playPause();
                 return Clutter.EVENT_STOP;
             }
-            return Clutter.EVENT_PROPAGATE;
+            case 'off':
+                return Clutter.EVENT_STOP;
+            default:
+                if (this._services.activities.cycle(1)) {
+                    this._timers.clear('dwell'); // the user is flipping through, not opening
+                    return Clutter.EVENT_STOP;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            }
         });
         this._actor.connect('scroll-event', (_actor, event) => this._onScroll(event));
         // Remember when the user last used the open capsule, to not close it under their hand.
@@ -761,18 +775,29 @@ export class Osmin {
      */
     _onScroll(event) {
         let step = 0;
+        let axis = 'vertical';
+        // Opening and closing are for touchpad swipes; a mouse wheel keeps flipping pages.
+        const swipe = event.get_scroll_source() !== Clutter.ScrollSource.WHEEL;
         switch (event.get_scroll_direction()) {
         case Clutter.ScrollDirection.UP:
-        case Clutter.ScrollDirection.LEFT:
             step = -1;
             break;
         case Clutter.ScrollDirection.DOWN:
+            step = 1;
+            break;
+        case Clutter.ScrollDirection.LEFT:
+            step = -1;
+            axis = 'horizontal';
+            break;
         case Clutter.ScrollDirection.RIGHT:
             step = 1;
+            axis = 'horizontal';
             break;
         case Clutter.ScrollDirection.SMOOTH: {
             const [dx, dy] = event.get_scroll_delta();
-            this._scrollAccumulator += Math.abs(dx) > Math.abs(dy) ? dx : dy;
+            const horizontal = Math.abs(dx) > Math.abs(dy);
+            axis = horizontal ? 'horizontal' : 'vertical';
+            this._scrollAccumulator += horizontal ? dx : dy;
             // A pause between swipes starts a new gesture.
             this._timers.set('scroll-reset', 250, () => {
                 this._scrollAccumulator = 0;
@@ -795,10 +820,36 @@ export class Osmin {
 
         this._scrollAccumulator = 0;
         this._timers.set('scroll-lock', SCROLL_LOCK_MS, () => {});
-        if (this._state === State.OPEN)
-            this._panelView.showPage(this._panelView.pageIndex + step);
-        else
-            this._services.activities.cycle(step);
+        if (this._settings.get('gestures-invert'))
+            step = -step;
+
+        if (this._state === State.OPEN) {
+            // Up closes (from the first page); anything else leafs through the pages.
+            if (swipe && axis === 'vertical' && step < 0 && this._panelView.pageIndex === 0 &&
+                this._settings.get('gestures-swipe-close')) {
+                this._timers.clear('dwell');
+                this._setState(State.CLOSED);
+            } else {
+                this._panelView.showPage(this._panelView.pageIndex + step);
+            }
+            return Clutter.EVENT_STOP;
+        }
+
+        // The collapsed capsule: down opens, sideways skips tracks, else flips activities.
+        if (swipe && axis === 'vertical' && step > 0 && this._settings.get('gestures-swipe-open')) {
+            this._timers.clear('dwell');
+            this._setState(State.OPEN);
+            return Clutter.EVENT_STOP;
+        }
+        const player = this._services.media.active;
+        if (axis === 'horizontal' && player && this._settings.get('gestures-media-swipe')) {
+            if (step > 0)
+                player.next();
+            else
+                player.previous();
+            return Clutter.EVENT_STOP;
+        }
+        this._services.activities.cycle(step);
         return Clutter.EVENT_STOP;
     }
 
