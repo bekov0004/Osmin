@@ -12,6 +12,7 @@ export const EventType = Object.freeze({
     USB: 'usb',
     WORKSPACE: 'workspace',
     CLIPBOARD: 'clipboard',
+    ACTIVITY: 'activity',
     CUSTOM: 'custom',
 });
 
@@ -53,6 +54,7 @@ export const TYPE_ICONS = Object.freeze({
     [EventType.USB]: 'drive-removable-media-symbolic',
     [EventType.WORKSPACE]: 'view-grid-symbolic',
     [EventType.CLIPBOARD]: 'edit-paste-symbolic',
+    [EventType.ACTIVITY]: 'dialog-information-symbolic',
     [EventType.CUSTOM]: 'dialog-information-symbolic',
 });
 

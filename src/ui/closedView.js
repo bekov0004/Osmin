@@ -25,6 +25,16 @@ export class ClosedView extends St.BoxLayout {
         });
         this.add_child(this._time);
         this.add_child(this._dot);
+        this._compact = null;
+    }
+
+    /** Replaces the time with the compact view of a Live Activity (or restores it). */
+    setCompact(actor) {
+        this._compact?.destroy();
+        this._compact = actor;
+        this._time.visible = !actor;
+        if (actor)
+            this.insert_child_below(actor, this._dot);
     }
 
     setTime(text) {

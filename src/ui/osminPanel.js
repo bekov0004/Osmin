@@ -106,6 +106,13 @@ export class OsminPanel extends St.BoxLayout {
         }
     }
 
+    /** Switches to the page that holds the widget with this id (no animation). */
+    showWidget(id) {
+        const index = this._pages.findIndex(page => page.widgets.some(w => w.constructor.id === id));
+        if (index >= 0)
+            this.showPage(index, {animate: false});
+    }
+
     nextPage() {
         return this.showPage(this._pageIndex + 1);
     }

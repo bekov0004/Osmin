@@ -23,8 +23,10 @@ export class ArtworkService {
         if (!url)
             return null;
         try {
-            if (url.startsWith('file://'))
-                return Gio.File.new_for_uri(url);
+            if (url.startsWith('file://')) {
+                const file = Gio.File.new_for_uri(url);
+                return file.query_exists(null) ? file : null;
+            }
             if (url.startsWith('http://') || url.startsWith('https://')) {
                 if (!this._pending.has(url))
                     this._pending.set(url, this._download(url).finally(() => this._pending.delete(url)));

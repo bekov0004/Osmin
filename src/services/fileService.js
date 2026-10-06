@@ -15,7 +15,7 @@ const MAX_ITEMS = 60;
  * never copied or moved). Entries disappear when the user removes them or when
  * the file is deleted / moved / renamed.
  *
- * Signals: 'changed'.
+ * Signals: 'changed', 'adding' (count), 'added' (count of new files).
  */
 export class FileService extends Signals.EventEmitter {
     constructor() {
@@ -53,6 +53,7 @@ export class FileService extends Signals.EventEmitter {
 
     /** @returns {Promise<number>} how many files were new */
     async add(uris) {
+        this.emit('adding', uris.length);
         let added = 0;
         for (const uri of uris) {
             if (await this._addItem(uri, {save: false}))
@@ -62,6 +63,7 @@ export class FileService extends Signals.EventEmitter {
             this._save();
             this.emit('changed');
         }
+        this.emit('added', added);
         return added;
     }
 

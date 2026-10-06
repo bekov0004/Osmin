@@ -5,7 +5,8 @@
  * ({events, services, ...}); widgets never import each other.
  *
  * Subclasses set the static `id`, `title` and `iconName`, and implement
- * createView(). Optional hooks: onTick(now), onPageShown(), onPageHidden().
+ * createView(). Optional hooks: start() (once, when Osmin is enabled; the place
+ * to publish live activities), onTick(now), onPageShown(), onPageHidden().
  */
 export class OsminWidget {
     static id = 'widget';
@@ -27,6 +28,9 @@ export class OsminWidget {
     createView() {
         throw new Error(`${this.constructor.name}.createView() is not implemented`);
     }
+
+    /** Called once after construction, whether or not the panel was ever opened. */
+    start() {}
 
     /** @param {GLib.DateTime} _now called when the minute changes */
     onTick(_now) {}

@@ -6,6 +6,8 @@ import St from 'gi://St';
 import {createButton} from '../../ui/button.js';
 import {PlaybackStatus} from '../../services/mediaService.js';
 import {OsminWidget} from '../widget.js';
+import {Priority} from '../../utils/events.js';
+import {MediaActivity} from './mediaActivity.js';
 
 const TICK_MS = 500;
 
@@ -30,11 +32,43 @@ export class MediaWidget extends OsminWidget {
         super(context);
         this._media = context.services.media;
         this._artwork = context.services.artwork;
+        this._activities = context.services.activities;
+        this._activity = null;
         this._tickId = 0;
         this._shown = false;
         this._artUrl = null;
         this._player = null;
         this._connected = false;
+    }
+
+    /** Publishes the Live Activity: ongoing while playing, peeks on start / track change. */
+    start() {
+        this._activity = new MediaActivity({media: this._media, artwork: this._artwork});
+        this._media.connectObject(
+            'state-changed', () => {
+                this._activity.notifyChanged();
+                this._syncActivity();
+            },
+            'track-changed', () => this._peek(),
+            'status-changed', (_service, player) => {
+                if (player.isPlaying)
+                    this._peek();
+            },
+            this);
+    }
+
+    _syncActivity() {
+        const player = this._media.active;
+        if (player?.isPlaying && player.metadata.title)
+            this._activities.start(this._activity);
+        else
+            this._activities.end(this._activity.id);
+    }
+
+    _peek() {
+        const player = this._media.active;
+        if (player?.isPlaying && player.metadata.title)
+            this._activities.peek(this._activity, {duration: 4500, priority: Priority.LOW});
     }
 
     createView() {
@@ -72,6 +106,8 @@ export class MediaWidget extends OsminWidget {
 
     destroy() {
         this._media.disconnectObject(this);
+        this._activities.end('media');
+        this._activity?.destroy();
         this._stopTicker();
         this._player = null;
         super.destroy();

@@ -3,6 +3,7 @@ import St from 'gi://St';
 
 import {OsminWidget} from '../widget.js';
 import {FileItem} from './fileItem.js';
+import {FilesActivity} from './filesActivity.js';
 
 const COLUMNS = 2;
 
@@ -19,6 +20,23 @@ export class FilesWidget extends OsminWidget {
     constructor(context) {
         super(context);
         this._files = context.services.files;
+        this._activities = context.services.activities;
+        this._activity = null;
+    }
+
+    /** Peeks "Adding N files…" / "Added N files" when files are dropped on the capsule. */
+    start() {
+        this._activity = new FilesActivity();
+        this._files.connectObject(
+            'adding', (_service, count) => {
+                this._activity.setProgress(count, false);
+                this._activities.peek(this._activity, {duration: 6000});
+            },
+            'added', (_service, count) => {
+                this._activity.setProgress(count, true);
+                this._activities.peek(this._activity, {duration: 2500});
+            },
+            this);
     }
 
     createView() {
@@ -84,6 +102,7 @@ export class FilesWidget extends OsminWidget {
 
     destroy() {
         this._files.disconnectObject(this);
+        this._activity?.destroy();
         super.destroy();
     }
 

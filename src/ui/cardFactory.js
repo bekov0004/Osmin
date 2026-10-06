@@ -1,10 +1,11 @@
 import {EventType} from '../utils/events.js';
+import {ActivityCard} from './activityCard.js';
 import {NotificationCard} from './notificationCard.js';
 
-// One card class per event type. Later stages register MediaCard,
-// DownloadCard, ... here; unknown types fall back to NotificationCard.
+// One card class per event type. Types without a card class use NotificationCard.
 const CARD_CLASSES = new Map([
     [EventType.NOTIFICATION, NotificationCard],
+    [EventType.ACTIVITY, ActivityCard],
 ]);
 
 export function cardClassFor(card) {

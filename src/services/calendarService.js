@@ -22,6 +22,7 @@ export class CalendarService extends Signals.EventEmitter {
         super();
         this._proxy = null;
         this._events = new Map();
+        this._ranges = new Map();
         this._begin = null;
         this._end = null;
         this._cancellable = new Gio.Cancellable();
@@ -62,13 +63,19 @@ export class CalendarService extends Signals.EventEmitter {
         this._requestRange(true);
     }
 
-    /** Asks the service for the events between two dates (Date objects). */
-    setRange(begin, end) {
-        if (this._begin?.getTime() === begin.getTime() && this._end?.getTime() === end.getTime())
-            return;
-        this._begin = begin;
-        this._end = end;
-        this._requestRange(true);
+    /**
+     * Asks the service for the events between two dates (Date objects). The
+     * service tracks one window, so every user of this service registers its
+     * own range under a name and the union is requested.
+     */
+    setRange(owner, begin, end) {
+        this._ranges.set(owner, [begin, end]);
+        this._updateWindow();
+    }
+
+    clearRange(owner) {
+        this._ranges.delete(owner);
+        this._updateWindow();
     }
 
     /** Events overlapping [begin, end), sorted by start. */
@@ -94,6 +101,19 @@ export class CalendarService extends Signals.EventEmitter {
         this._proxy?.run_dispose();
         this._proxy = null;
         this._events.clear();
+    }
+
+    _updateWindow() {
+        const ranges = [...this._ranges.values()];
+        if (ranges.length === 0)
+            return;
+        const begin = new Date(Math.min(...ranges.map(r => r[0].getTime())));
+        const end = new Date(Math.max(...ranges.map(r => r[1].getTime())));
+        if (this._begin?.getTime() === begin.getTime() && this._end?.getTime() === end.getTime())
+            return;
+        this._begin = begin;
+        this._end = end;
+        this._requestRange(true);
     }
 
     _requestRange(force) {

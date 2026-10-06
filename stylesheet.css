@@ -431,6 +431,62 @@
     border-radius: 12px;
 }
 
+/* Live activities */
+.osmin-compact {
+    spacing: 7px;
+}
+
+.osmin-compact-icon {
+    icon-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-compact-label {
+    max-width: 150px;
+    min-width: 36px;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.osmin-peek {
+    spacing: 12px;
+}
+
+.osmin-peek-art {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-peek-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.osmin-peek-badge-icon {
+    icon-size: 18px;
+    color: white;
+}
+
+.osmin-peek-texts {
+    spacing: 1px;
+}
+
+.osmin-peek-title {
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.osmin-peek-subtitle {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 11px;
+}
+
 /* Cards */
 .osmin-card {
     width: 280px;

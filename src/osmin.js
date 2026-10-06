@@ -9,6 +9,7 @@ import {CalendarService} from './services/calendarService.js';
 import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
 import {FileService} from './services/fileService.js';
+import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {EventManager} from './services/eventManager.js';
 import {MediaService} from './services/mediaService.js';
@@ -23,6 +24,7 @@ import {
     HOVER_INTENT_MS, HOVER_LEAVE_MS, INTERACTION_GRACE_MS, Layout, Motion, OPEN_DWELL_MS,
     OPEN_LEAVE_MS, State,
 } from './utils/constants.js';
+import {EventType} from './utils/events.js';
 import {getScaleFactor, scaled} from './utils/scale.js';
 import {SignalTracker} from './utils/signals.js';
 import {Timers} from './utils/timers.js';
@@ -59,6 +61,8 @@ export class Osmin {
         this._pinned = false;
         this._dragUris = null;
         this._dragArmed = false;
+        this._compactActivity = null;
+        this._openPage = null;
     }
 
     /** Sources emit events here: `osmin.events.emit({...})`. */
@@ -76,7 +80,7 @@ export class Osmin {
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
             this._cards.show(event);
-            if (this._state !== State.OPEN)
+            if (this._state !== State.OPEN && event.type !== EventType.ACTIVITY)
                 this._closedView.setActivity(true);
         });
 
@@ -85,7 +89,12 @@ export class Osmin {
             artwork: new ArtworkService(),
             files: new FileService(),
             calendar: new CalendarService(),
+            activities: new ActivityManager(this._events),
         };
+        this._services.activities.attach({
+            cards: this._cards,
+            isOpen: () => this._state === State.OPEN,
+        });
         this._drag = new DragService();
         this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({
             events: this._events,
@@ -98,6 +107,11 @@ export class Osmin {
         this._signals.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this._relayout());
 
+        this._services.activities.connectObject(
+            'ongoing-changed', () => this._syncCompact(),
+            'compact-resized', () => this._onCompactResized(),
+            this);
+        this._widgets.forEach(widget => widget.start());
         this._clock.start();
         this._services.media.start();
         this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
@@ -126,6 +140,7 @@ export class Osmin {
         this._services?.artwork.destroy();
         this._services?.files.destroy();
         this._services?.calendar.destroy();
+        this._services?.activities.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;
@@ -370,18 +385,9 @@ export class Osmin {
         this._dragArmed = false;
         this._dropView.setArmed(false);
 
-        if (dropped && armed) {
-            const added = await this._services.files.add(uris);
-            if (added > 0) {
-                this._events.emit({
-                    id: 'tray-added',
-                    type: 'custom',
-                    title: added === 1 ? 'Added to Osmin' : `${added} files added to Osmin`,
-                    description: added === 1 ? this._services.files.items.at(-1)?.name : '',
-                    icon: 'folder-symbolic',
-                });
-            }
-        }
+        // The files widget shows the "Adding / Added" activity.
+        if (dropped && armed)
+            await this._services.files.add(uris);
         if (this._state === State.DROP)
             this._setState(State.CLOSED);
     }
@@ -443,12 +449,40 @@ export class Osmin {
         switch (this._state) {
         case State.OPEN:
             break;
-        case State.CARD:
-            this._cards.hideCurrent();
+        case State.CARD: {
+            // A Live Activity card opens its widget; any other card is dismissed.
+            const activity = this._cards.currentCard?.data?.activity;
+            if (activity) {
+                this._openPage = activity.widgetId;
+                this.open();
+            } else {
+                this._cards.hideCurrent();
+            }
             break;
+        }
         default:
             this._setState(State.OPEN);
         }
+    }
+
+    /** Shows the ongoing activity with the highest priority in the collapsed capsule. */
+    _syncCompact() {
+        const activity = this._services.activities.compact;
+        if (activity === this._compactActivity)
+            return;
+        this._compactActivity = activity;
+        this._closedView.setCompact(activity ? activity.createCompactView() : null);
+        this._onCompactResized();
+    }
+
+    /** The compact content changed: the collapsed capsule follows its width. */
+    _onCompactResized() {
+        if (!this._actor)
+            return;
+        if (this._state === State.CLOSED || this._state === State.HOVER)
+            this._applyGeometry({duration: 220});
+        else
+            this._syncAnchor();
     }
 
     /** Falls back to HOVER while the pointer is still over the capsule, else CLOSED. */
@@ -498,6 +532,11 @@ export class Osmin {
         if (previous === State.OPEN)
             this._panelView.setOpen(false);
         if (state === State.OPEN) {
+            // Open on the widget of the ongoing activity (or the one that was clicked).
+            const page = this._openPage ?? this._compactActivity?.widgetId;
+            this._openPage = null;
+            if (page)
+                this._panelView.showWidget(page);
             this._panelView.setOpen(true);
             this._closedView.setActivity(false);
             if (!this._actor.hover && !this._pinned)

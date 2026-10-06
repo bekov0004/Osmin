@@ -7,6 +7,8 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {endOfDay, startOfDay} from '../../services/calendarService.js';
 import {OsminWidget} from '../widget.js';
+import {Priority} from '../../utils/events.js';
+import {CalendarActivity} from './calendarActivity.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -25,9 +27,48 @@ export class CalendarWidget extends OsminWidget {
     constructor(context) {
         super(context);
         this._calendar = context.services.calendar;
+        this._activities = context.services.activities;
+        this._activity = null;
+        this._announced = new Set();
         this._now = new Date();
         this._month = new Date(this._now.getFullYear(), this._now.getMonth(), 1);
         this._selected = null; // a clicked day, or null for "upcoming"
+    }
+
+    /** Publishes the Live Activity for the next meeting (from 10 minutes before it starts). */
+    start() {
+        this._activity = new CalendarActivity();
+        this._calendar.connectObject('changed', () => this._checkUpcoming(), this);
+        this._updateActivityRange();
+        this._checkUpcoming();
+    }
+
+    _updateActivityRange() {
+        const now = new Date();
+        this._calendar.setRange('activity', startOfDay(now), new Date(now.getTime() + 3 * DAY_MS));
+    }
+
+    _checkUpcoming() {
+        if (!this._activity)
+            return;
+        const now = new Date();
+        const next = this._calendar.upcoming(now, 5, 1).find(e => !e.allDay);
+        const minutes = next ? Math.ceil((next.start - now) / 60000) : Infinity;
+        const started = next && minutes <= 0 && now - next.start < 2 * 60000;
+
+        if (!next || (minutes > 10) || (minutes <= 0 && !started)) {
+            this._activities.end('calendar');
+            return;
+        }
+        this._activity.setEvent(next, minutes);
+        this._activities.start(this._activity);
+
+        const stage = started ? 'now' : 'soon';
+        const key = `${next.id}:${stage}`;
+        if (!this._announced.has(key)) {
+            this._announced.add(key);
+            this._activities.peek(this._activity, {duration: 6000, priority: Priority.HIGH});
+        }
     }
 
     createView() {
@@ -73,6 +114,10 @@ export class CalendarWidget extends OsminWidget {
 
     destroy() {
         this._calendar.disconnectObject(this);
+        this._calendar.clearRange('view');
+        this._calendar.clearRange('activity');
+        this._activities.end('calendar');
+        this._activity?.destroy();
         super.destroy();
     }
 
@@ -80,6 +125,9 @@ export class CalendarWidget extends OsminWidget {
         const now = new Date();
         const dayChanged = !sameDay(now, this._now);
         this._now = now;
+        if (dayChanged)
+            this._updateActivityRange();
+        this._checkUpcoming();
         if (!this._view)
             return;
         if (dayChanged && this._selected === null)
@@ -123,7 +171,7 @@ export class CalendarWidget extends OsminWidget {
 
         // Ask for the visible grid plus the next two weeks (for "upcoming").
         const horizon = new Date(this._now.getTime() + 14 * DAY_MS);
-        this._calendar.setRange(
+        this._calendar.setRange('view',
             new Date(Math.min(start.getTime(), startOfDay(this._now).getTime())),
             new Date(Math.max(gridEnd.getTime(), horizon.getTime())));
 
