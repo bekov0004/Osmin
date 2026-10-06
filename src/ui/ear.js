@@ -32,8 +32,22 @@ export class Ear extends St.DrawingArea {
         cr.setSourceRGBA(r / 255, g / 255, b / 255, a);
         cr.setFillRule(Cairo.FillRule.EVEN_ODD);
         cr.rectangle(0, 0, width, height);
-        cr.arc(this._side === 'left' ? 0 : width, height, Math.min(width, height), 0, 2 * Math.PI);
+        const left = this._side === 'left';
+        const radius = Math.min(width, height);
+        cr.arc(left ? 0 : width, height, radius, 0, 2 * Math.PI);
         cr.fill();
+
+        // The capsule's thin side border carries on along the curve, up to the screen edge.
+        cr.rectangle(0, 0, width, height);
+        cr.clip();
+        cr.newPath();
+        if (left)
+            cr.arc(0, height, radius + 0.5, -Math.PI / 2, 0);
+        else
+            cr.arc(width, height, radius + 0.5, Math.PI, 1.5 * Math.PI);
+        cr.setSourceRGBA(1, 1, 1, 0.10);
+        cr.setLineWidth(1);
+        cr.stroke();
         cr.$dispose();
     }
 }
