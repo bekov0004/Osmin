@@ -639,30 +639,25 @@
 
 .osmin-tray-target {
     border-radius: 18px;
-    border: 2px solid rgba(255, 255, 255, 0.16);
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: rgba(255, 255, 255, 0.02);
 }
 
 .osmin-tray-target:active {
-    border-color: rgba(255, 255, 255, 0.75);
-    background-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(60, 140, 255, 0.10);
 }
 
 .osmin-tray-target-box {
-    spacing: 14px;
+    spacing: 3px;
+    padding: 0 20px;
 }
 
 .osmin-tray-target-icon {
-    icon-size: 26px;
-    color: rgba(255, 255, 255, 0.55);
-}
-
-.osmin-tray-target:active .osmin-tray-target-icon {
-    color: white;
+    icon-size: 22px;
+    color: #3d8bff;
 }
 
 .osmin-tray-target-title {
-    color: white;
+    color: #3d8bff;
     font-size: 14px;
     font-weight: 700;
 }
