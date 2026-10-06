@@ -5,6 +5,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CardManager} from './services/cardManager.js';
+import {CalendarService} from './services/calendarService.js';
 import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
 import {FileService} from './services/fileService.js';
@@ -85,6 +86,7 @@ export class Osmin {
             media: new MediaService(),
             artwork: new ArtworkService(),
             files: new FileService(),
+            calendar: new CalendarService(),
         };
         this._drag = new DragService();
         this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({
@@ -101,6 +103,7 @@ export class Osmin {
         this._panelView.updateWorkspace(this._workspaces.getInfo());
         this._clock.start();
         this._services.media.start();
+        this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
         this._services.files.load().catch(e => console.warn(`[osmin] loading the file tray failed: ${e.message}`));
         this._drag.connectObject(
             'drag-started', (_s, uris) => this._onDragStarted(uris),
@@ -126,6 +129,7 @@ export class Osmin {
         this._services?.media.destroy();
         this._services?.artwork.destroy();
         this._services?.files.destroy();
+        this._services?.calendar.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = this._workspaces = null;
