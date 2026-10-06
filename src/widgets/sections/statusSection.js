@@ -6,8 +6,8 @@ import {createButton} from '../button.js';
 import {WorkspaceWidget} from '../workspaceWidget.js';
 
 /**
- * RIGHT section: workspace, placeholders for the future quick actions
- * (battery, Wi-Fi, volume) and the notifications container.
+ * RIGHT section: workspace and the notifications container. (Battery, Wi-Fi,
+ * volume etc. are deliberately left to GNOME's own quick settings.)
  */
 export class StatusSection extends St.BoxLayout {
     static {
@@ -28,19 +28,6 @@ export class StatusSection extends St.BoxLayout {
             onClick: onClose,
         }));
         this.add_child(header);
-
-        const quick = new St.BoxLayout({style_class: 'osmin-quick', x_expand: true});
-        for (const [icon, label] of [
-            ['battery-level-80-symbolic', '—'],
-            ['network-wireless-symbolic', '—'],
-            ['audio-volume-medium-symbolic', '—'],
-        ]) {
-            const tile = new St.BoxLayout({style_class: 'osmin-quick-tile', x_expand: true});
-            tile.add_child(new St.Icon({icon_name: icon, style_class: 'osmin-quick-icon'}));
-            tile.add_child(new St.Label({text: label, style_class: 'osmin-quick-label'}));
-            quick.add_child(tile);
-        }
-        this.add_child(quick);
 
         // Notifications container; the EventManager will feed it later.
         const notifications = new St.BoxLayout({

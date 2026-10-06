@@ -27,16 +27,16 @@ export const Layout = Object.freeze({
 
 // Duration (ms) and easing used when the capsule morphs INTO a state.
 export const Motion = Object.freeze({
-    [State.CLOSED]: {duration: 400, mode: Clutter.AnimationMode.EASE_OUT_CUBIC},
-    [State.HOVER]: {duration: 280, mode: Clutter.AnimationMode.EASE_OUT_BACK},
-    [State.OPEN]: {duration: 580, mode: Clutter.AnimationMode.EASE_OUT_QUINT},
-    [State.CARD]: {duration: 460, mode: Clutter.AnimationMode.EASE_OUT_BACK},
+    [State.CLOSED]: {duration: 260, mode: Clutter.AnimationMode.EASE_OUT_CUBIC},
+    [State.HOVER]: {duration: 170, mode: Clutter.AnimationMode.EASE_OUT_BACK},
+    [State.OPEN]: {duration: 340, mode: Clutter.AnimationMode.EASE_OUT_QUINT},
+    [State.CARD]: {duration: 320, mode: Clutter.AnimationMode.EASE_OUT_BACK},
 });
 
-export const HOVER_INTENT_MS = 80;    // pointer must rest this long before the capsule reacts
-export const OPEN_DWELL_MS = 260;     // ...and this long more before it opens
-export const HOVER_LEAVE_MS = 120;    // pointer left a hovering capsule
-export const OPEN_LEAVE_MS = 450;     // pointer left the open capsule
+export const HOVER_INTENT_MS = 50;    // pointer must rest this long before the capsule reacts
+export const OPEN_DWELL_MS = 150;     // ...and this long more before it opens
+export const HOVER_LEAVE_MS = 80;     // pointer left a hovering capsule
+export const OPEN_LEAVE_MS = 300;     // pointer left the open capsule
 export const INTERACTION_GRACE_MS = 1400; // extra time after the user clicked inside
 
 // Temporary "Test events" strip in the open capsule; set to false to hide it.

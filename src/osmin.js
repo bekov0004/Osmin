@@ -23,7 +23,7 @@ import {SignalTracker} from './utils/signals.js';
 import {Timers} from './utils/timers.js';
 
 // Resizing between two cards, or after a card update: calm, no overshoot.
-const RESIZE = {duration: 320, mode: Clutter.AnimationMode.EASE_OUT_CUBIC};
+const RESIZE = {duration: 220, mode: Clutter.AnimationMode.EASE_OUT_CUBIC};
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -154,8 +154,8 @@ export class Osmin {
             this._setState(State.CARD);
 
         fadeIn(widget, {
-            duration: 240,
-            delay: alreadyCard ? 60 : 140,
+            duration: 170,
+            delay: alreadyCard ? 30 : 80,
             onComplete: () => {
                 if (token === this._cardToken)
                     onShown();
@@ -172,7 +172,7 @@ export class Osmin {
         const token = ++this._cardToken;
 
         fadeOut(widget, {
-            duration: 110,
+            duration: 80,
             hide: false,
             onComplete: () => {
                 if (token !== this._cardToken)
@@ -191,7 +191,7 @@ export class Osmin {
                 this._cardSize = next.getSize();
                 this._applyGeometry(RESIZE);
                 fadeIn(next, {
-                    duration: 200,
+                    duration: 140,
                     onComplete: () => {
                         if (token === this._cardToken)
                             onDone();
@@ -209,7 +209,7 @@ export class Osmin {
             return;
         }
         fadeOut(widget, {
-            duration: 140,
+            duration: 100,
             hide: false,
             onComplete: () => {
                 widget.destroy();
@@ -396,10 +396,10 @@ export class Osmin {
         const previousView = previous ? this._views[previous] : null;
         const nextView = this._views[state];
         if (previousView && previousView !== nextView)
-            fadeOut(previousView, {duration: 110});
+            fadeOut(previousView, {duration: 80});
         if (previousView !== nextView) {
             if (animate && state !== State.CARD) {
-                fadeIn(nextView, {duration: 260, delay: state === State.CLOSED ? 120 : 160});
+                fadeIn(nextView, {duration: 170, delay: state === State.CLOSED ? 70 : 90});
             } else {
                 nextView.remove_all_transitions();
                 nextView.show();

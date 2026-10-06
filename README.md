@@ -13,8 +13,8 @@ on hover or click the same capsule grows into a wide panel.
 - **Hover** – the capsule swells slightly; if the pointer stays, it opens after a short dwell,
   so brushing across the top bar does nothing. Click opens it immediately.
 - **Expanded** – one wide capsule with three sections: media (placeholder), time + date + week
-  calendar (placeholder for a full calendar), and workspace / quick actions (placeholders) /
-  notifications container. Plus a temporary strip of test-event buttons.
+  calendar (placeholder for a full calendar), and workspace and a notifications
+  container (battery, Wi-Fi and volume are left to GNOME's quick settings). Plus a temporary strip of test-event buttons.
 - **Stays while you use it**, collapses shortly after the pointer leaves.
 - **Cards** – any event can show a card in the capsule (queue, priorities); see "Events and cards".
 - `Super+V` (the "toggle calendar" shortcut) toggles Osmin instead of the hidden calendar popup.
@@ -31,8 +31,8 @@ on hover or click the same capsule grows into a wide panel.
 - Sizes (CSS px, multiplied by the UI scale): collapsed = text width + 30 (min 88) by panel height − 6;
   open = 36 % of the monitor width clamped to 620–780 (and to the screen minus margins), height from
   the content (about 180). Constants are in `src/utils/constants.js`.
-- Timing: rest 80 ms, swell, open after 260 ms more; collapse 450 ms after the pointer leaves
-  (+1.4 s if you just clicked inside).
+- Timing: rest 50 ms, swell, open after 150 ms more (opening itself takes 340 ms); collapse 300 ms
+  after the pointer leaves (+1.4 s if you just clicked inside). All values are in `src/utils/constants.js`.
 
 ## Known limitations
 
