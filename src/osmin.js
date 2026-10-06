@@ -77,7 +77,7 @@ export class Osmin {
         this._lastInteraction = 0;
         this._pinned = false;
         this._dragUris = null;
-        this._dragArmed = false;
+        this._dragArmed = null;
         this._compactActivity = null;
         this._openPage = null;
         this._destroying = false;
@@ -554,7 +554,7 @@ export class Osmin {
 
     _onDragStarted(uris) {
         this._dragUris = uris;
-        this._dragArmed = false;
+        this._dragArmed = null;
         this._panelView.tray.setDrop({active: false, count: uris.length});
     }
 
@@ -568,27 +568,26 @@ export class Osmin {
         if (hot && this._state !== State.DROP) {
             this._setState(State.DROP);
         } else if (!hot && this._state === State.DROP) {
-            this._dragArmed = false;
+            this._dragArmed = null;
             this._setState(State.CLOSED);
         }
 
         if (this._state === State.DROP && this._target) {
-            const margin = scaled(Layout.DROP_ARM_MARGIN);
-            const t = this._target;
-            this._dragArmed = x >= t.x - margin && x <= t.x + t.width + margin &&
-                y >= t.y - margin && y <= t.y + t.height + margin;
-            this._panelView.setDrop({active: true, armed: this._dragArmed, count: this._dragUris.length});
+            this._dragArmed = this._panelView.tray.zoneAt(x, y, scaled(Layout.DROP_ARM_MARGIN));
+            this._panelView.setDrop({active: true, zone: this._dragArmed, count: this._dragUris.length});
         }
     }
 
     async _onDragEnded({dropped, uris}) {
-        const armed = this._dragArmed;
+        const zone = this._dragArmed;
         this._dragUris = null;
-        this._dragArmed = false;
+        this._dragArmed = null;
 
         // The tray's activity shows the "Adding / Added" card.
-        if (dropped && armed)
+        if (dropped && zone === 'tray')
             await this._services.files.add(uris);
+        else if (dropped && zone === 'bluetooth')
+            this._services.files.sendViaBluetooth(uris);
         this._panelView?.setDrop({active: false});
         if (this._state === State.DROP)
             this._setState(State.CLOSED);

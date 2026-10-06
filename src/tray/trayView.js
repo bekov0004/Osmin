@@ -23,7 +23,7 @@ export class TrayView extends St.BoxLayout {
             y_expand: true,
         });
         this._files = files;
-        this._drop = {active: false, armed: false, count: 0};
+        this._drop = {active: false, zone: null, count: 0};
 
         const header = new St.BoxLayout({style_class: 'osmin-tray-header'});
         this._caption = new St.Label({
@@ -88,7 +88,37 @@ export class TrayView extends St.BoxLayout {
         targetBox.add_child(this._targetTitle);
         targetBox.add_child(this._targetHint);
         this._target.add_child(targetBox);
-        area.add_child(this._target);
+
+        // Second drop target (like AirDrop on the Mac): send the files by Bluetooth.
+        this._bluetooth = new St.BoxLayout({
+            vertical: true,
+            style_class: 'osmin-tray-bluetooth',
+            x_expand: true,
+            y_expand: true,
+            y_align: Clutter.ActorAlign.FILL,
+            visible: false,
+        });
+        const btBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'osmin-tray-target-box',
+            x_expand: true,
+            y_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        btBox.add_child(new St.Icon({
+            icon_name: 'bluetooth-active-symbolic',
+            style_class: 'osmin-tray-bluetooth-icon',
+            x_align: Clutter.ActorAlign.START,
+        }));
+        btBox.add_child(new St.Label({text: 'Bluetooth', style_class: 'osmin-tray-bluetooth-title'}));
+        btBox.add_child(new St.Label({text: 'Send to a device', style_class: 'osmin-tray-target-hint'}));
+        this._bluetooth.add_child(btBox);
+
+        const targets = new St.BoxLayout({x_expand: true, y_expand: true, style_class: 'osmin-tray-targets'});
+        targets.add_child(this._target);
+        targets.add_child(this._bluetooth);
+        this._targets = targets;
+        area.add_child(targets);
 
         this._files.connectObject('changed', () => this._rebuild(), this);
         this._rebuild();
@@ -100,19 +130,34 @@ export class TrayView extends St.BoxLayout {
     }
 
     /**
-     * @param {{active: boolean, armed?: boolean, count?: number}} drop
-     *   active: files are being dragged over the capsule; armed: the pointer
-     *   is over the target, so releasing now adds them.
+     * @param {{active: boolean, zone?: string|null, count?: number}} drop
+     *   active: files are being dragged over the capsule; zone: 'tray' or
+     *   'bluetooth' while the pointer is over that target (releasing now uses it).
      */
-    setDrop({active, armed = false, count = this._drop.count}) {
-        this._drop = {active, armed, count};
+    setDrop({active, zone = null, count = this._drop.count}) {
+        this._drop = {active, zone, count};
         this._update();
+    }
+
+    /** The drop target under a stage point (with a margin), or null. */
+    zoneAt(x, y, margin = 0) {
+        const inside = actor => {
+            if (!actor.visible)
+                return false;
+            const [ax, ay] = actor.get_transformed_position();
+            const [w, h] = actor.get_transformed_size();
+            return Number.isFinite(ax) && x >= ax - margin && x <= ax + w + margin &&
+                y >= ay - margin && y <= ay + h + margin;
+        };
+        if (inside(this._bluetooth))
+            return 'bluetooth';
+        return inside(this._target) ? 'tray' : null;
     }
 
     _paintOutline(area) {
         const cr = area.get_context();
         const [w, h] = area.get_surface_size();
-        const armed = this._drop.armed && this._drop.active;
+        const armed = this._drop.zone === 'tray' && this._drop.active;
         const r = 18;
         const x = 1.5, y = 1.5, ww = w - 3, hh = h - 3;
         cr.newSubPath();
@@ -149,7 +194,8 @@ export class TrayView extends St.BoxLayout {
 
     _update() {
         const count = this._files.items.length;
-        const {active, armed, count: dragged} = this._drop;
+        const {active, zone, count: dragged} = this._drop;
+        const armed = zone === 'tray';
         this._caption.text = count > 0 ? `TRAY · ${count}` : 'TRAY';
         this._clear.visible = count > 0 && !active;
 
@@ -171,9 +217,14 @@ export class TrayView extends St.BoxLayout {
             this._target.add_style_pseudo_class('active');
         else
             this._target.remove_style_pseudo_class('active');
+        this._bluetooth.visible = active;
+        if (zone === 'bluetooth' && active)
+            this._bluetooth.add_style_pseudo_class('active');
+        else
+            this._bluetooth.remove_style_pseudo_class('active');
         this._outline.queue_repaint();
         // While dragging over a full tray the target covers the files.
-        this._target.opacity = active && count > 0 ? 235 : 255;
+        this._targets.opacity = active && count > 0 ? 235 : 255;
     }
 
     _onScroll(event) {

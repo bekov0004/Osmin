@@ -102,6 +102,18 @@ export class FileService extends Signals.EventEmitter {
         });
     }
 
+    /** Opens GNOME's Bluetooth "send files" dialog for the files. */
+    sendViaBluetooth(uris) {
+        const paths = uris.map(uri => Gio.File.new_for_uri(uri).get_path()).filter(Boolean);
+        if (paths.length === 0)
+            return;
+        try {
+            GLib.spawn_async(null, ['bluetooth-sendto', ...paths], null, GLib.SpawnFlags.SEARCH_PATH, null);
+        } catch (e) {
+            console.warn(`[osmin] bluetooth-sendto failed: ${e.message}`);
+        }
+    }
+
     /** Selects the file in the file manager (FileManager1), or opens its folder. */
     showInFolder(uri) {
         Gio.DBus.session.call('org.freedesktop.FileManager1', '/org/freedesktop/FileManager1',

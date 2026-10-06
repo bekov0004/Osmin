@@ -187,7 +187,7 @@ export class OsminPanel extends St.BoxLayout {
      * Files are being dragged over the capsule: show the tray as the drop
      * target (and go back to what was shown when the drag ends).
      */
-    setDrop({active, armed = false, count = 0}) {
+    setDrop({active, zone = null, count = 0}) {
         if (active) {
             if (this._modeBeforeDrop === null)
                 this._modeBeforeDrop = this._mode;
@@ -198,7 +198,7 @@ export class OsminPanel extends St.BoxLayout {
             // After a drag the capsule shows the tray (or closes); never the widgets by surprise.
             this.setMode(before, {animate: false});
         }
-        this._tray.setDrop({active, armed, count});
+        this._tray.setDrop({active, zone, count});
     }
 
     /** Shows what the widget with this id has to offer (a page or the tray). */

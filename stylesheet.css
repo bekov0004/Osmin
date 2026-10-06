@@ -646,6 +646,30 @@
     background-color: rgba(60, 140, 255, 0.10);
 }
 
+.osmin-tray-targets {
+    spacing: 10px;
+}
+
+.osmin-tray-bluetooth {
+    border-radius: 18px;
+    background-color: rgba(20, 60, 130, 0.55);
+}
+
+.osmin-tray-bluetooth:active {
+    background-color: rgba(40, 110, 230, 0.75);
+}
+
+.osmin-tray-bluetooth-icon {
+    icon-size: 22px;
+    color: #4a9bff;
+}
+
+.osmin-tray-bluetooth-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+}
+
 .osmin-tray-target-box {
     spacing: 3px;
     padding: 0 20px;
