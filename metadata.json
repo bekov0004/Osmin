@@ -1,0 +1,8 @@
+{
+  "uuid": "osmin@bekov0004.github.io",
+  "name": "Osmin",
+  "description": "A Dynamic Island-style interactive panel at the top center of the screen.",
+  "shell-version": ["50"],
+  "url": "https://github.com/bekov0004/Osmin",
+  "version-name": "0.1.0"
+}
