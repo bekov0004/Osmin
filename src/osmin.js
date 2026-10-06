@@ -4,19 +4,19 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
-import {createTestActions} from './debug/testEvents.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
 import {EventManager} from './services/eventManager.js';
 import {PanelService} from './services/panelService.js';
 import {WorkspaceService} from './services/workspaceService.js';
-import {ClosedView} from './widgets/closedView.js';
-import {OpenView} from './widgets/openView.js';
-import {cardClassFor, createCard} from './widgets/cardFactory.js';
+import {ClosedView} from './ui/closedView.js';
+import {OsminPanel} from './ui/osminPanel.js';
+import {cardClassFor, createCard} from './ui/cardFactory.js';
+import {WIDGET_CLASSES} from './widgets/registry.js';
 import {animDuration, fadeIn, fadeOut} from './utils/animation.js';
 import {
     HOVER_INTENT_MS, HOVER_LEAVE_MS, INTERACTION_GRACE_MS, Layout, Motion, OPEN_DWELL_MS,
-    OPEN_LEAVE_MS, SHOW_DEBUG_ACTIONS, State,
+    OPEN_LEAVE_MS, State,
 } from './utils/constants.js';
 import {getScaleFactor, scaled} from './utils/scale.js';
 import {SignalTracker} from './utils/signals.js';
@@ -65,7 +65,7 @@ export class Osmin {
             onToggleRequest: () => this.toggle(),
         });
         this._clock = new ClockService(now => this._onTick(now));
-        this._workspaces = new WorkspaceService(info => this._openView.updateWorkspace(info));
+        this._workspaces = new WorkspaceService(info => this._panelView.updateWorkspace(info));
         this._events = new EventManager();
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
@@ -74,6 +74,7 @@ export class Osmin {
                 this._closedView.setActivity(true);
         });
 
+        this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({events: this._events}));
         this._buildActor();
         this._panel.enable();
         Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
@@ -81,7 +82,7 @@ export class Osmin {
         this._signals.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this._relayout());
 
-        this._openView.updateWorkspace(this._workspaces.getInfo());
+        this._panelView.updateWorkspace(this._workspaces.getInfo());
         this._clock.start();
         this._applyState(State.CLOSED, {animate: false});
     }
@@ -94,6 +95,8 @@ export class Osmin {
         this._events?.destroy();
         this._clock?.destroy();
         this._workspaces?.destroy();
+        this._widgets?.forEach(widget => widget.destroy());
+        this._widgets = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = this._workspaces = null;
 
@@ -266,15 +269,15 @@ export class Osmin {
             x_expand: true,
             y_expand: true,
         });
-        this._openView = new OpenView({
+        this._panelView = new OsminPanel({
+            widgets: this._widgets,
             onClose: () => this.close(),
-            debugActions: SHOW_DEBUG_ACTIONS ? createTestActions(this._events) : [],
         });
         // CLOSED and HOVER share one view: only the capsule size differs.
         this._views = {
             [State.CLOSED]: this._closedView,
             [State.HOVER]: this._closedView,
-            [State.OPEN]: this._openView,
+            [State.OPEN]: this._panelView,
             [State.CARD]: this._cardLayer,
         };
         for (const view of new Set(Object.values(this._views))) {
@@ -300,7 +303,7 @@ export class Osmin {
 
     _onTick(now) {
         this._closedView.setTime(formatTime(now, {timeOnly: true}));
-        this._openView.updateClock(now);
+        this._panelView.tick(now);
         // The collapsed capsule is as wide as its time text.
         if (this._actor && (this._state === State.CLOSED || this._state === State.HOVER))
             this._applyGeometry({duration: 200});
@@ -407,7 +410,10 @@ export class Osmin {
             }
         }
 
+        if (previous === State.OPEN)
+            this._panelView.setOpen(false);
         if (state === State.OPEN) {
+            this._panelView.setOpen(true);
             this._closedView.setActivity(false);
             if (!this._actor.hover && !this._pinned)
                 this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
@@ -437,8 +443,8 @@ export class Osmin {
             clamp(availableCss * Layout.OPEN_WIDTH_RATIO, Layout.OPEN_MIN_WIDTH, Layout.OPEN_MAX_WIDTH),
             availableCss - 2 * Layout.SCREEN_MARGIN);
         const width = Math.round(widthCss * scale);
-        this._openView.set_width(width);
-        const height = Math.min(this._openView.getHeightForWidth(width),
+        this._panelView.setWidth(width);
+        const height = Math.min(this._panelView.getHeightForWidth(width),
             Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO));
         return {width, height};
     }

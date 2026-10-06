@@ -18,9 +18,11 @@ export const Layout = Object.freeze({
     // How much the capsule swells on hover, before it opens.
     HOVER_GROW: 14,
     // Expanded capsule: a share of the monitor width, clamped.
-    OPEN_WIDTH_RATIO: 0.36,
-    OPEN_MIN_WIDTH: 620,
-    OPEN_MAX_WIDTH: 780,
+    OPEN_WIDTH_RATIO: 0.38,
+    OPEN_MIN_WIDTH: 660,
+    OPEN_MAX_WIDTH: 820,
+    // Widgets shown side by side on one page of the expanded capsule.
+    COLUMNS: 3,
     SCREEN_MARGIN: 24,
     OPEN_MAX_HEIGHT_RATIO: 0.5,
 });
@@ -40,4 +42,4 @@ export const OPEN_LEAVE_MS = 300;     // pointer left the open capsule
 export const INTERACTION_GRACE_MS = 1400; // extra time after the user clicked inside
 
 // Temporary "Test events" strip in the open capsule; set to false to hide it.
-export const SHOW_DEBUG_ACTIONS = true;
+export const SHOW_DEBUG_ACTIONS = false;

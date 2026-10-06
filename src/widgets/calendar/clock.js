@@ -4,9 +4,9 @@ import St from 'gi://St';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 /** Large time with the date underneath (follows the 12/24 h system setting). */
-export class ClockWidget extends St.BoxLayout {
+export class CalendarClock extends St.BoxLayout {
     static {
-        GObject.registerClass({GTypeName: 'OsminClockWidget'}, this);
+        GObject.registerClass({GTypeName: 'OsminCalendarClock'}, this);
     }
 
     constructor() {

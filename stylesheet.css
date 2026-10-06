@@ -26,79 +26,71 @@
     background-color: #f2a93b;
 }
 
-/* Open: LEFT | CENTER | RIGHT */
-.osmin-open-view {
-    padding: 16px 18px;
+/* Open: pages of widget columns + footer */
+.osmin-panel {
+    padding: 14px 0 8px 0;
 }
 
-.osmin-sections {
+.osmin-pages {
+    height: 172px;
+}
+
+.osmin-page {
     spacing: 0;
 }
 
-.osmin-section {
+.osmin-column {
+    padding: 0 18px;
+}
+
+.osmin-column-separated {
+    border-left-width: 1px;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.osmin-widget {
     spacing: 8px;
 }
 
-.osmin-divider {
-    width: 1px;
-    margin: 4px 14px;
-    background-color: rgba(255, 255, 255, 0.09);
-}
-
-.osmin-media-section,
-.osmin-status-section {
-    width: 176px;
-}
-
-.osmin-calendar-section {
-    spacing: 10px;
-}
-
-/* Media (placeholder) */
-.osmin-media-top {
-    spacing: 10px;
-}
-
-.osmin-media-art {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.07);
-}
-
-.osmin-media-art-icon {
-    icon-size: 22px;
-    color: rgba(255, 255, 255, 0.45);
-}
-
-.osmin-media-texts {
-    spacing: 1px;
-}
-
-.osmin-media-title {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.osmin-media-subtitle {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 11px;
-}
-
-.osmin-media-controls {
-    spacing: 18px;
-}
-
-.osmin-media-control {
-    icon-size: 16px;
+.osmin-placeholder-icon {
+    icon-size: 28px;
     color: rgba(255, 255, 255, 0.28);
 }
 
-/* Clock and week */
+.osmin-placeholder-title {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.osmin-footer {
+    padding: 6px 18px 0 18px;
+    height: 24px;
+}
+
+.osmin-dots {
+    spacing: 6px;
+}
+
+.osmin-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+.osmin-dot-active {
+    background-color: rgba(255, 255, 255, 0.85);
+}
+
+/* Calendar widget (until the full calendar lands) */
+.osmin-calendar-widget {
+    spacing: 10px;
+}
+
 .osmin-clock-time {
     color: white;
-    font-size: 36px;
+    font-size: 34px;
     font-weight: 300;
 }
 
@@ -119,13 +111,13 @@
 
 .osmin-week-name {
     color: rgba(255, 255, 255, 0.38);
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
 }
 
 .osmin-week-number {
     color: rgba(255, 255, 255, 0.8);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -141,15 +133,11 @@
     color: black;
 }
 
-/* Status */
-.osmin-status-header {
-    spacing: 6px;
-}
-
+/* Workspace chip */
 .osmin-workspace {
     background-color: rgba(255, 255, 255, 0.07);
     border-radius: 12px;
-    padding: 4px 10px;
+    padding: 3px 10px;
     spacing: 6px;
 }
 
@@ -162,20 +150,6 @@
     color: rgba(255, 255, 255, 0.85);
     font-size: 11px;
     font-weight: 600;
-}
-
-.osmin-notifications {
-    spacing: 6px;
-}
-
-.osmin-notifications-icon {
-    icon-size: 13px;
-    color: rgba(255, 255, 255, 0.35);
-}
-
-.osmin-notifications-label {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 11px;
 }
 
 /* Buttons */
@@ -211,17 +185,6 @@
 .osmin-close-button {
     width: 24px;
     height: 24px;
-    border-radius: 12px;
-}
-
-/* Temporary test-events strip */
-.osmin-debug-strip {
-    spacing: 6px;
-    margin-top: 12px;
-}
-
-.osmin-debug-button {
-    height: 28px;
     border-radius: 12px;
 }
 
