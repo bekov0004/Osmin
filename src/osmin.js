@@ -18,7 +18,9 @@ import {MediaService} from './services/mediaService.js';
 import {PanelService} from './services/panelService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
+import {ClipboardView} from './clipboard/clipboardView.js';
 import {DragOutService} from './tray/dragOut.js';
+import {ClipboardService} from './services/clipboardService.js';
 import {TrayController} from './tray/trayController.js';
 import {ClosedView} from './ui/closedView.js';
 import {Ear} from './ui/ear.js';
@@ -117,6 +119,10 @@ export class Osmin {
             timer: new TimerService(),
             todo: new TodoService(),
             camera: new CameraService(),
+            clipboard: new ClipboardService({
+                keepHistory: () => this._settings.get('clipboard-keep-history'),
+                maxItems: () => this._settings.get('clipboard-max-items'),
+            }),
         };
         this._services.activities.attach({
             cards: this._cards,
@@ -128,6 +134,14 @@ export class Osmin {
             onEnd: () => this._endDragOut(),
         });
         this._tray = new TrayController({services: this._services, settings: this._settings, dragOut: this._dragOut});
+        this._clipboardView = new ClipboardView({
+            service: this._services.clipboard,
+            ui: {
+                beginTextInput: onEnd => this._beginTextInput(onEnd),
+                endTextInput: () => this._endTextInput(),
+            },
+            onPaste: item => this._pasteClipboardItem(item),
+        });
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
@@ -158,6 +172,7 @@ export class Osmin {
         this._tray.start();
         this._services.timer.load();
         this._services.todo.load();
+        this._services.clipboard.start();
         this._clock.start();
         this._services.media.start();
         this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
@@ -192,6 +207,8 @@ export class Osmin {
         this._widgets = null;
         this._tray?.destroy();
         this._tray = null;
+        this._clipboardView?.destroy();
+        this._clipboardView = null;
         this._dragOut?.destroy();
         this._dragOut = null;
         this._drag?.destroy();
@@ -204,6 +221,7 @@ export class Osmin {
         this._services?.timer.destroy();
         this._services?.todo.destroy();
         this._services?.camera.destroy();
+        this._services?.clipboard.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;
@@ -361,6 +379,7 @@ export class Osmin {
         const panel = new OsminPanel({
             widgets: this._widgets,
             tray: this._tray.view,
+            clipboard: this._clipboardView,
             onOpenSettings: () => {
                 this._settle();
                 this._openPreferences();
@@ -616,6 +635,20 @@ export class Osmin {
         this._panelView?.setDrop({active: false});
         if (this._state === State.DROP)
             this._setState(State.CLOSED);
+    }
+
+    // --- clipboard -------------------------------------------------------------
+
+    /** A card was clicked: put it on the clipboard and, by default, paste it where you were. */
+    _pasteClipboardItem(item) {
+        const clipboard = this._services.clipboard;
+        clipboard.copy(item.id);
+        if (!this._settings.get('clipboard-click-pastes'))
+            return;
+        this._endTextInput();
+        this._timers.clear('dwell');
+        this._setState(State.CLOSED);
+        clipboard.sendPaste();
     }
 
     // --- dragging files out of the tray ----------------------------------------

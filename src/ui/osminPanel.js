@@ -5,7 +5,8 @@ import St from 'gi://St';
 import {animDuration} from '../utils/animation.js';
 import {createButton} from './button.js';
 
-export const PanelMode = Object.freeze({OSMIN: 'osmin', TRAY: 'tray'});
+export const PanelMode = Object.freeze({OSMIN: 'osmin', TRAY: 'tray', CLIPBOARD: 'clipboard'});
+const MODE_ORDER = [PanelMode.OSMIN, PanelMode.TRAY, PanelMode.CLIPBOARD];
 
 const px = (css, scale) => Math.round(css * scale);
 
@@ -24,8 +25,8 @@ export class OsminPanel extends St.BoxLayout {
         GObject.registerClass({GTypeName: 'OsminPanel'}, this);
     }
 
-    /** @param {{widgets: OsminWidget[], tray: TrayView, onOpenSettings: Function}} params */
-    constructor({widgets, tray, onOpenSettings}) {
+    /** @param {{widgets: OsminWidget[], tray: TrayView, clipboard: ClipboardView, onOpenSettings: Function}} params */
+    constructor({widgets, tray, clipboard, onOpenSettings}) {
         super({
             vertical: true,
             style_class: 'osmin-panel',
@@ -34,6 +35,7 @@ export class OsminPanel extends St.BoxLayout {
         });
         this._widgets = widgets;
         this._tray = tray;
+        this._clipboard = clipboard;
         this._pages = [];
         this._signature = '';
         this._pageIndex = 0;
@@ -56,8 +58,11 @@ export class OsminPanel extends St.BoxLayout {
         });
         this._tray.opacity = 0;
         this._tray.hide();
+        this._clipboard.opacity = 0;
+        this._clipboard.hide();
         this._body.add_child(this._osminView);
         this._body.add_child(this._tray);
+        this._body.add_child(this._clipboard);
         this.add_child(this._body);
     }
 
@@ -77,9 +82,25 @@ export class OsminPanel extends St.BoxLayout {
         return this._tray;
     }
 
+    get clipboard() {
+        return this._clipboard;
+    }
+
     /** Lets go of the tray view (owned by the tray controller) before this panel is destroyed. */
     remove_tray() {
         this._body.remove_child(this._tray);
+        this._body.remove_child(this._clipboard);
+    }
+
+    _viewFor(mode) {
+        switch (mode) {
+        case PanelMode.TRAY:
+            return this._tray;
+        case PanelMode.CLIPBOARD:
+            return this._clipboard;
+        default:
+            return this._osminView;
+        }
     }
 
     // --- layout ---------------------------------------------------------
@@ -151,11 +172,14 @@ export class OsminPanel extends St.BoxLayout {
     setMode(mode, {animate = true} = {}) {
         if (mode === this._mode)
             return;
-        const from = this._mode === PanelMode.OSMIN ? this._osminView : this._tray;
-        const to = mode === PanelMode.OSMIN ? this._osminView : this._tray;
+        const from = this._viewFor(this._mode);
+        const to = this._viewFor(mode);
+        const forward = MODE_ORDER.indexOf(mode) > MODE_ORDER.indexOf(this._mode);
 
         if (this._mode === PanelMode.OSMIN)
             this.setOpen(false);
+        if (this._mode === PanelMode.CLIPBOARD)
+            this._clipboard.stopTyping();
         this._mode = mode;
         if (mode === PanelMode.OSMIN)
             this.setOpen(true);
@@ -164,7 +188,7 @@ export class OsminPanel extends St.BoxLayout {
 
         from.remove_all_transitions();
         to.remove_all_transitions();
-        const shift = animate ? px(18, this._scale) * (mode === PanelMode.TRAY ? 1 : -1) : 0;
+        const shift = animate ? px(18, this._scale) * (forward ? 1 : -1) : 0;
         from.ease({
             opacity: 0,
             translation_x: -shift,
@@ -203,8 +227,8 @@ export class OsminPanel extends St.BoxLayout {
 
     /** Shows what the widget with this id has to offer (a page or the tray). */
     showWidget(id) {
-        if (id === 'tray') {
-            this.setMode(PanelMode.TRAY, {animate: false});
+        if (id === 'tray' || id === 'clipboard') {
+            this.setMode(id === 'tray' ? PanelMode.TRAY : PanelMode.CLIPBOARD, {animate: false});
             return;
         }
         const index = this._pages.findIndex(page => page.widgets.some(w => w.constructor.id === id));
@@ -299,13 +323,9 @@ export class OsminPanel extends St.BoxLayout {
     }
 
     _contentTargets() {
-        if (this._mode === PanelMode.TRAY)
-            return [this._trayContent()];
+        if (this._mode !== PanelMode.OSMIN)
+            return [this._viewFor(this._mode)];
         return this._pages[this._pageIndex]?.holders ?? [];
-    }
-
-    _trayContent() {
-        return this._tray;
     }
 
     // --- building ---------------------------------------------------------
@@ -328,6 +348,7 @@ export class OsminPanel extends St.BoxLayout {
         for (const [mode, label, icon] of [
             [PanelMode.OSMIN, 'Osmin', 'view-grid-symbolic'],
             [PanelMode.TRAY, 'Tray', 'folder-download-symbolic'],
+            [PanelMode.CLIPBOARD, 'Clipboard', 'edit-paste-symbolic'],
         ]) {
             const tab = createButton({
                 label,

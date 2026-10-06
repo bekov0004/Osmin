@@ -166,6 +166,25 @@
       <description>Makes the collapsed capsule wider or narrower, in pixels.</description>
     </key>
 
+    <key name="clipboard-keep-history" type="b">
+      <default>false</default>
+      <summary>Keep the clipboard history</summary>
+      <description>Save everything you copied on disk and restore it after a restart. Pinned items and notes are always saved.</description>
+    </key>
+
+    <key name="clipboard-max-items" type="i">
+      <range min="5" max="100"/>
+      <default>30</default>
+      <summary>History size</summary>
+      <description>How many unpinned items the clipboard history keeps.</description>
+    </key>
+
+    <key name="clipboard-click-pastes" type="b">
+      <default>true</default>
+      <summary>A click pastes</summary>
+      <description>Clicking an item puts it in the app you were using (Ctrl+V). If off, it is only copied.</description>
+    </key>
+
     <key name="tray-keep-files" type="b">
       <default>true</default>
       <summary>Keep tray files</summary>

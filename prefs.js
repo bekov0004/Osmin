@@ -64,7 +64,7 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-toolbar { background-color: ${p.TOOLBAR}; border-bottom: 1px solid ${p.BORDER};
     padding: 8px 10px 8px 10px; }
 .osmin-tab { background: none; box-shadow: none; border: none; border-radius: 9px;
-    padding: 6px 10px 5px 10px; min-width: 62px; color: ${p.TEXT_SECONDARY};
+    padding: 6px 6px 5px 6px; min-width: 56px; color: ${p.TEXT_SECONDARY};
     transition: background-color 120ms ease, color 120ms ease; }
 .osmin-tab:hover { background-color: ${p.HOVER}; }
 .osmin-tab:checked { background-color: ${p.SELECTED}; color: ${p.ACCENT}; }
@@ -144,7 +144,7 @@ const ALL_APPEARANCE_KEYS = ['corner-radius', 'background-opacity', 'shadow-stre
 export default class OsminPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window.set_default_size(660, 780);
+        window.set_default_size(780, 780);
         window.title = _('Osmin');
         window.search_enabled = false;
 
@@ -163,6 +163,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             ['appearance', _('Appearance'), 'applications-graphics-symbolic', this._appearancePage(settings)],
             ['gestures', _('Gestures'), 'input-touchpad-symbolic', this._gesturesPage(settings)],
             ['tray', _('Tray'), 'folder-download-symbolic', this._trayPage(settings)],
+            ['clipboard', _('Clipboard'), 'edit-paste-symbolic', this._clipboardPage(settings)],
             ['activities', _('Live Activities'), 'media-playback-start-symbolic', this._activitiesPage(settings)],
             ['about', _('About'), 'help-about-symbolic', this._aboutPage()],
         ];
@@ -838,6 +839,27 @@ export default class OsminPreferences extends ExtensionPreferences {
                 'The files themselves are never copied or moved.'));
 
         this._resetRow(form, settings, ['tray-keep-files']);
+        return body;
+    }
+
+    // --- Clipboard ----------------------------------------------------------
+
+    _clipboardPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+
+        this._toggleRow(form, settings, 'clipboard-click-pastes', _('Clipboard'), _('A click pastes'),
+            _('Clicking an item puts it in the app you were using (Ctrl+V). Off: it is only copied.'));
+        this._rule(form);
+        this._toggleRow(form, settings, 'clipboard-keep-history', _('History'), _('Keep history after a restart'),
+            _('Off: only pinned items and your notes are saved on disk, so copied passwords are not.'));
+        this._row(form, _('History size'), this._slider(settings, 'clipboard-max-items', [5, 100, 5]),
+            _('How many unpinned items are kept.'));
+        this._row(form, '', new Gtk.Box(),
+            _('Only text is recorded. Items copied from password managers are skipped.'));
+
+        this._resetRow(form, settings, ['clipboard-click-pastes', 'clipboard-keep-history', 'clipboard-max-items']);
         return body;
     }
 

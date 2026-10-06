@@ -39,6 +39,11 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
   target sends the files by Bluetooth (GNOME's *Send files* dialog). **Drag a file out of the tray**
   into any other app or folder.
+- **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
+  first. A click puts it into the app you were using (Ctrl+V; or only copies, see the settings); hover
+  for copy / pin / remove. The first card is for your own notes (Enter saves them). Pinned items and
+  notes are saved; the rest of the history is only kept in memory unless you turn on *Keep history*.
+  Only text is recorded and password managers' copies are skipped.
 - **Live Activities** – a running timer, music, or a meeting within 10 minutes takes the place of
   the time in the collapsed capsule; track changes, meetings, a finished timer and added files pop out
   as short cards hanging from the top. Clicking a card opens its widget.
@@ -48,7 +53,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   click flips between activities or plays / pauses. All of it (and *invert direction*) is in the
   Gestures settings.
 - **Settings** (the ⚙ in the header, or `gnome-extensions prefs`) – a window with these pages: General, Osmin (widgets: on/off, order, width in cells, a live preview, auto or fixed
-  capsule width), Appearance, Gestures, Tray, Live Activities (album corner radius, spectrum or waves
+  capsule width), Appearance, Gestures, Tray, Clipboard, Live Activities (album corner radius, spectrum or waves
   effect, colours from the album art), About. Changes apply live.
 
 `Super+V` (the "toggle calendar" shortcut) toggles Osmin instead of the hidden calendar popup.
