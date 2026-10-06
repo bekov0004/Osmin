@@ -6,12 +6,15 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
+import {DragService} from './services/dragService.js';
+import {FileService} from './services/fileService.js';
 import {ArtworkService} from './services/artworkService.js';
 import {EventManager} from './services/eventManager.js';
 import {MediaService} from './services/mediaService.js';
 import {PanelService} from './services/panelService.js';
 import {WorkspaceService} from './services/workspaceService.js';
 import {ClosedView} from './ui/closedView.js';
+import {DropView} from './ui/dropView.js';
 import {OsminPanel} from './ui/osminPanel.js';
 import {cardClassFor, createCard} from './ui/cardFactory.js';
 import {WIDGET_CLASSES} from './widgets/registry.js';
@@ -54,6 +57,8 @@ export class Osmin {
         this._target = null;
         this._lastInteraction = 0;
         this._pinned = false;
+        this._dragUris = null;
+        this._dragArmed = false;
     }
 
     /** Sources emit events here: `osmin.events.emit({...})`. */
@@ -76,7 +81,12 @@ export class Osmin {
                 this._closedView.setActivity(true);
         });
 
-        this._services = {media: new MediaService(), artwork: new ArtworkService()};
+        this._services = {
+            media: new MediaService(),
+            artwork: new ArtworkService(),
+            files: new FileService(),
+        };
+        this._drag = new DragService();
         this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({
             events: this._events,
             services: this._services,
@@ -91,6 +101,13 @@ export class Osmin {
         this._panelView.updateWorkspace(this._workspaces.getInfo());
         this._clock.start();
         this._services.media.start();
+        this._services.files.load().catch(e => console.warn(`[osmin] loading the file tray failed: ${e.message}`));
+        this._drag.connectObject(
+            'drag-started', (_s, uris) => this._onDragStarted(uris),
+            'drag-moved', (_s, x, y) => this._onDragMoved(x, y),
+            'drag-ended', (_s, result) => this._onDragEnded(result),
+            this);
+        this._drag.start();
         this._applyState(State.CLOSED, {animate: false});
     }
 
@@ -104,8 +121,11 @@ export class Osmin {
         this._workspaces?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
         this._widgets = null;
+        this._drag?.destroy();
+        this._drag = null;
         this._services?.media.destroy();
         this._services?.artwork.destroy();
+        this._services?.files.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = this._workspaces = null;
@@ -274,6 +294,7 @@ export class Osmin {
         this._actor.set_child(this._content);
 
         this._closedView = new ClosedView();
+        this._dropView = new DropView();
         this._cardLayer = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
@@ -289,6 +310,7 @@ export class Osmin {
             [State.HOVER]: this._closedView,
             [State.OPEN]: this._panelView,
             [State.CARD]: this._cardLayer,
+            [State.DROP]: this._dropView,
         };
         for (const view of new Set(Object.values(this._views))) {
             view.opacity = 0;
@@ -309,6 +331,59 @@ export class Osmin {
             }
             return Clutter.EVENT_PROPAGATE;
         });
+    }
+
+    // --- dragging files onto the capsule -----------------------------------
+
+    _onDragStarted(uris) {
+        this._dragUris = uris;
+        this._dragArmed = false;
+        this._dropView.setCount(uris.length);
+    }
+
+    _onDragMoved(x, y) {
+        if (!this._dragUris || this._state === State.CARD)
+            return;
+        const geo = this._panel.getGeometry();
+        const hot = Math.abs(x - geo.centerX) <= scaled(Layout.DROP_HOT_HALF_WIDTH) &&
+            y <= geo.top + scaled(Layout.DROP_HOT_HEIGHT);
+
+        if (hot && this._state !== State.DROP) {
+            this._setState(State.DROP);
+        } else if (!hot && this._state === State.DROP) {
+            this._dragArmed = false;
+            this._setState(State.CLOSED);
+        }
+
+        if (this._state === State.DROP && this._target) {
+            const margin = scaled(Layout.DROP_ARM_MARGIN);
+            const t = this._target;
+            this._dragArmed = x >= t.x - margin && x <= t.x + t.width + margin &&
+                y >= t.y - margin && y <= t.y + t.height + margin;
+            this._dropView.setArmed(this._dragArmed);
+        }
+    }
+
+    async _onDragEnded({dropped, uris}) {
+        const armed = this._dragArmed;
+        this._dragUris = null;
+        this._dragArmed = false;
+        this._dropView.setArmed(false);
+
+        if (dropped && armed) {
+            const added = await this._services.files.add(uris);
+            if (added > 0) {
+                this._events.emit({
+                    id: 'tray-added',
+                    type: 'custom',
+                    title: added === 1 ? 'Added to Osmin' : `${added} files added to Osmin`,
+                    description: added === 1 ? this._services.files.items.at(-1)?.name : '',
+                    icon: 'folder-symbolic',
+                });
+            }
+        }
+        if (this._state === State.DROP)
+            this._setState(State.CLOSED);
     }
 
     _onTick(now) {
@@ -467,6 +542,8 @@ export class Osmin {
         }
         case State.OPEN:
             return this._openSize(geo);
+        case State.DROP:
+            return {width: scaled(Layout.DROP_WIDTH), height: scaled(Layout.DROP_HEIGHT)};
         case State.CARD:
             if (this._cardSize) {
                 return {

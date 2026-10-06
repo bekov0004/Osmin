@@ -5,6 +5,7 @@ export const State = Object.freeze({
     HOVER: 'hover',
     OPEN: 'open',
     CARD: 'card',
+    DROP: 'drop',
 });
 
 // Sizes are in CSS pixels (they are multiplied by the shell UI scale factor
@@ -25,6 +26,12 @@ export const Layout = Object.freeze({
     COLUMNS: 3,
     SCREEN_MARGIN: 24,
     OPEN_MAX_HEIGHT_RATIO: 0.5,
+    // The capsule while files are dragged near it, and the area that wakes it up.
+    DROP_WIDTH: 340,
+    DROP_HEIGHT: 68,
+    DROP_HOT_HALF_WIDTH: 240,
+    DROP_HOT_HEIGHT: 140,
+    DROP_ARM_MARGIN: 20,
 });
 
 // Duration (ms) and easing used when the capsule morphs INTO a state.
@@ -33,6 +40,7 @@ export const Motion = Object.freeze({
     [State.HOVER]: {duration: 170, mode: Clutter.AnimationMode.EASE_OUT_BACK},
     [State.OPEN]: {duration: 340, mode: Clutter.AnimationMode.EASE_OUT_QUINT},
     [State.CARD]: {duration: 320, mode: Clutter.AnimationMode.EASE_OUT_BACK},
+    [State.DROP]: {duration: 260, mode: Clutter.AnimationMode.EASE_OUT_BACK},
 });
 
 export const HOVER_INTENT_MS = 50;    // pointer must rest this long before the capsule reacts

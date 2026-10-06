@@ -224,6 +224,112 @@
     background-color: rgba(255, 255, 255, 0.85);
 }
 
+/* Drop view */
+.osmin-drop-view {
+    spacing: 14px;
+}
+
+.osmin-drop-icon {
+    icon-size: 26px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.osmin-drop-view:active .osmin-drop-icon {
+    color: white;
+}
+
+.osmin-drop-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.osmin-drop-hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+}
+
+/* Files widget */
+.osmin-files {
+    spacing: 6px;
+}
+
+.osmin-files-header {
+    spacing: 6px;
+}
+
+.osmin-files-caption {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-files-clear {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 6px;
+    border-radius: 8px;
+}
+
+.osmin-files-clear:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-files-grid {
+    spacing: 4px;
+}
+
+.osmin-files-row {
+    spacing: 4px;
+}
+
+.osmin-file-item {
+    border-radius: 12px;
+}
+
+.osmin-file-main {
+    padding: 6px 2px;
+    border-radius: 12px;
+}
+
+.osmin-file-main:hover,
+.osmin-file-main:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-file-icon {
+    icon-size: 40px;
+}
+
+.osmin-file-name {
+    width: 84px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 10px;
+    text-align: center;
+}
+
+.osmin-file-actions {
+    spacing: 3px;
+    padding: 3px;
+}
+
+.osmin-button.osmin-file-action {
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.osmin-button.osmin-file-action:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.osmin-file-action .osmin-button-icon {
+    icon-size: 10px;
+}
+
 /* Workspace chip */
 .osmin-workspace {
     background-color: rgba(255, 255, 255, 0.07);
