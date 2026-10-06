@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.osmin" path="/org/gnome/shell/extensions/osmin/">
+
+    <key name="size-scale" type="d">
+      <default>1.0</default>
+      <range min="0.85" max="1.25"/>
+      <summary>Expanded panel size</summary>
+      <description>Scales the width of the expanded capsule.</description>
+    </key>
+
+    <key name="corner-radius" type="i">
+      <default>36</default>
+      <range min="8" max="44"/>
+      <summary>Corner radius</summary>
+      <description>Corner radius of the capsule in pixels.</description>
+    </key>
+
+    <key name="background-opacity" type="d">
+      <default>0.96</default>
+      <range min="0.5" max="1.0"/>
+      <summary>Background opacity</summary>
+      <description>How opaque the capsule background is.</description>
+    </key>
+
+    <key name="animation-speed" type="d">
+      <default>1.0</default>
+      <range min="0.5" max="2.0"/>
+      <summary>Animation speed</summary>
+      <description>Multiplier for the speed of all capsule animations.</description>
+    </key>
+
+    <key name="open-on-hover" type="b">
+      <default>true</default>
+      <summary>Open on hover</summary>
+      <description>Open the capsule when the pointer rests on it. If off, it opens on click only.</description>
+    </key>
+
+    <key name="auto-collapse" type="b">
+      <default>true</default>
+      <summary>Collapse when the pointer leaves</summary>
+      <description>Close the expanded capsule shortly after the pointer leaves it.</description>
+    </key>
+
+    <key name="activities-in-collapsed" type="b">
+      <default>true</default>
+      <summary>Show activities in the collapsed capsule</summary>
+      <description>Show a running timer, music or an upcoming meeting instead of the time while collapsed.</description>
+    </key>
+
+    <key name="enabled-widgets" type="as">
+      <default>['media', 'calendar', 'files', 'timer', 'todo', 'mirror']</default>
+      <summary>Enabled widgets</summary>
+      <description>The widgets shown in the expanded capsule.</description>
+    </key>
+
+  </schema>
+</schemalist>

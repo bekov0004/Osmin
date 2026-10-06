@@ -1,9 +1,16 @@
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
+let speed = 1;
+
+/** The user's animation speed setting: 2 makes every animation twice as fast. */
+export function setAnimationSpeed(value) {
+    speed = Number.isFinite(value) && value > 0 ? value : 1;
+}
+
 /** Zero when the user turned animations off in GNOME settings. */
 export function animDuration(ms) {
-    return St.Settings.get().enable_animations ? ms : 0;
+    return St.Settings.get().enable_animations ? Math.round(ms / speed) : 0;
 }
 
 /** Fades `actor` in. `onComplete` runs only if the fade was not interrupted. */

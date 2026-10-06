@@ -23,7 +23,7 @@ import {DropView} from './ui/dropView.js';
 import {OsminPanel} from './ui/osminPanel.js';
 import {cardClassFor, createCard} from './ui/cardFactory.js';
 import {WIDGET_CLASSES} from './widgets/registry.js';
-import {animDuration, fadeIn, fadeOut} from './utils/animation.js';
+import {animDuration, fadeIn, fadeOut, setAnimationSpeed} from './utils/animation.js';
 import {
     HOVER_INTENT_MS, HOVER_LEAVE_MS, INTERACTION_GRACE_MS, Layout, Motion, OPEN_DWELL_MS,
     OPEN_LEAVE_MS, SCROLL_LOCK_MS, SCROLL_THRESHOLD, State,
@@ -51,7 +51,9 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
  * the capsule around them.
  */
 export class Osmin {
-    constructor() {
+    /** @param {SettingsService} settings */
+    constructor(settings) {
+        this._settings = settings;
         this._state = null;
         this._signals = new SignalTracker();
         this._timers = new Timers();
@@ -107,15 +109,10 @@ export class Osmin {
             isOpen: () => this._state === State.OPEN,
         });
         this._drag = new DragService();
-        this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({
-            events: this._events,
-            services: this._services,
-            ui: {
-                beginTextInput: onEnd => this._beginTextInput(onEnd),
-                endTextInput: () => this._endTextInput(),
-            },
-        }));
+        this._widgets = this._createWidgets();
         this._buildActor();
+        this._applyAppearance();
+        this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         this._panel.enable();
         Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
 
@@ -145,6 +142,7 @@ export class Osmin {
     destroy() {
         // Widgets end their activities while being destroyed: stop reacting to that first.
         this._destroying = true;
+        this._settings?.disconnectObject(this);
         this._services?.activities.disconnectObject(this);
         this._endTextInput();
         this._timers.destroy();
@@ -202,6 +200,75 @@ export class Osmin {
             this.close();
         else
             this.open({pinned: true});
+    }
+
+    /** The widgets the user enabled, in display order. */
+    _createWidgets() {
+        const enabled = new Set(this._settings.enabledWidgets);
+        return WIDGET_CLASSES.filter(WidgetClass => enabled.has(WidgetClass.id))
+            .map(WidgetClass => new WidgetClass({
+                events: this._events,
+                services: this._services,
+                ui: {
+                    beginTextInput: onEnd => this._beginTextInput(onEnd),
+                    endTextInput: () => this._endTextInput(),
+                },
+            }));
+    }
+
+    // --- settings ---------------------------------------------------------
+
+    _applyAppearance() {
+        setAnimationSpeed(this._settings.get('animation-speed'));
+        const radius = this._settings.get('corner-radius');
+        const opacity = this._settings.get('background-opacity');
+        this._actor.style = `border-radius: ${radius}px; background-color: rgba(14, 14, 16, ${opacity});`;
+    }
+
+    _onSettingChanged(key) {
+        if (this._destroying || !this._actor)
+            return;
+        switch (key) {
+        case 'animation-speed':
+        case 'corner-radius':
+        case 'background-opacity':
+            this._applyAppearance();
+            break;
+        case 'size-scale':
+            this._relayout();
+            this._applyGeometry({duration: 240});
+            break;
+        case 'activities-in-collapsed':
+            this._syncCompact({force: true});
+            break;
+        case 'enabled-widgets':
+            this._rebuildWidgets();
+            break;
+        }
+    }
+
+    /** The enabled widgets changed: rebuild the pages of the expanded capsule. */
+    _rebuildWidgets() {
+        const wanted = this._settings.enabledWidgets.join();
+        if (wanted === this._widgets.map(w => w.constructor.id).join())
+            return;
+        if (this._state === State.OPEN)
+            this._setState(State.CLOSED);
+        this._endTextInput();
+
+        const old = this._panelView;
+        this._content.remove_child(old);
+        old.destroy();
+        this._widgets.forEach(widget => widget.destroy());
+
+        this._widgets = this._createWidgets();
+        this._panelView = new OsminPanel({widgets: this._widgets, onClose: () => this.close()});
+        this._views[State.OPEN] = this._panelView;
+        this._panelView.opacity = 0;
+        this._panelView.hide();
+        this._content.add_child(this._panelView);
+        this._widgets.forEach(widget => widget.start());
+        this._panelView.tick(GLib.DateTime.new_now_local());
     }
 
     // --- CardManager host interface -------------------------------------
@@ -490,13 +557,15 @@ export class Osmin {
             if (hovered) {
                 this._timers.set('hover', HOVER_INTENT_MS, () => {
                     this._setState(State.HOVER);
-                    this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
+                    if (this._settings.get('open-on-hover'))
+                        this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
                 });
             }
             break;
         case State.HOVER:
             if (hovered) {
-                this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
+                if (this._settings.get('open-on-hover'))
+                    this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
             } else {
                 this._timers.clear('dwell');
                 this._timers.set('hover', HOVER_LEAVE_MS, () => this._setState(State.CLOSED));
@@ -506,7 +575,7 @@ export class Osmin {
             if (hovered) {
                 this._pinned = false;
                 this._timers.clear('leave');
-            } else if (!this._pinned && !this._grab) {
+            } else if (!this._pinned && !this._grab && this._settings.get('auto-collapse')) {
                 const recent = GLib.get_monotonic_time() - this._lastInteraction <
                     INTERACTION_GRACE_MS * 1000;
                 this._timers.set('leave', OPEN_LEAVE_MS + (recent ? INTERACTION_GRACE_MS : 0),
@@ -589,11 +658,12 @@ export class Osmin {
     }
 
     /** Shows the ongoing activity with the highest priority in the collapsed capsule. */
-    _syncCompact() {
+    _syncCompact({force = false} = {}) {
         if (this._destroying || !this._actor)
             return;
-        const activity = this._services.activities.compact;
-        if (activity === this._compactActivity)
+        const activity = this._settings.get('activities-in-collapsed')
+            ? this._services.activities.compact : null;
+        if (activity === this._compactActivity && !force)
             return;
         this._compactActivity = activity;
         this._closedView.setCompact(activity ? activity.createCompactView() : null);
@@ -666,7 +736,7 @@ export class Osmin {
                 this._panelView.showWidget(page);
             this._panelView.setOpen(true);
             this._closedView.setActivity(false);
-            if (!this._actor.hover && !this._pinned)
+            if (!this._actor.hover && !this._pinned && this._settings.get('auto-collapse'))
                 this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
         } else {
             this._pinned = false;
@@ -690,8 +760,9 @@ export class Osmin {
     _openSize(geo) {
         const scale = getScaleFactor();
         const availableCss = geo.monitor.width / scale;
+        const k = this._settings.get('size-scale');
         const widthCss = Math.min(
-            clamp(availableCss * Layout.OPEN_WIDTH_RATIO, Layout.OPEN_MIN_WIDTH, Layout.OPEN_MAX_WIDTH),
+            clamp(availableCss * Layout.OPEN_WIDTH_RATIO * k, Layout.OPEN_MIN_WIDTH * k, Layout.OPEN_MAX_WIDTH * k),
             availableCss - 2 * Layout.SCREEN_MARGIN);
         const width = Math.round(widthCss * scale);
         this._panelView.setWidth(width);
