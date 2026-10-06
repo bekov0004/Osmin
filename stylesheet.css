@@ -431,6 +431,50 @@
     border-radius: 12px;
 }
 
+/* Mirror widget */
+.osmin-mirror {
+    spacing: 6px;
+}
+
+.osmin-mirror-caption {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-mirror-stage {
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.osmin-mirror-message {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 11px;
+    text-align: center;
+    padding: 0 10px;
+}
+
+.osmin-mirror-controls {
+    spacing: 4px;
+    padding: 6px;
+}
+
+.osmin-button.osmin-mirror-control {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+.osmin-mirror-control .osmin-button-icon {
+    icon-size: 12px;
+}
+
+.osmin-button.osmin-mirror-toggle {
+    height: 28px;
+    border-radius: 14px;
+}
+
 /* To-do widget */
 .osmin-todo {
     spacing: 4px;

@@ -86,8 +86,11 @@ export class TodoWidget extends OsminWidget {
         root.add_child(this._entry);
 
         this._todo.connectObject('changed', () => this._rebuild(), this);
-        this._rebuild();
         return root;
+    }
+
+    onViewCreated() {
+        this._rebuild();
     }
 
     onPageHidden() {

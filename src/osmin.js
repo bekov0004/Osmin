@@ -7,6 +7,7 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CardManager} from './services/cardManager.js';
 import {CalendarService} from './services/calendarService.js';
+import {CameraService} from './services/cameraService.js';
 import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
 import {FileService} from './services/fileService.js';
@@ -97,6 +98,7 @@ export class Osmin {
             activities: new ActivityManager(this._events),
             timer: new TimerService(),
             todo: new TodoService(),
+            camera: new CameraService(),
         };
         this._services.activities.attach({
             cards: this._cards,
@@ -157,6 +159,7 @@ export class Osmin {
         this._services?.activities.destroy();
         this._services?.timer.destroy();
         this._services?.todo.destroy();
+        this._services?.camera.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;

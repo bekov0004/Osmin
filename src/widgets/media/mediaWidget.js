@@ -292,7 +292,7 @@ export class MediaWidget extends OsminWidget {
         const position = player.position;
         this._elapsed.text = formatDuration(position);
         const fraction = length > 0 ? Math.min(position / length, 1) : 0;
-        this._fill.set_width(Math.round(this._bar.width * fraction));
+        this._fill.set_width(this._bar.mapped ? Math.round(this._bar.width * fraction) : 0);
     }
 
     _onSeek(event) {

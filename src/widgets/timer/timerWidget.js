@@ -123,8 +123,11 @@ export class TimerWidget extends OsminWidget {
         root.add_child(this._actions);
 
         this._timer.connectObject('tick', () => this._update(), this);
-        this._update();
         return root;
+    }
+
+    onViewCreated() {
+        this._update();
     }
 
     destroy() {
@@ -151,7 +154,9 @@ export class TimerWidget extends OsminWidget {
         this._bar.visible = !idle;
         const fraction = state === TimerState.DONE ? 1 :
             this._timer.duration > 0 ? 1 - remaining / this._timer.duration : 0;
-        this._fill.set_width(Math.round(this._bar.width * Math.min(Math.max(fraction, 0), 1)));
+        // Sizes can only be read once the widget is in the stage (notify::width updates us again).
+        this._fill.set_width(this._bar.mapped
+            ? Math.round(this._bar.width * Math.min(Math.max(fraction, 0), 1)) : 0);
 
         this._actions.destroy_all_children();
         const add = (label, iconName, handler, primary = false) => this._actions.add_child(createButton({

@@ -108,8 +108,11 @@ export class CalendarWidget extends OsminWidget {
         root.add_child(this._agenda);
 
         this._calendar.connectObject('changed', () => this._refresh(), this);
-        this._rebuild();
         return root;
+    }
+
+    onViewCreated() {
+        this._rebuild();
     }
 
     destroy() {

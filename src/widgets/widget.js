@@ -20,7 +20,10 @@ export class OsminWidget {
 
     /** The St actor shown in the widget's column; created on first use. */
     get view() {
-        this._view ??= this.createView();
+        if (!this._view) {
+            this._view = this.createView();
+            this.onViewCreated();
+        }
         return this._view;
     }
 
@@ -28,6 +31,9 @@ export class OsminWidget {
     createView() {
         throw new Error(`${this.constructor.name}.createView() is not implemented`);
     }
+
+    /** The view exists now (a place for the first update; `this.view` is usable). */
+    onViewCreated() {}
 
     /** Called once after construction, whether or not the panel was ever opened. */
     start() {}
