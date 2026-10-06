@@ -5,11 +5,10 @@ import St from 'gi://St';
 import {animDuration} from '../utils/animation.js';
 import {Layout} from '../utils/constants.js';
 import {createButton} from './button.js';
-import {WorkspaceChip} from './workspaceChip.js';
 
 /**
  * The expanded capsule: pages of widget columns (up to Layout.COLUMNS per
- * page), a footer with the page dots, the workspace chip and a close button.
+ * page), a footer with the page dots and a close button.
  * Its width is set from outside (it adapts to the monitor); the height is
  * fixed by the content area.
  */
@@ -40,7 +39,6 @@ export class OsminPanel extends St.BoxLayout {
         });
         this.add_child(this._pageArea);
 
-        this._chip = new WorkspaceChip();
         this._dots = new St.BoxLayout({
             style_class: 'osmin-dots',
             x_align: Clutter.ActorAlign.CENTER,
@@ -58,7 +56,6 @@ export class OsminPanel extends St.BoxLayout {
         });
         // In a BinLayout a child is only aligned if it also expands.
         for (const [child, align] of [
-            [this._chip, Clutter.ActorAlign.START],
             [this._dots, Clutter.ActorAlign.CENTER],
             [closeButton, Clutter.ActorAlign.END],
         ]) {
@@ -90,10 +87,6 @@ export class OsminPanel extends St.BoxLayout {
     /** Height in px the panel needs at the given width. */
     getHeightForWidth(width) {
         return this.get_preferred_height(width)[1];
-    }
-
-    updateWorkspace(info) {
-        this._chip.update(info);
     }
 
     /** @param {GLib.DateTime} now */

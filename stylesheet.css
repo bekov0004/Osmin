@@ -395,25 +395,6 @@
     icon-size: 10px;
 }
 
-/* Workspace chip */
-.osmin-workspace {
-    background-color: rgba(255, 255, 255, 0.07);
-    border-radius: 12px;
-    padding: 3px 10px;
-    spacing: 6px;
-}
-
-.osmin-workspace-icon {
-    icon-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-}
-
-.osmin-workspace-value {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 11px;
-    font-weight: 600;
-}
-
 /* Buttons */
 .osmin-button {
     border-radius: 14px;

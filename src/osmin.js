@@ -13,7 +13,6 @@ import {ArtworkService} from './services/artworkService.js';
 import {EventManager} from './services/eventManager.js';
 import {MediaService} from './services/mediaService.js';
 import {PanelService} from './services/panelService.js';
-import {WorkspaceService} from './services/workspaceService.js';
 import {ClosedView} from './ui/closedView.js';
 import {DropView} from './ui/dropView.js';
 import {OsminPanel} from './ui/osminPanel.js';
@@ -73,7 +72,6 @@ export class Osmin {
             onToggleRequest: () => this.toggle(),
         });
         this._clock = new ClockService(now => this._onTick(now));
-        this._workspaces = new WorkspaceService(info => this._panelView.updateWorkspace(info));
         this._events = new EventManager();
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
@@ -100,7 +98,6 @@ export class Osmin {
         this._signals.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this._relayout());
 
-        this._panelView.updateWorkspace(this._workspaces.getInfo());
         this._clock.start();
         this._services.media.start();
         this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
@@ -121,7 +118,6 @@ export class Osmin {
         this._cards?.destroy();
         this._events?.destroy();
         this._clock?.destroy();
-        this._workspaces?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
         this._widgets = null;
         this._drag?.destroy();
@@ -132,7 +128,7 @@ export class Osmin {
         this._services?.calendar.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
-        this._clock = this._workspaces = null;
+        this._clock = null;
 
         if (this._actor) {
             Main.layoutManager.removeChrome(this._actor);

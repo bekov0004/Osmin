@@ -13,8 +13,7 @@ on hover or click the same capsule grows into a wide panel.
 - **Hover** – the capsule swells slightly; if the pointer stays, it opens after a short dwell,
   so brushing across the top bar does nothing. Click opens it immediately.
 - **Expanded** – one wide capsule with three sections: media (placeholder), time + date + week
-  calendar (placeholder for a full calendar), and workspace and a notifications
-  container (battery, Wi-Fi and volume are left to GNOME's quick settings). Plus a temporary strip of test-event buttons.
+  calendar, files and more (see the widget list). Plus a temporary strip of test-event buttons.
 - **Stays while you use it**, collapses shortly after the pointer leaves.
 - **Cards** – any event can show a card in the capsule (queue, priorities); see "Events and cards".
 - `Super+V` (the "toggle calendar" shortcut) toggles Osmin instead of the hidden calendar popup.
@@ -160,13 +159,12 @@ src/
   services/
     panelService.js      replaces the GNOME clock: hide, anchor, position, Super+V
     clockService.js      GnomeDesktop.WallClock ticks
-    workspaceService.js  active workspace index / count
     eventManager.js      emit()/subscribe(); validates events
     cardManager.js       queue, priority, timers, card phases
   widgets/
     closedView.js  openView.js                    capsule states
     sections/  mediaSection.js  calendarSection.js  statusSection.js
-    clockWidget.js  weekStrip.js  workspaceWidget.js  button.js
+    button.js
     osminCard.js  notificationCard.js  cardFactory.js     cards
   debug/testEvents.js    temporary test buttons
   utils/
