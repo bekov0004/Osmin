@@ -4,9 +4,12 @@ import GLib from 'gi://GLib';
 export class Timers {
     constructor() {
         this._sources = new Map();
+        this._destroyed = false;
     }
 
     set(name, ms, callback) {
+        if (this._destroyed)
+            return;
         this.clear(name);
         const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
             this._sources.delete(name);
@@ -26,6 +29,7 @@ export class Timers {
     }
 
     destroy() {
+        this._destroyed = true;
         for (const id of this._sources.values())
             GLib.source_remove(id);
         this._sources.clear();

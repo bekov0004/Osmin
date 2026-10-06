@@ -431,6 +431,119 @@
     border-radius: 12px;
 }
 
+/* To-do widget */
+.osmin-todo {
+    spacing: 4px;
+}
+
+.osmin-todo-header {
+    spacing: 6px;
+}
+
+.osmin-todo-caption {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-todo-clear {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 6px;
+    border-radius: 8px;
+}
+
+.osmin-todo-clear:hover {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-todo-empty {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 11px;
+}
+
+.osmin-todo-list {
+    spacing: 1px;
+}
+
+.osmin-todo-item {
+    border-radius: 8px;
+}
+
+.osmin-todo-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.osmin-todo-row {
+    spacing: 8px;
+    padding: 3px 4px;
+}
+
+.osmin-todo-check {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+.osmin-todo-done .osmin-todo-check {
+    background-color: white;
+    border-color: white;
+}
+
+.osmin-todo-check-icon {
+    icon-size: 10px;
+    color: black;
+}
+
+.osmin-todo-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+}
+
+.osmin-todo-done .osmin-todo-text {
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: line-through;
+}
+
+.osmin-button.osmin-todo-remove {
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    margin-right: 3px;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.osmin-todo-remove .osmin-button-icon {
+    icon-size: 10px;
+}
+
+.osmin-todo-entry {
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 12px;
+    caret-color: white;
+    selection-background-color: rgba(255, 255, 255, 0.3);
+}
+
+.osmin-todo-entry {
+    border: 1px solid transparent;
+}
+
+.osmin-todo-entry:focus {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.osmin-todo-entry StLabel.hint-text {
+    color: rgba(255, 255, 255, 0.4);
+}
+
 /* Timer widget */
 .osmin-timer {
     spacing: 4px;

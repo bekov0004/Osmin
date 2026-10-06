@@ -1,5 +1,6 @@
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
@@ -14,6 +15,7 @@ import {ArtworkService} from './services/artworkService.js';
 import {EventManager} from './services/eventManager.js';
 import {MediaService} from './services/mediaService.js';
 import {TimerService} from './services/timerService.js';
+import {TodoService} from './services/todoService.js';
 import {PanelService} from './services/panelService.js';
 import {ClosedView} from './ui/closedView.js';
 import {DropView} from './ui/dropView.js';
@@ -64,6 +66,8 @@ export class Osmin {
         this._dragArmed = false;
         this._compactActivity = null;
         this._openPage = null;
+        this._grab = null;
+        this._onTextInputEnd = null;
     }
 
     /** Sources emit events here: `osmin.events.emit({...})`. */
@@ -92,6 +96,7 @@ export class Osmin {
             calendar: new CalendarService(),
             activities: new ActivityManager(this._events),
             timer: new TimerService(),
+            todo: new TodoService(),
         };
         this._services.activities.attach({
             cards: this._cards,
@@ -101,6 +106,10 @@ export class Osmin {
         this._widgets = WIDGET_CLASSES.map(WidgetClass => new WidgetClass({
             events: this._events,
             services: this._services,
+            ui: {
+                beginTextInput: onEnd => this._beginTextInput(onEnd),
+                endTextInput: () => this._endTextInput(),
+            },
         }));
         this._buildActor();
         this._panel.enable();
@@ -115,6 +124,7 @@ export class Osmin {
             this);
         this._widgets.forEach(widget => widget.start());
         this._services.timer.load();
+        this._services.todo.load();
         this._clock.start();
         this._services.media.start();
         this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
@@ -129,6 +139,7 @@ export class Osmin {
     }
 
     destroy() {
+        this._endTextInput();
         this._timers.destroy();
         this._signals.disconnectAll();
         this._unsubscribe?.();
@@ -145,6 +156,7 @@ export class Osmin {
         this._services?.calendar.destroy();
         this._services?.activities.destroy();
         this._services?.timer.destroy();
+        this._services?.todo.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;
@@ -341,6 +353,15 @@ export class Osmin {
         this._actor.connect('clicked', () => this._onClicked());
         // Remember when the user last used the open capsule, to not close it under their hand.
         this._actor.connect('captured-event', (_actor, event) => {
+            // While the keyboard is grabbed, a click outside the capsule ends text input.
+            if (this._grab && event.type() === Clutter.EventType.BUTTON_PRESS) {
+                const [x, y] = event.get_coords();
+                const t = this._target;
+                if (!t || x < t.x || x > t.x + t.width || y < t.y || y > t.y + t.height) {
+                    this._endTextInput();
+                    return Clutter.EVENT_STOP;
+                }
+            }
             switch (event.type()) {
             case Clutter.EventType.BUTTON_PRESS:
             case Clutter.EventType.SCROLL:
@@ -396,6 +417,35 @@ export class Osmin {
             this._setState(State.CLOSED);
     }
 
+    // --- keyboard input for widgets (the to-do entry) -------------------------
+
+    /**
+     * Gives the keyboard to the capsule: needed for text entries, because
+     * the capsule is not a window. The grab ends on Escape, on a click
+     * outside the capsule, or when the capsule closes.
+     */
+    _beginTextInput(onEnd) {
+        if (this._grab)
+            return;
+        this._onTextInputEnd = onEnd;
+        this._timers.clear('leave');
+        this._grab = Main.pushModal(this._actor, {actionMode: Shell.ActionMode.POPUP});
+    }
+
+    _endTextInput() {
+        if (!this._grab)
+            return;
+        const grab = this._grab;
+        this._grab = null;
+        Main.popModal(grab);
+        const callback = this._onTextInputEnd;
+        this._onTextInputEnd = null;
+        callback?.();
+        // The pointer may be elsewhere by now: collapse after the usual delay.
+        if (this._state === State.OPEN && !this._actor?.hover)
+            this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
+    }
+
     _onTick(now) {
         this._closedView.setTime(formatTime(now, {timeOnly: true}));
         this._panelView.tick(now);
@@ -432,7 +482,7 @@ export class Osmin {
             if (hovered) {
                 this._pinned = false;
                 this._timers.clear('leave');
-            } else if (!this._pinned) {
+            } else if (!this._pinned && !this._grab) {
                 const recent = GLib.get_monotonic_time() - this._lastInteraction <
                     INTERACTION_GRACE_MS * 1000;
                 this._timers.set('leave', OPEN_LEAVE_MS + (recent ? INTERACTION_GRACE_MS : 0),
@@ -533,8 +583,10 @@ export class Osmin {
             }
         }
 
-        if (previous === State.OPEN)
+        if (previous === State.OPEN) {
+            this._endTextInput();
             this._panelView.setOpen(false);
+        }
         if (state === State.OPEN) {
             // Open on the widget of the ongoing activity (or the one that was clicked).
             const page = this._openPage ?? this._compactActivity?.widgetId;
