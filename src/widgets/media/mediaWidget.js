@@ -4,6 +4,7 @@ import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 
+import {EffectView} from '../../ui/effectView.js';
 import {createButton} from '../../ui/button.js';
 import {PlaybackStatus} from '../../services/mediaService.js';
 import {OsminWidget} from '../widget.js';
@@ -11,8 +12,6 @@ import {Priority} from '../../utils/events.js';
 import {MediaActivity} from './mediaActivity.js';
 
 const TICK_MS = 500;
-const EQ_MS = 240;
-const EQ_BARS = 4;
 
 function formatDuration(us) {
     const total = Math.max(0, Math.floor(us / 1e6));
@@ -48,7 +47,7 @@ export class MediaWidget extends OsminWidget {
 
     /** Publishes the Live Activity: ongoing while playing, peeks on start / track change. */
     start() {
-        this._activity = new MediaActivity({media: this._media, artwork: this._artwork});
+        this._activity = new MediaActivity({media: this._media, artwork: this._artwork, settings: this._settings});
         this._media.connectObject(
             'state-changed', () => {
                 this._activity.notifyChanged();
@@ -94,6 +93,10 @@ export class MediaWidget extends OsminWidget {
             'active-changed', () => this._refresh(),
             'state-changed', () => this._refresh(),
             this);
+        this._settings.connectObject('changed', (_s, key) => {
+            if (['album-corner-radius', 'media-effect', 'colored-effects'].includes(key))
+                this._applyLook();
+        }, this);
         return root;
     }
 
@@ -115,6 +118,7 @@ export class MediaWidget extends OsminWidget {
 
     destroy() {
         this._media.disconnectObject(this);
+        this._settings.disconnectObject(this);
         this._activities.end('media');
         this._activity?.destroy();
         this._stopTickers();
@@ -218,20 +222,10 @@ export class MediaWidget extends OsminWidget {
         controls.add_child(this._nextButton);
         this._playIcon = this._playButton.get_child().get_first_child();
 
-        // A few bars that dance while the music plays.
-        this._eq = new St.BoxLayout({
-            style_class: 'osmin-media-eq',
-            x_expand: true,
-            x_align: Clutter.ActorAlign.END,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._bars = [];
-        for (let i = 0; i < EQ_BARS; i++) {
-            const bar = new St.Widget({style_class: 'osmin-media-eq-bar', y_align: Clutter.ActorAlign.END});
-            this._bars.push(bar);
-            this._eq.add_child(bar);
-        }
-        controls.add_child(this._eq);
+        // The effect that moves while the music plays (bars or waves).
+        this._effect = new EffectView({kind: this._settings.get('media-effect')});
+        this._effect.set({x_expand: true, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER});
+        controls.add_child(this._effect);
         texts.add_child(controls);
         top.add_child(texts);
         card.add_child(top);
@@ -329,13 +323,28 @@ export class MediaWidget extends OsminWidget {
         if (url === this._artUrl)
             return;
         this._artUrl = url;
-        this._art.style = '';
+        this._artFile = null;
+        this._applyLook();
         this._artIcon.show();
         const file = await this._artwork.resolve(url);
         if (!file || url !== this._artUrl || !this._view)
             return;
-        this._art.style = `background-image: url("${file.get_uri()}"); background-size: cover;`;
+        this._artFile = file;
+        this._applyLook();
         this._artIcon.hide();
+    }
+
+    /** Album corner radius, effect type and colour from the settings and the artwork. */
+    _applyLook() {
+        if (!this._art)
+            return;
+        const radius = this._settings.get('album-corner-radius');
+        const image = this._artFile
+            ? ` background-image: url("${this._artFile.get_uri()}"); background-size: cover;` : '';
+        this._art.style = `border-radius: ${radius}px;${image}`;
+        this._effect.setKind(this._settings.get('media-effect'));
+        this._effect.setColor(this._settings.get('colored-effects') && this._artFile
+            ? this._artwork.dominantColor(this._artFile) : null);
     }
 
     _updateProgress() {
@@ -366,6 +375,7 @@ export class MediaWidget extends OsminWidget {
 
     _updateTickers() {
         const playing = this._shown && this._player?.isPlaying && this._card?.visible;
+        this._effect?.setPlaying(!!playing);
         if (playing && !this._tickId) {
             this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, TICK_MS, () => {
                 this._updateProgress();
@@ -373,29 +383,12 @@ export class MediaWidget extends OsminWidget {
             });
             GLib.Source.set_name_by_id(this._tickId, '[osmin] media progress');
         }
-        if (playing && !this._eqId) {
-            this._eqId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, EQ_MS, () => {
-                this._animateBars();
-                return GLib.SOURCE_CONTINUE;
-            });
-            GLib.Source.set_name_by_id(this._eqId, '[osmin] media bars');
-        }
         if (!playing)
             this._stopTickers();
     }
 
-    _animateBars() {
-        for (const bar of this._bars) {
-            bar.ease({
-                height: Math.round((3 + Math.random() * 11) * St.ThemeContext.get_for_stage(global.stage).scale_factor),
-                duration: EQ_MS,
-                mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-            });
-        }
-    }
-
     _stopTickers() {
-        for (const key of ['_tickId', '_eqId']) {
+        for (const key of ['_tickId']) {
             if (this[key]) {
                 GLib.source_remove(this[key]);
                 this[key] = 0;

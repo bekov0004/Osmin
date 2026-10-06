@@ -1,4 +1,5 @@
 import Gio from 'gi://Gio';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 
@@ -15,6 +16,7 @@ export class ArtworkService {
         this._session = new Soup.Session({timeout: 10, user_agent: 'Osmin/0.1'});
         this._cacheDir = GLib.build_filenamev([GLib.get_user_cache_dir(), 'osmin', 'artwork']);
         this._pending = new Map();
+        this._colors = new Map();
         this._cancellable = new Gio.Cancellable();
     }
 
@@ -37,6 +39,51 @@ export class ArtworkService {
                 console.warn(`[osmin] artwork ${url}: ${e.message}`);
         }
         return null;
+    }
+
+    /**
+     * A vivid colour of the picture (red, green, blue in 0..1), for tinting
+     * effects. Weighs saturated pixels most, so grey borders do not win.
+     * @param {Gio.File} file
+     * @returns {number[]|null}
+     */
+    dominantColor(file) {
+        const path = file?.get_path();
+        if (!path)
+            return null;
+        if (this._colors.has(path))
+            return this._colors.get(path);
+        let color = null;
+        try {
+            const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(path, 24, 24);
+            const pixels = pixbuf.get_pixels();
+            const channels = pixbuf.get_n_channels();
+            const stride = pixbuf.get_rowstride();
+            let r = 0, g = 0, b = 0, total = 0;
+            for (let y = 0; y < pixbuf.get_height(); y++) {
+                for (let x = 0; x < pixbuf.get_width(); x++) {
+                    const i = y * stride + x * channels;
+                    const pr = pixels[i], pg = pixels[i + 1], pb = pixels[i + 2];
+                    const sat = Math.max(pr, pg, pb) - Math.min(pr, pg, pb);
+                    const weight = 1 + sat * sat / 64;
+                    r += pr * weight;
+                    g += pg * weight;
+                    b += pb * weight;
+                    total += weight;
+                }
+            }
+            if (total > 0) {
+                r /= total; g /= total; b /= total;
+                // Lift dark colours so the effect stays visible on the black capsule.
+                const top = Math.max(r, g, b, 1);
+                const lift = Math.max(1, 190 / top);
+                color = [Math.min(1, r * lift / 255), Math.min(1, g * lift / 255), Math.min(1, b * lift / 255)];
+            }
+        } catch (e) {
+            console.warn(`[osmin] artwork colour: ${e.message}`);
+        }
+        this._colors.set(path, color);
+        return color;
     }
 
     destroy() {

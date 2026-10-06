@@ -106,6 +106,9 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-prefs switch:checked { background-color: ${p.ACCENT}; }
 .osmin-prefs switch slider { background-color: white; border: none; border-radius: 10px; min-width: 18px;
     min-height: 18px; margin: 2px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.osmin-prefs checkbutton { color: ${p.TEXT}; }
+.osmin-prefs checkbutton radio { background-color: ${p.CONTROL}; border: 1px solid ${p.BORDER}; min-width: 16px; min-height: 16px; }
+.osmin-prefs checkbutton radio:checked { background-color: ${p.ACCENT}; border-color: ${p.ACCENT}; color: white; }
 .osmin-prefs scale trough { background-color: ${p.TRACK}; min-height: 4px; border-radius: 2px; border: none; }
 .osmin-prefs scale highlight { background-color: ${p.ACCENT}; border-radius: 2px; border: none; }
 .osmin-prefs scale slider { background-color: white; border: none; min-width: 16px; min-height: 16px;
@@ -388,8 +391,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._row(form, _('Animation speed'), this._slider(settings, 'animation-speed', [0.5, 2.0, 0.1], 1),
             _('Higher is faster.'));
 
-        this._resetRow(form, settings, ['open-on-hover', 'auto-collapse', 'animation-speed'],
-            _('Reset all settings'));
+        this._resetRow(form, settings, settings.settings_schema.list_keys(), _('Reset all settings'));
         return body;
     }
 
@@ -732,7 +734,31 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Show activities when collapsed'),
             _('A running timer, music or a meeting instead of the time.'));
 
-        this._resetRow(form, settings, ['activities-in-collapsed', 'activity-media',
+        this._rule(form);
+        this._row(form, _('Album corner radius'), this._slider(settings, 'album-corner-radius', [0, 24, 1]));
+
+        const effects = [['bars', _('Audio spectrum')], ['waves', _('Waves')]];
+        const radios = new Gtk.Box({spacing: 18});
+        let first = null;
+        for (const [value, title] of effects) {
+            const radio = new Gtk.CheckButton({label: title, group: first});
+            first ??= radio;
+            radio.active = settings.get_string('media-effect') === value;
+            radio.connect('toggled', () => {
+                if (radio.active)
+                    settings.set_string('media-effect', value);
+            });
+            settings.connect('changed::media-effect', () => {
+                radio.active = settings.get_string('media-effect') === value;
+            });
+            radios.append(radio);
+        }
+        this._row(form, _('Effect type'), radios, _('The animation shown while music plays.'));
+        this._toggleRow(form, settings, 'colored-effects', '', _('Colored effects'),
+            _('The effect takes the color of the album art; otherwise it is white.'));
+
+        this._resetRow(form, settings, ['activities-in-collapsed', 'album-corner-radius', 'media-effect',
+            'colored-effects', 'activity-media',
             'activity-timer', 'activity-calendar', 'activity-files']);
         return body;
     }

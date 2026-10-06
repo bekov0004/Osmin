@@ -199,17 +199,10 @@
     icon-size: 16px;
 }
 
-.osmin-media-eq {
-    spacing: 2px;
-    margin-right: 4px;
+.osmin-effect {
+    width: 24px;
     height: 14px;
-}
-
-.osmin-media-eq-bar {
-    width: 3px;
-    height: 4px;
-    border-radius: 2px;
-    background-color: rgba(255, 255, 255, 0.7);
+    margin-right: 4px;
 }
 
 .osmin-media-progress {
@@ -782,6 +775,21 @@
 .osmin-compact-icon {
     icon-size: 13px;
     color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-compact-art {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.osmin-compact-media {
+    spacing: 8px;
+}
+
+.osmin-compact-media .osmin-effect {
+    margin-right: 0;
 }
 
 .osmin-compact-label {

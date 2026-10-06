@@ -4,14 +4,16 @@ import St from 'gi://St';
 
 import {PlaybackStatus} from '../../services/mediaService.js';
 import {createButton} from '../../ui/button.js';
-import {LiveActivity, createCompactRow} from '../../ui/liveActivity.js';
+import {EffectView} from '../../ui/effectView.js';
+import {LiveActivity} from '../../ui/liveActivity.js';
 
 /** Music: ongoing while something plays; peeks when playback starts or the track changes. */
 export class MediaActivity extends LiveActivity {
-    constructor({media, artwork}) {
+    constructor({media, artwork, settings}) {
         super({id: 'media', widgetId: 'media', compactPriority: 10});
         this._media = media;
         this._artwork = artwork;
+        this._settings = settings;
     }
 
     get player() {
@@ -26,8 +28,60 @@ export class MediaActivity extends LiveActivity {
         return {width: 330, height: 62};
     }
 
+    /** Album art, the title and the music effect: what the collapsed capsule shows while music plays. */
     createCompactView() {
-        return createCompactRow(this, 'audio-x-generic-symbolic', () => this.title);
+        const row = new St.BoxLayout({style_class: 'osmin-compact osmin-compact-media'});
+        const art = new St.Widget({style_class: 'osmin-compact-art', y_align: Clutter.ActorAlign.CENTER});
+        const label = new St.Label({
+            text: this.title,
+            style_class: 'osmin-compact-label',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        const effect = new EffectView({kind: this._settings.get('media-effect')});
+        effect.set({y_align: Clutter.ActorAlign.CENTER});
+        row.add_child(art);
+        row.add_child(label);
+        row.add_child(effect);
+
+        let artUrl = null;
+        let artFile = null;
+        const look = () => {
+            const radius = Math.min(this._settings.get('album-corner-radius'), 8);
+            const image = artFile ? ` background-image: url("${artFile.get_uri()}"); background-size: cover;` : '';
+            art.style = `border-radius: ${radius}px;${image}`;
+            effect.setKind(this._settings.get('media-effect'));
+            effect.setColor(this._settings.get('colored-effects') && artFile
+                ? this._artwork.dominantColor(artFile) : null);
+        };
+        const refresh = async () => {
+            const player = this.player;
+            label.text = this.title;
+            effect.setPlaying(player?.isPlaying ?? false);
+            const url = player?.metadata.artUrl ?? '';
+            if (url !== artUrl) {
+                artUrl = url;
+                artFile = null;
+                look();
+                const file = await this._artwork.resolve(url);
+                if (file && url === artUrl && row.get_stage?.()) {
+                    artFile = file;
+                    look();
+                }
+            }
+        };
+        this.connectObject('changed', refresh, row);
+        this._settings.connectObject('changed', (_s, key) => {
+            if (['album-corner-radius', 'media-effect', 'colored-effects'].includes(key))
+                look();
+        }, row);
+        row.connect('destroy', () => {
+            this.disconnectObject(row);
+            this._settings.disconnectObject(row);
+        });
+        look();
+        refresh();
+        return row;
     }
 
     createPeekView() {
@@ -80,7 +134,7 @@ export class MediaActivity extends LiveActivity {
                 art.style = '';
                 const file = await this._artwork.resolve(artUrl);
                 if (file && artUrl === metadata.artUrl && art.get_stage?.())
-                    art.style = `background-image: url("${file.get_uri()}"); background-size: cover;`;
+                    art.style = `border-radius: ${Math.min(this._settings.get('album-corner-radius'), 10)}px; background-image: url("${file.get_uri()}"); background-size: cover;`;
             }
         };
         this.connectObject('changed', refresh, box);

@@ -152,6 +152,29 @@
       <description>Remember the files in the tray after a restart or logout.</description>
     </key>
 
+    <key name="album-corner-radius" type="i">
+      <range min="0" max="24"/>
+      <default>10</default>
+      <summary>Album corner radius</summary>
+      <description>The corner radius of the album art, in pixels.</description>
+    </key>
+
+    <key name="media-effect" type="s">
+      <choices>
+        <choice value="bars"/>
+        <choice value="waves"/>
+      </choices>
+      <default>'bars'</default>
+      <summary>Music effect</summary>
+      <description>The animation shown while music plays: bars (spectrum) or waves.</description>
+    </key>
+
+    <key name="colored-effects" type="b">
+      <default>true</default>
+      <summary>Colored effects</summary>
+      <description>Tint the music effect with the colour of the album art; otherwise it is white.</description>
+    </key>
+
     <key name="activity-media" type="b">
       <default>true</default>
       <summary>Music activity</summary>
