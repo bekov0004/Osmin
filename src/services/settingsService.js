@@ -24,6 +24,8 @@ export const DEFAULTS = Object.freeze({
     'gestures-media-swipe': true,
     'gestures-invert': false,
     'gestures-middle-click': 'activity',
+    'shortcut-apps': [],
+    'shortcut-columns': 1,
     'tray-keep-files': true,
     'album-corner-radius': 10,
     'media-effect': 'bars',

@@ -135,6 +135,7 @@ const WIDGET_ICONS = {
     mirror: 'camera-web-symbolic',
     timer: 'alarm-symbolic',
     todo: 'checkbox-checked-symbolic',
+    shortcuts: 'view-app-grid-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['corner-radius', 'background-opacity', 'shadow-strength',
@@ -403,6 +404,97 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._row(grid, label, box, note);
     }
 
+    /** "Detected" apps on the left, the ones "In use" on the right. */
+    _shortcutsEditor(settings) {
+        const editor = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 8, margin_top: 10});
+        const head = new Gtk.Box({spacing: 10});
+        head.append(new Gtk.Label({label: _('Shortcuts'), css_classes: ['osmin-page-title']}));
+        head.append(new Gtk.Separator({hexpand: true, valign: Gtk.Align.CENTER}));
+        editor.append(head);
+
+        const columns = new Gtk.Box({spacing: 10, homogeneous: true});
+        editor.append(columns);
+
+        const makeList = title => {
+            const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 6});
+            box.append(new Gtk.Label({label: title, xalign: 0, css_classes: ['osmin-chip-title']}));
+            const list = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 2, css_classes: ['osmin-panel']});
+            const scroll = new Gtk.ScrolledWindow({
+                child: list,
+                min_content_height: 240,
+                max_content_height: 240,
+                hscrollbar_policy: Gtk.PolicyType.NEVER,
+                vexpand: false,
+            });
+            box.append(scroll);
+            columns.append(box);
+            return list;
+        };
+        const detected = makeList(_('Detected'));
+        const inUse = makeList(_('In use'));
+
+        const clear = box => {
+            let child;
+            while ((child = box.get_first_child()))
+                box.remove(child);
+        };
+        const appRow = (app, buttons) => {
+            const row = new Gtk.Box({spacing: 8, margin_top: 2, margin_bottom: 2});
+            row.append(new Gtk.Image({gicon: app.get_icon() ?? Gio.ThemedIcon.new('application-x-executable'),
+                pixel_size: 22}));
+            row.append(new Gtk.Label({label: app.get_name(), xalign: 0, hexpand: true,
+                ellipsize: 3, max_width_chars: 16}));
+            for (const b of buttons)
+                row.append(b);
+            return row;
+        };
+
+        const rebuild = () => {
+            const used = settings.get_strv('shortcut-apps');
+            clear(detected);
+            clear(inUse);
+
+            const all = Gio.AppInfo.get_all()
+                .filter(app => app.should_show() && app.get_id() && !used.includes(app.get_id()))
+                .sort((a, b) => a.get_name().localeCompare(b.get_name()));
+            for (const app of all) {
+                detected.append(appRow(app, [this._button(_('Use'), () => {
+                    settings.set_strv('shortcut-apps', [...settings.get_strv('shortcut-apps'), app.get_id()]);
+                })]));
+            }
+
+            const apps = used.map(id => Gio.DesktopAppInfo.new(id)).filter(Boolean);
+            if (apps.length === 0) {
+                inUse.append(new Gtk.Label({label: _('Select some shortcuts'), css_classes: ['dim'],
+                    vexpand: true, valign: Gtk.Align.CENTER, margin_top: 90}));
+            }
+            apps.forEach((app, i) => {
+                const move = (delta) => {
+                    const ids = settings.get_strv('shortcut-apps');
+                    const j = i + delta;
+                    if (j < 0 || j >= ids.length)
+                        return;
+                    [ids[i], ids[j]] = [ids[j], ids[i]];
+                    settings.set_strv('shortcut-apps', ids);
+                };
+                const up = new Gtk.Button({icon_name: 'go-up-symbolic', css_classes: ['flat'], sensitive: i > 0});
+                const down = new Gtk.Button({icon_name: 'go-down-symbolic', css_classes: ['flat'],
+                    sensitive: i < apps.length - 1});
+                const remove = new Gtk.Button({icon_name: 'window-close-symbolic', css_classes: ['flat']});
+                up.connect('clicked', () => move(-1));
+                down.connect('clicked', () => move(1));
+                remove.connect('clicked', () => {
+                    settings.set_strv('shortcut-apps', settings.get_strv('shortcut-apps').filter(id => id !== app.get_id()));
+                });
+                inUse.append(appRow(app, [up, down, remove]));
+            });
+        };
+        const id = settings.connect('changed::shortcut-apps', rebuild);
+        editor.connect('destroy', () => settings.disconnect(id));
+        rebuild();
+        return editor;
+    }
+
     // --- Osmin (widgets) -----------------------------------------------------
 
     _osminPage(settings) {
@@ -551,7 +643,26 @@ export default class OsminPreferences extends ExtensionPreferences {
             moves.append(right);
             this._row(options, _('Position'), moves, _('The order of the widgets in the capsule.'));
 
-            this._resetRow(options, settings, ['enabled-widgets', 'widget-cells']);
+            if (selected === 'shortcuts') {
+                const cols = new Gtk.Box({spacing: 18});
+                let firstRadio = null;
+                for (const [n, title] of [[1, _('1 Column')], [2, _('2 Columns')]]) {
+                    const radio = new Gtk.CheckButton({label: title, group: firstRadio});
+                    firstRadio ??= radio;
+                    radio.active = settings.get_int('shortcut-columns') === n;
+                    radio.connect('toggled', () => {
+                        if (radio.active)
+                            settings.set_int('shortcut-columns', n);
+                    });
+                    cols.append(radio);
+                }
+                this._row(options, _('Columns'), cols, _('Each column contains 2 rows (2 shortcuts).'));
+                const r = options._row++;
+                options.attach(this._shortcutsEditor(settings), 0, r, 2, 1);
+            }
+
+            this._resetRow(options, settings, ['enabled-widgets', 'widget-cells', 'shortcut-apps',
+                'shortcut-columns']);
         };
 
         const move = delta => {

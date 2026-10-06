@@ -901,3 +901,75 @@
 .osmin-card-critical .osmin-card-badge {
     background-color: #e5484d;
 }
+
+/* Shortcuts */
+.osmin-shortcuts {
+    spacing: 8px;
+}
+
+.osmin-shortcuts-column {
+    spacing: 8px;
+}
+
+.osmin-shortcut {
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.07);
+    padding: 0 12px;
+    min-height: 40px;
+}
+
+.osmin-shortcut:hover,
+.osmin-shortcut:focus {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.osmin-shortcut:active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.osmin-shortcut-row {
+    spacing: 10px;
+}
+
+.osmin-shortcut-icon {
+    icon-size: 26px;
+}
+
+.osmin-shortcut-label {
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.osmin-shortcuts-empty {
+    spacing: 4px;
+}
+
+.osmin-shortcuts-empty-icon {
+    icon-size: 28px;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.osmin-shortcuts-empty-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.osmin-shortcuts-empty-hint {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+}
+
+.osmin-shortcut-stacked {
+    spacing: 1px;
+}
+
+.osmin-shortcut-stacked .osmin-shortcut-icon {
+    icon-size: 22px;
+}
+
+.osmin-shortcut-label-small {
+    font-size: 10px;
+    max-width: 66px;
+}

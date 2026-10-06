@@ -55,7 +55,7 @@
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'shortcuts': 4}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>
@@ -144,6 +144,19 @@
       <default>'activity'</default>
       <summary>Middle click</summary>
       <description>What a middle click on the collapsed capsule does.</description>
+    </key>
+
+    <key name="shortcut-apps" type="as">
+      <default>[]</default>
+      <summary>Shortcut apps</summary>
+      <description>Desktop file ids of the apps shown in the Shortcuts widget, in order.</description>
+    </key>
+
+    <key name="shortcut-columns" type="i">
+      <range min="1" max="2"/>
+      <default>1</default>
+      <summary>Shortcut columns</summary>
+      <description>How many columns of shortcuts (two rows each) the widget shows.</description>
     </key>
 
     <key name="tray-keep-files" type="b">
