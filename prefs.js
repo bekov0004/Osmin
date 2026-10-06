@@ -7,150 +7,465 @@ import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Ex
 
 import {DEFAULT_WIDGETS, WIDGET_INFO} from './src/utils/widgetInfo.js';
 
-const PREVIEW_CSS = `
-.osmin-preview {
-    background-color: #0e0e10;
-    border-radius: 0 0 28px 28px;
-    padding: 12px 14px 14px 14px;
-    min-height: 74px;
-}
-.osmin-preview-block {
-    background-color: rgba(255, 255, 255, 0.10);
-    border-radius: 12px;
-    color: white;
-    font-weight: 700;
-    min-height: 54px;
-}
-.osmin-preview-block label { color: white; }
-.osmin-preview-empty { color: rgba(255, 255, 255, 0.5); }
+// --- theme -----------------------------------------------------------------
+// One place for every colour of the settings window (layered surfaces, a quiet blue accent, a dark
+// "capsule" preview). Both schemes follow the system setting.
+const SETTINGS_THEME = {
+    light: {
+        BACKGROUND: '#e9e9ec',
+        TOOLBAR: '#efeff2',
+        SURFACE: '#e1e2e6',
+        CARD: '#f6f6f8',
+        CONTROL: '#ffffff',
+        BORDER: 'rgba(0, 0, 0, 0.10)',
+        HOVER: 'rgba(0, 0, 0, 0.06)',
+        SELECTED: 'rgba(0, 0, 0, 0.09)',
+        TEXT: '#26272b',
+        TEXT_SECONDARY: '#6d6f78',
+        TEXT_DISABLED: '#a4a6ae',
+        ACCENT: '#1a73f0',
+        ACCENT_SOFT: 'rgba(26, 115, 240, 0.16)',
+        CAPSULE: '#0c0c10',
+        CAPSULE_BLOCK: '#232327',
+        TRACK: 'rgba(0, 0, 0, 0.14)',
+    },
+    dark: {
+        BACKGROUND: '#1c1d21',
+        TOOLBAR: '#25262b',
+        SURFACE: '#26272c',
+        CARD: '#2f3036',
+        CONTROL: '#3a3b42',
+        BORDER: 'rgba(255, 255, 255, 0.09)',
+        HOVER: 'rgba(255, 255, 255, 0.06)',
+        SELECTED: 'rgba(255, 255, 255, 0.10)',
+        TEXT: '#f1f1f4',
+        TEXT_SECONDARY: '#9b9ca5',
+        TEXT_DISABLED: '#686972',
+        ACCENT: '#4c97ff',
+        ACCENT_SOFT: 'rgba(76, 151, 255, 0.22)',
+        CAPSULE: '#050507',
+        CAPSULE_BLOCK: '#1d1d21',
+        TRACK: 'rgba(255, 255, 255, 0.16)',
+    },
+};
+
+const buildCss = p => `
+window.background, window.background > contents { background-color: ${p.BACKGROUND}; }
+headerbar { background-image: none; background-color: ${p.TOOLBAR}; box-shadow: none;
+    border-bottom: none; color: ${p.TEXT}; }
+headerbar label { color: ${p.TEXT}; font-weight: 600; }
+preferencespage > scrolledwindow > viewport > clamp, preferencespage clamp { margin: 0; }
+preferencespage { background-color: ${p.BACKGROUND}; }
+.osmin-prefs { background-color: ${p.BACKGROUND}; color: ${p.TEXT}; }
+.osmin-prefs label { color: ${p.TEXT}; }
+.osmin-prefs .dim, .osmin-prefs label.dim { color: ${p.TEXT_SECONDARY}; font-size: 12px; }
+.osmin-prefs separator { background-color: ${p.BORDER}; min-height: 1px; min-width: 1px; }
+
+.osmin-toolbar { background-color: ${p.TOOLBAR}; border-bottom: 1px solid ${p.BORDER};
+    padding: 8px 10px 8px 10px; }
+.osmin-tab { background: none; box-shadow: none; border: none; border-radius: 9px;
+    padding: 6px 10px 5px 10px; min-width: 62px; color: ${p.TEXT_SECONDARY};
+    transition: background-color 120ms ease, color 120ms ease; }
+.osmin-tab:hover { background-color: ${p.HOVER}; }
+.osmin-tab:checked { background-color: ${p.SELECTED}; color: ${p.ACCENT}; }
+.osmin-tab label, .osmin-tab image { color: inherit; }
+.osmin-tab label { font-size: 12px; font-weight: 500; }
+
+.osmin-seg { background-color: ${p.HOVER}; border-radius: 9px; padding: 2px; }
+.osmin-seg button { background: none; box-shadow: none; border: none; border-radius: 7px;
+    min-height: 24px; padding: 2px 14px; color: ${p.TEXT};
+    transition: background-color 120ms ease; }
+.osmin-seg button:hover { background-color: ${p.HOVER}; }
+.osmin-seg button:checked { background-color: ${p.CONTROL}; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+
+.osmin-panel { background-color: ${p.SURFACE}; border: 1px solid ${p.BORDER}; border-radius: 14px;
+    padding: 14px; }
+.osmin-page-title { font-size: 17px; font-weight: 700; }
+
+.osmin-capsule { background-color: ${p.CAPSULE}; border-radius: 0 0 30px 30px; padding: 10px 12px 12px 12px;
+    min-height: 74px; }
+.osmin-capsule-block { background-color: ${p.CAPSULE_BLOCK}; border-radius: 12px; min-height: 56px; padding: 6px; }
+.osmin-capsule-block label { color: white; font-weight: 700; font-size: 12px; }
+.osmin-capsule-block image { color: white; }
+.osmin-capsule-empty { color: rgba(255, 255, 255, 0.5); }
+
+.osmin-strip { background-color: ${p.HOVER}; border-radius: 16px; padding: 6px; }
+.osmin-chip { border-radius: 12px; padding: 7px 8px; transition: background-color 120ms ease; }
+.osmin-chip:hover { background-color: ${p.HOVER}; }
+.osmin-chip.selected { background-color: ${p.ACCENT_SOFT}; }
+.osmin-chip.off .osmin-chip-title, .osmin-chip.off .osmin-chip-sub { color: ${p.TEXT_DISABLED}; }
+.osmin-chip-title { font-weight: 700; font-size: 13px; }
+.osmin-chip-sub { color: ${p.TEXT_SECONDARY}; font-size: 12px; }
+.osmin-icon { background-image: linear-gradient(to bottom, #3d9bff, #1664e8); border-radius: 9px;
+    color: white; min-width: 34px; min-height: 34px; }
+.osmin-icon image { color: white; }
+.osmin-chip.off .osmin-icon { opacity: 0.5; }
+
+.osmin-prefs switch { min-height: 22px; background-color: ${p.TRACK}; border: none; border-radius: 12px;
+    transition: background-color 150ms ease; }
+.osmin-prefs switch:checked { background-color: ${p.ACCENT}; }
+.osmin-prefs switch slider { background-color: white; border: none; border-radius: 10px; min-width: 18px;
+    min-height: 18px; margin: 2px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.osmin-prefs scale trough { background-color: ${p.TRACK}; min-height: 4px; border-radius: 2px; border: none; }
+.osmin-prefs scale highlight { background-color: ${p.ACCENT}; border-radius: 2px; border: none; }
+.osmin-prefs scale slider { background-color: white; border: none; min-width: 16px; min-height: 16px;
+    border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+.osmin-prefs scale slider:hover { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55); }
+.osmin-value { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: 1px solid ${p.BORDER};
+    border-radius: 7px; min-height: 26px; box-shadow: none; }
+.osmin-value text { color: ${p.TEXT}; }
+.osmin-value button { background: none; box-shadow: none; border: none; color: ${p.TEXT_SECONDARY}; }
+.osmin-btn { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: 1px solid ${p.BORDER};
+    border-radius: 8px; box-shadow: none; padding: 3px 14px; min-height: 26px;
+    transition: background-color 120ms ease; }
+.osmin-btn:hover { background-color: ${p.CARD}; }
+.osmin-btn:active { background-color: ${p.SELECTED}; }
+.osmin-btn:disabled { color: ${p.TEXT_DISABLED}; }
+.osmin-btn.destructive { color: #e5484d; }
+.osmin-prefs dropdown > button { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: 1px solid ${p.BORDER};
+    border-radius: 8px; box-shadow: none; min-height: 26px; }
 `;
+
+const WIDGET_ICONS = {
+    media: 'folder-music-symbolic',
+    calendar: 'x-office-calendar-symbolic',
+    mirror: 'camera-web-symbolic',
+    timer: 'alarm-symbolic',
+    todo: 'checkbox-checked-symbolic',
+};
+
+const ALL_APPEARANCE_KEYS = ['corner-radius', 'background-opacity', 'shadow-strength',
+    'row-height', 'content-padding', 'widget-spacing', 'show-dividers'];
 
 export default class OsminPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window.set_default_size(720, 820);
+        window.set_default_size(660, 780);
+        window.title = _('Osmin');
+        window.search_enabled = false;
 
-        const provider = new Gtk.CssProvider();
-        provider.load_from_string(PREVIEW_CSS);
-        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+        this._installTheme();
 
-        window.add(this._generalPage(settings));
-        window.add(this._widgetsPage(settings));
-        window.add(this._appearancePage(settings));
-        window.add(this._trayPage(settings));
-        window.add(this._activitiesPage(settings));
-    }
-
-    // --- helpers ----------------------------------------------------------
-
-    _page(title, icon, name) {
-        return new Adw.PreferencesPage({title, icon_name: icon, name});
-    }
-
-    _spin(settings, key, title, subtitle, [lower, upper, step], digits = 0) {
-        const row = new Adw.SpinRow({
-            title,
-            subtitle,
-            digits,
-            adjustment: new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 5}),
-        });
-        settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
-        return row;
-    }
-
-    _toggle(settings, key, title, subtitle = '') {
-        const row = new Adw.SwitchRow({title, subtitle});
-        settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-        return row;
-    }
-
-    _resetGroup(settings, keys) {
+        const page = new Adw.PreferencesPage({title: _('Osmin'), icon_name: 'preferences-system-symbolic'});
         const group = new Adw.PreferencesGroup();
-        const row = new Adw.ActionRow({title: _('Reset these settings')});
-        const button = new Gtk.Button({
-            label: _('Reset'),
-            valign: Gtk.Align.CENTER,
-            css_classes: ['destructive-action'],
+        const root = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-prefs']});
+        group.add(root);
+        page.add(group);
+        window.add(page);
+
+        const pages = [
+            ['general', _('General'), 'preferences-system-symbolic', this._generalPage(settings)],
+            ['osmin', _('Osmin'), 'view-grid-symbolic', this._osminPage(settings)],
+            ['appearance', _('Appearance'), 'applications-graphics-symbolic', this._appearancePage(settings)],
+            ['tray', _('Tray'), 'folder-download-symbolic', this._trayPage(settings)],
+            ['activities', _('Live Activities'), 'media-playback-start-symbolic', this._activitiesPage(settings)],
+        ];
+
+        const stack = new Gtk.Stack({
+            transition_type: Gtk.StackTransitionType.CROSSFADE,
+            transition_duration: 140,
+            vexpand: true,
+            hhomogeneous: true,
+            vhomogeneous: false,
         });
-        button.connect('clicked', () => keys.forEach(key => settings.reset(key)));
-        row.add_suffix(button);
-        group.add(row);
-        return group;
+        const toolbar = new Gtk.Box({
+            css_classes: ['osmin-toolbar'],
+            spacing: 4,
+            halign: Gtk.Align.FILL,
+            homogeneous: false,
+        });
+        const inner = new Gtk.Box({halign: Gtk.Align.CENTER, spacing: 4});
+        toolbar.append(inner);
+        let first = null;
+        for (const [name, title, icon, content] of pages) {
+            stack.add_named(content, name);
+            const tab = new Gtk.ToggleButton({css_classes: ['osmin-tab'], group: first});
+            first ??= tab;
+            const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 3});
+            box.append(new Gtk.Image({icon_name: icon, pixel_size: 24}));
+            box.append(new Gtk.Label({label: title}));
+            tab.set_child(box);
+            tab.connect('toggled', () => {
+                if (tab.active)
+                    stack.set_visible_child_name(name);
+            });
+            inner.append(tab);
+        }
+        first.active = true;
+        toolbar.halign = Gtk.Align.FILL;
+        inner.hexpand = true;
+
+        root.append(toolbar);
+        root.append(stack);
+    }
+
+    // --- theme --------------------------------------------------------------
+
+    _installTheme() {
+        const provider = new Gtk.CssProvider();
+        const style = Adw.StyleManager.get_default();
+        const apply = () => provider.load_from_string(buildCss(SETTINGS_THEME[style.dark ? 'dark' : 'light']));
+        apply();
+        style.connect('notify::dark', apply);
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    }
+
+    // --- building blocks ------------------------------------------------------
+
+    /** A page body: a centred column that the form helpers fill. */
+    _body() {
+        const box = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 12,
+            margin_top: 18,
+            margin_bottom: 22,
+            margin_start: 22,
+            margin_end: 22,
+        });
+        return box;
+    }
+
+    _form() {
+        const grid = new Gtk.Grid({column_spacing: 18, row_spacing: 10, halign: Gtk.Align.FILL, hexpand: true});
+        grid._row = 0;
+        return grid;
+    }
+
+    _dim(text) {
+        return new Gtk.Label({
+            label: text,
+            css_classes: ['dim'],
+            wrap: true,
+            xalign: 0,
+            halign: Gtk.Align.START,
+            max_width_chars: 52,
+        });
+    }
+
+    /** One form row: right-aligned label, control on the left of the second column, optional note. */
+    _row(grid, label, control, note = '') {
+        const r = grid._row++;
+        if (label) {
+            grid.attach(new Gtk.Label({
+                label,
+                xalign: 1,
+                halign: Gtk.Align.END,
+                valign: Gtk.Align.CENTER,
+                width_chars: 16,
+            }), 0, r, 1, 1);
+        }
+        control.halign = control.halign === Gtk.Align.FILL ? Gtk.Align.FILL : Gtk.Align.START;
+        control.valign = Gtk.Align.CENTER;
+        grid.attach(control, 1, r, 1, 1);
+        if (note) {
+            const n = grid._row++;
+            grid.attach(this._dim(note), 1, n, 1, 1);
+        }
+    }
+
+    _rule(grid) {
+        const r = grid._row++;
+        const sep = new Gtk.Separator({margin_top: 6, margin_bottom: 6});
+        grid.attach(sep, 0, r, 2, 1);
+    }
+
+    _switch(settings, key) {
+        const sw = new Gtk.Switch({valign: Gtk.Align.CENTER});
+        settings.bind(key, sw, 'active', Gio.SettingsBindFlags.DEFAULT);
+        return sw;
+    }
+
+    /** Slider with a boxed value, bound to a setting. */
+    _slider(settings, key, [lower, upper, step], digits = 0, width = 230) {
+        const adjustment = new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 5});
+        const box = new Gtk.Box({spacing: 10, halign: Gtk.Align.FILL, hexpand: true});
+        const scale = new Gtk.Scale({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            adjustment,
+            draw_value: false,
+            hexpand: true,
+            width_request: width,
+        });
+        const spin = new Gtk.SpinButton({adjustment, digits, css_classes: ['osmin-value'], width_chars: 5});
+        settings.bind(key, adjustment, 'value', Gio.SettingsBindFlags.DEFAULT);
+        box.append(scale);
+        box.append(spin);
+        return box;
+    }
+
+    _button(label, onClick, destructive = false) {
+        const button = new Gtk.Button({label, css_classes: destructive ? ['osmin-btn', 'destructive'] : ['osmin-btn']});
+        button.connect('clicked', onClick);
+        return button;
+    }
+
+    _resetRow(grid, settings, keys, label = _('Reset these settings')) {
+        this._rule(grid);
+        this._row(grid, _('Others'), this._button(label, () => keys.forEach(k => settings.reset(k))));
+    }
+
+    _segmented(items, onSelect) {
+        const box = new Gtk.Box({css_classes: ['osmin-seg'], spacing: 2, halign: Gtk.Align.CENTER});
+        let first = null;
+        items.forEach(([id, title], i) => {
+            const b = new Gtk.ToggleButton({label: title, group: first});
+            first ??= b;
+            b.connect('toggled', () => {
+                if (b.active)
+                    onSelect(id);
+            });
+            box.append(b);
+            if (i === 0)
+                b.active = true;
+        });
+        return box;
+    }
+
+    _icon(name) {
+        const box = new Gtk.Box({css_classes: ['osmin-icon'], halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER});
+        box.append(new Gtk.Image({icon_name: name, pixel_size: 18, hexpand: true, vexpand: true}));
+        return box;
+    }
+
+    /** A pill with one chip per entry: coloured icon, name, caption, switch. */
+    _chip({icon, title, caption, active, selected, sensitive = true, onToggle, onSelect}) {
+        const chip = new Gtk.Box({css_classes: ['osmin-chip'], spacing: 10, hexpand: true, halign: Gtk.Align.FILL});
+        if (selected)
+            chip.add_css_class('selected');
+        if (!active)
+            chip.add_css_class('off');
+        chip.append(this._icon(icon));
+
+        const text = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, valign: Gtk.Align.CENTER, hexpand: true});
+        text.append(new Gtk.Label({label: title, xalign: 0, css_classes: ['osmin-chip-title']}));
+        if (caption)
+            text.append(new Gtk.Label({label: caption, xalign: 0, css_classes: ['osmin-chip-sub']}));
+        chip.append(text);
+
+        const sw = new Gtk.Switch({active, valign: Gtk.Align.CENTER, sensitive});
+        sw.connect('notify::active', () => onToggle(sw.active));
+        chip.append(sw);
+
+        if (onSelect) {
+            const click = new Gtk.GestureClick();
+            click.connect('released', () => onSelect());
+            chip.add_controller(click);
+        }
+        return chip;
+    }
+
+    _strip() {
+        const flow = new Gtk.FlowBox({
+            css_classes: ['osmin-strip'],
+            selection_mode: Gtk.SelectionMode.NONE,
+            homogeneous: true,
+            min_children_per_line: 1,
+            max_children_per_line: 2,
+            column_spacing: 4,
+            row_spacing: 4,
+            activate_on_single_click: false,
+            valign: Gtk.Align.START,
+            vexpand: false,
+        });
+        return flow;
     }
 
     // --- General ----------------------------------------------------------
 
     _generalPage(settings) {
-        const page = this._page(_('General'), 'preferences-system-symbolic', 'general');
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
 
-        const behaviour = new Adw.PreferencesGroup({title: _('Behaviour')});
-        behaviour.add(this._toggle(settings, 'open-on-hover', _('Open on hover'),
-            _('Off: the capsule opens on click only')));
-        behaviour.add(this._toggle(settings, 'auto-collapse', _('Collapse when the pointer leaves'),
-            _('Off: it stays open until you close it')));
-        page.add(behaviour);
+        this._toggleRow(form, settings, 'open-on-hover', _('Osmin'), _('Open on hover'),
+            _('Off: the capsule opens on click only.'));
+        this._toggleRow(form, settings, 'auto-collapse', '', _('Collapse when the pointer leaves'),
+            _('Off: it stays open until you close it.'));
 
-        const animation = new Adw.PreferencesGroup({title: _('Animation')});
-        animation.add(this._spin(settings, 'animation-speed', _('Animation speed'),
-            _('Higher is faster'), [0.5, 2.0, 0.1], 1));
-        page.add(animation);
+        this._rule(form);
+        this._row(form, _('Animation speed'), this._slider(settings, 'animation-speed', [0.5, 2.0, 0.1], 1),
+            _('Higher is faster.'));
 
-        page.add(this._resetGroup(settings, ['open-on-hover', 'auto-collapse', 'animation-speed']));
-        return page;
+        this._resetRow(form, settings, ['open-on-hover', 'auto-collapse', 'animation-speed'],
+            _('Reset all settings'));
+        return body;
     }
 
-    // --- Widgets ----------------------------------------------------------
+    /** "[switch] Title" with an optional note below, like the checkbox rows of the reference. */
+    _toggleRow(grid, settings, key, label, title, note = '') {
+        const box = new Gtk.Box({spacing: 10});
+        box.append(this._switch(settings, key));
+        box.append(new Gtk.Label({label: title}));
+        this._row(grid, label, box, note);
+    }
 
-    _widgetsPage(settings) {
-        const page = this._page(_('Widgets'), 'view-grid-symbolic', 'widgets');
+    // --- Osmin (widgets) -----------------------------------------------------
 
-        // A small picture of the capsule: one block per enabled widget, as wide as its cells.
-        const previewGroup = new Adw.PreferencesGroup({
-            title: _('Layout'),
-            description: _('The expanded capsule grows with its widgets.'),
+    _osminPage(settings) {
+        const body = this._body();
+        const sub = this._segmented([
+            ['widgets', _('Customize widgets')],
+            ['width', _('Capsule width')],
+        ], id => substack.set_visible_child_name(id));
+        body.append(sub);
+
+        const substack = new Gtk.Stack({vexpand: true});
+        body.append(substack);
+        substack.add_named(this._widgetsView(settings), 'widgets');
+        substack.add_named(this._widthView(settings), 'width');
+        return body;
+    }
+
+    _widthView(settings) {
+        const form = this._form();
+        const modes = ['auto', 'fixed'];
+        const mode = new Gtk.DropDown({model: Gtk.StringList.new([_('Auto'), _('Fixed')])});
+        mode.selected = Math.max(0, modes.indexOf(settings.get_string('width-mode')));
+        mode.connect('notify::selected', () => settings.set_string('width-mode', modes[mode.selected]));
+        settings.connect('changed::width-mode', () => {
+            mode.selected = Math.max(0, modes.indexOf(settings.get_string('width-mode')));
         });
-        const preview = new Gtk.Box({
-            css_classes: ['osmin-preview'],
+        this._row(form, _('Width mode'), mode, _('Auto follows the widgets; fixed is a share of the screen.'));
+
+        const fixed = this._slider(settings, 'fixed-width', [0.25, 0.9, 0.05], 2);
+        const syncFixed = () => {
+            fixed.sensitive = settings.get_string('width-mode') === 'fixed';
+        };
+        settings.connect('changed::width-mode', syncFixed);
+        syncFixed();
+        this._row(form, _('Fixed width'), fixed, _('Share of the screen width (fixed mode).'));
+
+        this._rule(form);
+        this._row(form, _('Widget size'), this._slider(settings, 'size-scale', [0.85, 1.25, 0.05], 2),
+            _('Scales the width of every cell.'));
+        this._resetRow(form, settings, ['width-mode', 'fixed-width', 'size-scale']);
+        return form;
+    }
+
+    _widgetsView(settings) {
+        const view = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 14});
+
+        // Preview: the capsule with one block per enabled widget.
+        const capsule = new Gtk.Box({
+            css_classes: ['osmin-capsule'],
             spacing: 8,
             halign: Gtk.Align.CENTER,
             homogeneous: false,
         });
-        previewGroup.add(preview);
-        page.add(previewGroup);
+        const previewHolder = new Gtk.Box({css_classes: ['osmin-panel'], halign: Gtk.Align.FILL, hexpand: true});
+        capsule.hexpand = false;
+        previewHolder.append(capsule);
+        capsule.halign = Gtk.Align.CENTER;
+        capsule.hexpand = true;
+        view.append(previewHolder);
 
-        const list = new Adw.PreferencesGroup({
-            title: _('Widgets'),
-            description: _('Switch widgets on or off, change their order and width (in cells). At least one stays on.'),
-        });
-        page.add(list);
+        const strip = this._strip();
+        view.append(strip);
 
-        const width = new Adw.PreferencesGroup({title: _('Capsule width')});
-        const modes = ['auto', 'fixed'];
-        const modeRow = new Adw.ComboRow({
-            title: _('Width mode'),
-            subtitle: _('Auto: follows the widgets. Fixed: a share of the screen'),
-            model: Gtk.StringList.new([_('Auto'), _('Fixed')]),
-        });
-        modeRow.selected = Math.max(0, modes.indexOf(settings.get_string('width-mode')));
-        modeRow.connect('notify::selected', () => settings.set_string('width-mode', modes[modeRow.selected]));
-        settings.connect('changed::width-mode', () => {
-            modeRow.selected = Math.max(0, modes.indexOf(settings.get_string('width-mode')));
-        });
-        width.add(modeRow);
-        const fixed = this._spin(settings, 'fixed-width', _('Fixed width'),
-            _('Share of the screen width (fixed mode)'), [0.25, 0.9, 0.05], 2);
-        const updateFixed = () => {
-            fixed.sensitive = settings.get_string('width-mode') === 'fixed';
-        };
-        settings.connect('changed::width-mode', updateFixed);
-        updateFixed();
-        width.add(fixed);
-        width.add(this._spin(settings, 'size-scale', _('Widget size'),
-            _('Scales the width of every cell'), [0.85, 1.25, 0.05], 2));
-        page.add(width);
+        const options = this._form();
+        view.append(options);
 
-        // --- model <-> UI
         const readCells = () => {
             const value = settings.get_value('widget-cells').recursiveUnpack();
             return Object.fromEntries(WIDGET_INFO.map(w => [w.id, Number(value[w.id]) || w.cells]));
@@ -164,180 +479,224 @@ export default class OsminPreferences extends ExtensionPreferences {
             return ids.length > 0 ? ids : [...DEFAULT_WIDGETS];
         };
         const saveEnabled = ids => settings.set_strv('enabled-widgets', ids);
+        let selected = enabled()[0];
+
+        const clear = box => {
+            let child;
+            while ((child = box.get_first_child()))
+                box.remove(child);
+        };
 
         const rebuildPreview = () => {
-            let child;
-            while ((child = preview.get_first_child()))
-                preview.remove(child);
+            clear(capsule);
             const cells = readCells();
             for (const id of enabled()) {
                 const info = WIDGET_INFO.find(w => w.id === id);
-                const block = new Gtk.Box({css_classes: ['osmin-preview-block'], valign: Gtk.Align.CENTER});
-                block.set_size_request(cells[id] * 16, -1);
-                block.append(new Gtk.Label({label: _(info.title), hexpand: true, wrap: true}));
-                preview.append(block);
+                const block = new Gtk.Box({
+                    css_classes: ['osmin-capsule-block'],
+                    orientation: Gtk.Orientation.VERTICAL,
+                    valign: Gtk.Align.CENTER,
+                    spacing: 4,
+                });
+                block.set_size_request(cells[id] * 22, -1);
+                block.append(new Gtk.Image({icon_name: WIDGET_ICONS[id], pixel_size: 16, vexpand: true,
+                    valign: Gtk.Align.END}));
+                block.append(new Gtk.Label({label: _(info.title), wrap: true, vexpand: true,
+                    valign: Gtk.Align.START, justify: Gtk.Justification.CENTER}));
+                capsule.append(block);
             }
         };
 
-        const rows = [];
-        const rebuildRows = () => {
-            rows.forEach(row => list.remove(row));
-            rows.length = 0;
+        const rebuildOptions = () => {
+            clear(options);
+            options._row = 0;
+            const info = WIDGET_INFO.find(w => w.id === selected);
+            const on = enabled();
+            const isOn = on.includes(selected);
+            const cells = readCells();
+
+            const spin = new Gtk.Adjustment({
+                lower: info.minCells, upper: 12, step_increment: 1, page_increment: 1, value: cells[selected],
+            });
+            const box = new Gtk.Box({spacing: 10, hexpand: true, halign: Gtk.Align.FILL});
+            const scale = new Gtk.Scale({
+                adjustment: spin, draw_value: false, hexpand: true, width_request: 230,
+                sensitive: isOn, digits: 0,
+            });
+            scale.set_round_digits(0);
+            const value = new Gtk.SpinButton({adjustment: spin, css_classes: ['osmin-value'], width_chars: 3,
+                sensitive: isOn});
+            spin.connect('value-changed', () => {
+                const next = readCells();
+                const v = Math.round(spin.get_value());
+                if (next[selected] === v)
+                    return;
+                next[selected] = v;
+                settings.set_value('widget-cells', new GLib.Variant('a{si}', next));
+            });
+            box.append(scale);
+            box.append(value);
+            this._row(options, _('Width'), box, _('Width of %s, in cells.').format(_(info.title)));
+
+            const moves = new Gtk.Box({spacing: 6});
+            const index = on.indexOf(selected);
+            const left = this._button(_('Move left'), () => move(-1));
+            const right = this._button(_('Move right'), () => move(1));
+            left.sensitive = isOn && index > 0;
+            right.sensitive = isOn && index < on.length - 1;
+            moves.append(left);
+            moves.append(right);
+            this._row(options, _('Position'), moves, _('The order of the widgets in the capsule.'));
+
+            this._resetRow(options, settings, ['enabled-widgets', 'widget-cells']);
+        };
+
+        const move = delta => {
+            const ids = enabled();
+            const i = ids.indexOf(selected);
+            const j = i + delta;
+            if (i < 0 || j < 0 || j >= ids.length)
+                return;
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+            saveEnabled(ids);
+        };
+
+        const rebuildStrip = () => {
+            clear(strip);
             const on = enabled();
             const ordered = [...on, ...WIDGET_INFO.map(w => w.id).filter(id => !on.includes(id))];
             const cells = readCells();
-
-            ordered.forEach(id => {
+            for (const id of ordered) {
                 const info = WIDGET_INFO.find(w => w.id === id);
                 const isOn = on.includes(id);
-                const row = new Adw.ActionRow({title: _(info.title), subtitle: _(info.subtitle)});
-
-                const up = new Gtk.Button({
-                    icon_name: 'go-up-symbolic',
-                    valign: Gtk.Align.CENTER,
-                    css_classes: ['flat'],
-                    sensitive: isOn && on.indexOf(id) > 0,
-                    tooltip_text: _('Move left'),
-                });
-                const down = new Gtk.Button({
-                    icon_name: 'go-down-symbolic',
-                    valign: Gtk.Align.CENTER,
-                    css_classes: ['flat'],
-                    sensitive: isOn && on.indexOf(id) < on.length - 1,
-                    tooltip_text: _('Move right'),
-                });
-                const move = delta => {
-                    const ids = enabled();
-                    const i = ids.indexOf(id);
-                    const j = i + delta;
-                    if (i < 0 || j < 0 || j >= ids.length)
-                        return;
-                    [ids[i], ids[j]] = [ids[j], ids[i]];
-                    saveEnabled(ids);
-                };
-                up.connect('clicked', () => move(-1));
-                down.connect('clicked', () => move(1));
-
-                const spin = new Gtk.SpinButton({
-                    adjustment: new Gtk.Adjustment({lower: info.minCells, upper: 12, step_increment: 1, value: cells[id]}),
-                    valign: Gtk.Align.CENTER,
-                    sensitive: isOn,
-                    tooltip_text: _('Width in cells'),
-                });
-                spin.connect('value-changed', () => {
-                    const next = readCells();
-                    next[id] = spin.get_value_as_int();
-                    settings.set_value('widget-cells', new GLib.Variant('a{si}', next));
-                });
-
-                const toggle = new Gtk.Switch({
+                strip.append(this._chip({
+                    icon: WIDGET_ICONS[id],
+                    title: _(info.title),
+                    caption: isOn ? _('%d cells').format(cells[id]) : _('Off'),
                     active: isOn,
-                    valign: Gtk.Align.CENTER,
+                    selected: id === selected,
                     sensitive: !(isOn && on.length <= 1),
-                });
-                toggle.connect('notify::active', () => {
-                    const ids = enabled();
-                    if (toggle.active && !ids.includes(id))
-                        ids.push(id);
-                    else if (!toggle.active && ids.length > 1)
-                        ids.splice(ids.indexOf(id), 1);
-                    saveEnabled(ids);
-                });
-
-                for (const suffix of [up, down, spin, toggle])
-                    row.add_suffix(suffix);
-                list.add(row);
-                rows.push(row);
-            });
+                    onToggle: active => {
+                        const ids = enabled();
+                        if (active && !ids.includes(id))
+                            ids.push(id);
+                        else if (!active && ids.length > 1)
+                            ids.splice(ids.indexOf(id), 1);
+                        else
+                            return;
+                        selected = id;
+                        saveEnabled(ids);
+                    },
+                    onSelect: () => {
+                        selected = id;
+                        refresh();
+                    },
+                }));
+            }
         };
 
-        settings.connect('changed::enabled-widgets', () => {
-            rebuildRows();
+        const refresh = () => {
+            rebuildStrip();
+            rebuildPreview();
+            rebuildOptions();
+        };
+        settings.connect('changed::enabled-widgets', refresh);
+        // Cells change while the slider is dragged: only refresh the pieces that show them.
+        settings.connect('changed::widget-cells', () => {
+            rebuildStrip();
             rebuildPreview();
         });
-        settings.connect('changed::widget-cells', rebuildPreview);
-        rebuildRows();
-        rebuildPreview();
-
-        page.add(this._resetGroup(settings,
-            ['enabled-widgets', 'widget-cells', 'width-mode', 'fixed-width', 'size-scale']));
-        return page;
+        refresh();
+        return view;
     }
 
     // --- Appearance ---------------------------------------------------------
 
     _appearancePage(settings) {
-        const page = this._page(_('Appearance'), 'applications-graphics-symbolic', 'appearance');
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
 
-        const shape = new Adw.PreferencesGroup({
-            title: _('Shape'),
-            description: _('Changes apply immediately.'),
-        });
-        shape.add(this._spin(settings, 'corner-radius', _('Corner radius'), _('In pixels'), [8, 44, 1]));
-        shape.add(this._spin(settings, 'background-opacity', _('Transparency'),
-            _('Background opacity: 1.00 is fully opaque'), [0.5, 1.0, 0.02], 2));
-        shape.add(this._spin(settings, 'shadow-strength', _('Shadow'),
-            _('0 turns the shadow off'), [0, 1, 0.1], 1));
-        page.add(shape);
+        this._row(form, _('Corner radius'), this._slider(settings, 'corner-radius', [8, 44, 1]),
+            _('In pixels.'));
+        this._row(form, _('Transparency'), this._slider(settings, 'background-opacity', [0.5, 1.0, 0.02], 2),
+            _('Background opacity: 1.00 is fully opaque.'));
+        this._row(form, _('Shadow'), this._slider(settings, 'shadow-strength', [0, 1, 0.1], 1),
+            _('0 turns the shadow off.'));
 
-        const space = new Adw.PreferencesGroup({title: _('Size and spacing')});
-        space.add(this._spin(settings, 'row-height', _('Height'),
-            _('Height of the widget area, in pixels'), [90, 220, 2]));
-        space.add(this._spin(settings, 'content-padding', _('Padding'),
-            _('Space around the widgets'), [6, 32, 1]));
-        space.add(this._spin(settings, 'widget-spacing', _('Spacing'),
-            _('Space between widgets'), [0, 40, 1]));
-        space.add(this._toggle(settings, 'show-dividers', _('Dividers'),
-            _('Thin lines between widgets')));
-        page.add(space);
+        this._rule(form);
+        this._row(form, _('Height'), this._slider(settings, 'row-height', [90, 220, 2]),
+            _('Height of the widget area, in pixels.'));
+        this._row(form, _('Padding'), this._slider(settings, 'content-padding', [6, 32, 1]),
+            _('Space around the widgets.'));
+        this._row(form, _('Spacing'), this._slider(settings, 'widget-spacing', [0, 40, 1]),
+            _('Space between widgets.'));
 
-        page.add(this._resetGroup(settings, ['corner-radius', 'background-opacity', 'shadow-strength',
-            'row-height', 'content-padding', 'widget-spacing', 'show-dividers']));
-        return page;
+        this._rule(form);
+        this._toggleRow(form, settings, 'show-dividers', _('Widgets'), _('Dividers'),
+            _('Thin lines between widgets.'));
+
+        this._resetRow(form, settings, ALL_APPEARANCE_KEYS);
+        return body;
     }
 
     // --- Tray ---------------------------------------------------------------
 
     _trayPage(settings) {
-        const page = this._page(_('Tray'), 'folder-download-symbolic', 'tray');
-        const group = new Adw.PreferencesGroup({
-            title: _('Tray'),
-            description: _('Drag files over the capsule and release them to put them in the tray. ' +
-                'The files themselves are never copied or moved.'),
-        });
-        group.add(this._toggle(settings, 'tray-keep-files', _('Keep files'),
-            _('Remember the tray after a restart or logout')));
-        page.add(group);
-        page.add(this._resetGroup(settings, ['tray-keep-files']));
-        return page;
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+
+        this._toggleRow(form, settings, 'tray-keep-files', _('Tray'), _('Keep files'),
+            _('Remember the tray after a restart or logout.'));
+        this._row(form, '', new Gtk.Box(),
+            _('Drag files over the capsule and release them to put them in the tray. ' +
+                'The files themselves are never copied or moved.'));
+
+        this._resetRow(form, settings, ['tray-keep-files']);
+        return body;
     }
 
     // --- Live Activities ------------------------------------------------------
 
     _activitiesPage(settings) {
-        const page = this._page(_('Live Activities'), 'media-playback-start-symbolic', 'activities');
+        const body = this._body();
 
-        const collapsed = new Adw.PreferencesGroup({title: _('Collapsed capsule')});
-        collapsed.add(this._toggle(settings, 'activities-in-collapsed', _('Show activities when collapsed'),
-            _('A running timer, music or a meeting instead of the time')));
-        page.add(collapsed);
+        const strip = this._strip();
+        const defs = [
+            ['activity-media', _('Music'), _('Playing track'), 'folder-music-symbolic'],
+            ['activity-timer', _('Timer'), _('Countdown'), 'alarm-symbolic'],
+            ['activity-calendar', _('Calendar'), _('Next meeting'), 'x-office-calendar-symbolic'],
+            ['activity-files', _('Tray'), _('Added files'), 'folder-download-symbolic'],
+        ];
+        const rebuild = () => {
+            let child;
+            while ((child = strip.get_first_child()))
+                strip.remove(child);
+            for (const [key, title, caption, icon] of defs) {
+                const active = settings.get_boolean(key);
+                strip.append(this._chip({
+                    icon, title, caption, active, selected: false,
+                    onToggle: value => {
+                        if (value !== settings.get_boolean(key))
+                            settings.set_boolean(key, value);
+                    },
+                }));
+            }
+        };
+        defs.forEach(([key]) => settings.connect(`changed::${key}`, rebuild));
+        rebuild();
+        body.append(strip);
+        body.append(this._dim(_('Choose what gets its own place in the capsule.')));
 
-        const kinds = new Adw.PreferencesGroup({
-            title: _('Activities'),
-            description: _('Choose what gets its own place in the capsule.'),
-        });
-        kinds.add(this._toggle(settings, 'activity-media', _('Music'),
-            _('The track that is playing, and a card when it changes')));
-        kinds.add(this._toggle(settings, 'activity-timer', _('Timer'),
-            _('The countdown (the alarm card always shows)')));
-        kinds.add(this._toggle(settings, 'activity-calendar', _('Calendar'),
-            _('A meeting that starts in the next 10 minutes')));
-        kinds.add(this._toggle(settings, 'activity-files', _('Tray'),
-            _('A card when files are added to the tray')));
-        page.add(kinds);
+        const form = this._form();
+        body.append(form);
+        this._toggleRow(form, settings, 'activities-in-collapsed', _('Collapsed capsule'),
+            _('Show activities when collapsed'),
+            _('A running timer, music or a meeting instead of the time.'));
 
-        page.add(this._resetGroup(settings, ['activities-in-collapsed', 'activity-media',
-            'activity-timer', 'activity-calendar', 'activity-files']));
-        return page;
+        this._resetRow(form, settings, ['activities-in-collapsed', 'activity-media',
+            'activity-timer', 'activity-calendar', 'activity-files']);
+        return body;
     }
 }
