@@ -13,6 +13,7 @@ export class TrayController {
         this._settings = settings;
         this._activity = new FilesActivity();
         this.view = new TrayView(this._files, dragOut && {
+            warm: () => dragOut.warm(),
             prepare: uri => dragOut.prepare([uri]),
             begin: () => dragOut.begin(),
             cancel: () => dragOut.cancel(),

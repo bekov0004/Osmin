@@ -617,14 +617,21 @@ export class Osmin {
 
     // --- dragging files onto the capsule -----------------------------------
 
+    /** Our own drag out of the tray is a native file drag too: the drop machinery must ignore it. */
+    _ownDrag() {
+        return this._draggingOut || !!this._dragOut?.busy;
+    }
+
     _onDragStarted(uris) {
+        if (this._ownDrag())
+            return;
         this._dragUris = uris;
         this._dragArmed = null;
         this._panelView.tray.setDrop({active: false, count: uris.length});
     }
 
     _onDragMoved(x, y) {
-        if (!this._dragUris || this._state === State.CARD)
+        if (!this._dragUris || this._ownDrag() || this._state === State.CARD)
             return;
         const geo = this._panel.getGeometry();
         const hot = Math.abs(x - geo.centerX) <= scaled(Layout.DROP_HOT_HALF_WIDTH) &&
@@ -644,6 +651,8 @@ export class Osmin {
     }
 
     async _onDragEnded({dropped, uris}) {
+        if (!this._dragUris)
+            return;
         const zone = this._dragArmed;
         this._dragUris = null;
         this._dragArmed = null;
@@ -747,7 +756,7 @@ export class Osmin {
      * very top edge of the screen) counts as hovering it, so it is easy to hit.
      */
     _onStageMotion(event) {
-        if (this._destroying || !this._actor)
+        if (this._destroying || !this._actor || this._draggingOut)
             return;
         if (this._state !== State.CLOSED && !this._approach)
             return;
@@ -769,6 +778,9 @@ export class Osmin {
     }
 
     _onHoverChanged() {
+        // While a file is dragged out of the tray the capsule is hidden and must stay quiet.
+        if (this._draggingOut)
+            return;
         const hovered = this._hovered();
         this._timers.clear('hover');
 

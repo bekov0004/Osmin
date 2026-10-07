@@ -12,7 +12,7 @@ export class FileItem extends St.Widget {
     }
 
     /**
-     * @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove, drag?: {prepare, begin, cancel}}} params
+     * @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove, drag?: {warm, prepare, begin, cancel}}} params
      *   drag: hooks that let the file be dragged out into other applications
      */
     constructor({item, onOpen, onShowInFolder, onCopy, onRemove, drag}) {
@@ -70,7 +70,8 @@ export class FileItem extends St.Widget {
             this.connect('captured-event', (_actor, event) => {
                 switch (event.type()) {
                 case Clutter.EventType.BUTTON_PRESS:
-                    if (event.get_button() === Clutter.BUTTON_PRIMARY) {
+                    // The small buttons (folder, copy, remove) are not drag handles.
+                    if (event.get_button() === Clutter.BUTTON_PRIMARY && !this._pressOnAction(event)) {
                         origin = event.get_coords();
                         started = false;
                         drag.prepare(item.uri);
@@ -94,10 +95,22 @@ export class FileItem extends St.Widget {
                 return Clutter.EVENT_PROPAGATE;
             });
         }
-        this.connect('notify::hover', () => this._actions.ease({
-            opacity: this.hover ? 255 : 0,
-            duration: 120,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        }));
+        this.connect('notify::hover', () => {
+            // The pointer rests on a file: get the drag-out helper ready.
+            if (this.hover)
+                drag?.warm?.();
+            this._actions.ease({
+                opacity: this.hover ? 255 : 0,
+                duration: 120,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        });
+    }
+
+    /** Whether the press landed on one of the small action buttons. */
+    _pressOnAction(event) {
+        const [x, y] = event.get_coords();
+        const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+        return !!target && target !== this._actions && this._actions.contains(target);
     }
 }
