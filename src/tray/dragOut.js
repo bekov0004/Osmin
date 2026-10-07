@@ -7,8 +7,10 @@ const HELPER = GLib.build_filenamev([
     GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]), '..', 'helpers', 'dragout.js',
 ]);
 const WINDOW_TITLE = 'OsminDragOut';
-const WINDOW_SIZE = 140;
-const HANDOFF_DELAY_MS = 120;     // after the window is mapped: time to draw and be stacked
+const WINDOW_SIZE = 64;
+const HANDOFF_DELAY_MS = 120;     // a window that has only just been mapped: time to draw and be stacked
+const ARMED_DELAY_MS = 25;        // a window that already waits under the pointer: one frame
+const DISARM_MS = 250;            // leaving a file: it may be on its way to the next one
 const TOUCH_SETTLE_MS = 400;      // a new touch device must be announced to the clients before it is used
 const BUTTON1 = Clutter.ModifierType.BUTTON1_MASK;
 
@@ -16,6 +18,8 @@ const BUTTON1 = Clutter.ModifierType.BUTTON1_MASK;
 // after at most this long.
 const WINDOW_TIMEOUT_MS = 1500;   // the helper's window must appear
 const START_TIMEOUT_MS = 1500;    // after the touch, the drag must start
+const DWELL_MS = 120;             // over the target before the finger lifts (a drop needs a moment)
+const LATE_START_MS = 700;        // the mouse is already up: how long to wait for the drag to start, then drop
 const END_TIMEOUT_MS = 2500;      // after the finger lifts, the helper must report the end
 const MAX_DRAG_MS = 90000;        // no drag lasts longer than this
 const HIDE_TIMEOUT_MS = 1200;     // after a drag the helper must have unmapped its window
@@ -51,6 +55,12 @@ export class DragOutService {
         this._phase = Phase.IDLE;
         this._busy = false;
         this._uris = null;
+        this._armed = false;
+        this._armUris = null;
+        this._armCheck = null;
+        this._focusBefore = null;
+        this._trackId = 0;
+        this._lastPlaced = [NaN, NaN];
 
         this._proc = null;
         this._stdin = null;
@@ -63,6 +73,9 @@ export class DragOutService {
         this._touch = null;
         this._touchCreatedAt = 0;
         this._touchDown = false;
+        this._nudgeId = 0;
+        this._nudgeCount = 0;
+        this._releaseSeen = false;
         this._followId = 0;
         this._timeouts = new Set();
         this._timers = new Map();
@@ -104,6 +117,79 @@ export class DragOutService {
         this._mapId = global.window_manager.connect('map', (_wm, actor) => this._onMap(actor.meta_window));
     }
 
+    /**
+     * The pointer rests on a file: put the helper's (invisible) window under the pointer
+     * and keep it there, so that a quick pull out of the tray only has to touch it.
+     * Called again with every move over the file; cheap when nothing changed.
+     */
+    arm(uris, stillOver = null) {
+        if (this._destroyed || this._busy)
+            return;
+        this.warm();
+        if (!this._proc)
+            return;
+        this._clearTimer('disarm');
+        this._armCheck = stillOver;
+        const same = this._armed && this._armUris?.join('\n') === uris.join('\n');
+        if (!same) {
+            if (!this._armed)
+                this._focusBefore = global.display.focus_window;
+            this._armUris = uris;
+            this._armed = true;
+            this._send({cmd: 'show', uris});
+        }
+        this._startTracking();
+    }
+
+    /** The pointer left a file (it may be on its way to the next one). */
+    disarm() {
+        if (this._busy || !this._armed)
+            return;
+        this._timer('disarm', DISARM_MS, () => this._disarmNow());
+    }
+
+    _disarmNow() {
+        this._clearTimer('disarm');
+        this._stopTracking();
+        if (!this._armed || this._busy)
+            return;
+        this._armed = false;
+        this._armUris = null;
+        this._send({cmd: 'hide'});
+    }
+
+    _startTracking() {
+        if (this._trackId)
+            return;
+        this._trackId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 33, () => {
+            if (!this._armed || this._busy || !this._window) {
+                if (!this._armed || this._busy)
+                    this._trackId = 0;
+                return this._armed && !this._busy ? GLib.SOURCE_CONTINUE : GLib.SOURCE_REMOVE;
+            }
+            if (this._armCheck && !this._armCheck()) {
+                // The pointer is no longer on the file (a hover that was never reported as lost).
+                this._armCheck = null;
+                this.disarm();
+                return GLib.SOURCE_CONTINUE;
+            }
+            const [x, y] = global.get_pointer();
+            const [lx, ly] = this._lastPlaced;
+            if (!(Math.abs(x - lx) < 2 && Math.abs(y - ly) < 2)) {
+                this._lastPlaced = [x, y];
+                this._placeWindow();
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _stopTracking() {
+        if (this._trackId) {
+            GLib.source_remove(this._trackId);
+            this._trackId = 0;
+        }
+    }
+
     /** The mouse went down on a file. */
     prepare(uris) {
         if (this._destroyed || this._busy)
@@ -123,11 +209,19 @@ export class DragOutService {
         }
         this._phase = Phase.WINDOW;
         this._busy = true;
+        this._stopTracking();
+        this._clearTimer('disarm');
         this._onBegin();
+        this._timer('abandon', MAX_DRAG_MS, () => this._finish('the drag took too long'));
+        if (this._armed && this._window && this._armUris?.join('\n') === this._uris.join('\n')) {
+            // The window already waits under the pointer: no time lost.
+            this._handoff(ARMED_DELAY_MS);
+            return;
+        }
+        this._armed = true;
+        this._armUris = this._uris;
         this._send({cmd: 'show', uris: this._uris});
         this._timer('window', WINDOW_TIMEOUT_MS, () => this._finish('the helper window did not appear'));
-        // The window may be mapped already (it is a fresh map event that we wait for).
-        this._timer('abandon', MAX_DRAG_MS, () => this._finish('the drag took too long'));
     }
 
     /** The mouse went up before a drag started. */
@@ -189,6 +283,20 @@ export class DragOutService {
         if (message.ev === 'begin' && this._busy) {
             this._phase = Phase.DRAGGING;
             this._clearTimer('start');
+            this._stopNudge();
+            const [x, y, mods] = global.get_pointer();
+            this._move(x, y);
+            if (mods & BUTTON1) {
+                this._follow();
+            } else {
+                // The mouse went up before the drag could start: let go where the pointer is,
+                // but only after a moment over it, so that the target window can take the drop.
+                this._timer('end', END_TIMEOUT_MS + 400, () => this._finish('the helper did not report the end'));
+                this._later(DWELL_MS, () => {
+                    this._move(x + 1, y + 1);
+                    this._later(DWELL_MS / 2, () => this._liftFinger());
+                });
+            }
         } else if (message.ev === 'end' && this._busy) {
             this._finish('the drag ended');
         }
@@ -249,8 +357,22 @@ export class DragOutService {
             this._windowUnmanagedId = 0;
             this._window = null;
         });
-        if (this._phase === Phase.WINDOW)
-            this._handoff();
+        if (this._phase === Phase.WINDOW) {
+            this._handoff(HANDOFF_DELAY_MS);
+        } else if (this._armed) {
+            // Waiting under the pointer: the window must not keep the keyboard from the
+            // application you were using.
+            this._lastPlaced = [NaN, NaN];
+            this._placeWindow();
+            const previous = this._focusBefore;
+            if (previous && previous !== win) {
+                try {
+                    previous.activate(global.get_current_time());
+                } catch (e) {
+                    // that window is gone
+                }
+            }
+        }
     }
 
     _forgetWindow() {
@@ -284,9 +406,24 @@ export class DragOutService {
         return (global.get_pointer()[2] & BUTTON1) !== 0;
     }
 
-    _handoff() {
+    /** The middle of the helper's window as the compositor has it right now, or null. */
+    _windowCenter() {
+        try {
+            const rect = this._window?.get_frame_rect();
+            if (rect && rect.width > 0 && rect.height > 0)
+                return [rect.x + rect.width / 2, rect.y + rect.height / 2];
+        } catch (e) {
+            // the window is gone
+        }
+        return null;
+    }
+
+    _handoff(delay) {
         this._clearTimer('window');
-        if (!this._buttonDown() || !this._placeWindow()) {
+        // A window that already waits under the pointer stays where it is: the pointer may be
+        // far away by now (a quick flick), and the finger goes to the window, not the pointer.
+        const waiting = delay === ARMED_DELAY_MS;
+        if (!this._buttonDown() || (!waiting && !this._placeWindow())) {
             this._finish('the mouse was released before the hand-over');
             return;
         }
@@ -299,10 +436,10 @@ export class DragOutService {
         // Give the compositor a moment to move and stack the window (and to announce a
         // touch device that was created only just now).
         const touchAge = (GLib.get_monotonic_time() - this._touchCreatedAt) / 1000;
-        this._later(Math.max(HANDOFF_DELAY_MS, TOUCH_SETTLE_MS - touchAge), () => {
+        this._later(Math.max(delay, TOUCH_SETTLE_MS - touchAge), () => {
             if (this._phase !== Phase.WINDOW)
                 return;
-            const spot = this._buttonDown() ? this._placeWindow() : null;
+            const spot = !this._buttonDown() ? null : waiting ? this._windowCenter() : this._placeWindow();
             if (!spot) {
                 this._finish('the mouse was released before the hand-over');
                 return;
@@ -320,14 +457,41 @@ export class DragOutService {
             this._touchDown = true;
             this._phase = Phase.TOUCH;
             this._timer('start', START_TIMEOUT_MS, () => this._finish('the drag did not start'));
-            this._later(40, () => {
-                this._move(px + 6, py + 6);
-                this._later(30, () => {
-                    this._move(px + 12, py + 12);
-                    this._follow();
-                });
-            });
+            this._nudgeCount = 0;
+            this._releaseSeen = false;
+            this._nudge(px, py);
         });
+    }
+
+    /**
+     * The drag has to start while the finger is still on the window, and the helper's GTK
+     * needs a few small moves to see it: shake the finger a little, one step a frame, until
+     * the helper reports that the drag has begun. Only then does the finger go to wherever
+     * the pointer has got to (a quick flick is far away by now).
+     */
+    _nudge(px, py) {
+        this._nudgeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+            if (!this._touchDown || this._phase !== Phase.TOUCH) {
+                this._nudgeId = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+            if (!this._releaseSeen && !this._buttonDown()) {
+                // The mouse is already up (a quick flick): the drag may still start, then drop.
+                this._releaseSeen = true;
+                this._timer('start', LATE_START_MS, () => this._finish('the drag did not start'));
+            }
+            const step = Math.min(++this._nudgeCount * 5, 25);
+            const wobble = this._nudgeCount % 2 === 0 ? 1 : 0.6;
+            this._move(px + step * wobble, py + step);
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _stopNudge() {
+        if (this._nudgeId) {
+            GLib.source_remove(this._nudgeId);
+            this._nudgeId = 0;
+        }
     }
 
     _ensureTouch() {
@@ -365,13 +529,8 @@ export class DragOutService {
             }
             this._followId = 0;
             this._liftFinger();
-            if (this._phase === Phase.TOUCH) {
-                // Let go before the drag even began: nothing to wait for.
-                this._finish('the mouse was released before the drag started');
-            } else {
-                // The drop is in the compositor's hands; the helper reports the end.
-                this._timer('end', END_TIMEOUT_MS, () => this._finish('the helper did not report the end'));
-            }
+            // The drop is in the compositor's hands; the helper reports the end.
+            this._timer('end', END_TIMEOUT_MS, () => this._finish('the helper did not report the end'));
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -393,6 +552,10 @@ export class DragOutService {
     _finish(reason) {
         const wasBusy = this._busy;
         this._clearTimers();
+        this._stopTracking();
+        this._stopNudge();
+        this._armed = false;
+        this._armUris = null;
         if (this._followId) {
             GLib.source_remove(this._followId);
             this._followId = 0;
@@ -403,6 +566,7 @@ export class DragOutService {
         this._phase = Phase.IDLE;
         this._uris = null;
         this._busy = false;
+        this._releaseSeen = false;
         if (wasBusy) {
             console.debug(`[osmin] drag out finished: ${reason}`);
             this._onEnd();

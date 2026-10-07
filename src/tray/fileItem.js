@@ -12,7 +12,7 @@ export class FileItem extends St.Widget {
     }
 
     /**
-     * @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove, drag?: {warm, prepare, begin, cancel}}} params
+     * @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove, drag?: {arm, disarm, prepare, begin, cancel}}} params
      *   drag: hooks that let the file be dragged out into other applications
      */
     constructor({item, onOpen, onShowInFolder, onCopy, onRemove, drag}) {
@@ -65,6 +65,12 @@ export class FileItem extends St.Widget {
         this.add_child(this._actions);
 
         if (drag) {
+            this.connect('destroy', () => drag.disarm?.());
+            // As soon as the tray is on screen, start the helper (it takes a while to come up).
+            this.connect('notify::mapped', () => {
+                if (this.mapped)
+                    drag.warm?.();
+            });
             let origin = null;
             let started = false;
             this.connect('captured-event', (_actor, event) => {
@@ -78,6 +84,9 @@ export class FileItem extends St.Widget {
                     }
                     break;
                 case Clutter.EventType.MOTION:
+                    // The pointer is on this file: keep the drag-out helper waiting under it.
+                    if (!origin)
+                        drag.arm(item.uri, () => this.hover);
                     if (origin && !started) {
                         const [x, y] = event.get_coords();
                         if (Math.hypot(x - origin[0], y - origin[1]) > 10) {
@@ -96,9 +105,11 @@ export class FileItem extends St.Widget {
             });
         }
         this.connect('notify::hover', () => {
-            // The pointer rests on a file: get the drag-out helper ready.
+            // The pointer rests on a file: get the drag-out helper ready, under the pointer.
             if (this.hover)
-                drag?.warm?.();
+                drag?.arm?.(item.uri, () => this.hover);
+            else
+                drag?.disarm?.();
             this._actions.ease({
                 opacity: this.hover ? 255 : 0,
                 duration: 120,

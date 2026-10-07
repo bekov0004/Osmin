@@ -21,7 +21,7 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 
 const IDLE_SECONDS = 45;
-const WINDOW_SIZE = 140;
+const WINDOW_SIZE = 64;
 
 Gtk.init();
 const loop = new GLib.MainLoop(null, false);
@@ -29,6 +29,20 @@ const encoder = new TextEncoder();
 const stdout = new Gio.DataOutputStream({base_stream: GioUnix.OutputStream.new(1, false)});
 
 
+
+// OSMIN_DRAGOUT_LOG=/path writes what the helper sees (for debugging only).
+const LOG = GLib.getenv('OSMIN_DRAGOUT_LOG');
+function dbg(text) {
+    if (!LOG)
+        return;
+    try {
+        const out = Gio.File.new_for_path(LOG).append_to(Gio.FileCreateFlags.NONE, null);
+        out.write_all(new TextEncoder().encode(`${(GLib.get_monotonic_time() / 1000) | 0} ${text}\n`), null);
+        out.close(null);
+    } catch (e) {
+        // debugging only
+    }
+}
 
 function send(object) {
     try {
@@ -44,11 +58,13 @@ let dragging = false;
 let idleId = 0;
 
 const css = new Gtk.CssProvider();
-css.load_from_string('window.osmin-dragout { background: transparent; } ' +
-    'window.osmin-dragout label { color: white; background: rgba(0, 0, 0, 0.6); border-radius: 8px; padding: 0 6px; }');
+// 1% of black: invisible to the eye, but a fully transparent window is never mapped.
+css.load_from_string('window.osmin-dragout { background: rgba(0, 0, 0, 0.01); } window.osmin-dragout box { background: transparent; }');
 Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css,
     Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 
+// The window is only a place to put a finger on: it must never be seen. (The picture that
+// follows the pointer during the drag is made from `box`, not from the window.)
 const win = new Gtk.Window({
     title: 'OsminDragOut',
     decorated: false,
@@ -57,15 +73,14 @@ const win = new Gtk.Window({
     default_height: WINDOW_SIZE,
     css_classes: ['osmin-dragout'],
 });
-const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, halign: Gtk.Align.FILL, valign: Gtk.Align.FILL, hexpand: true, vexpand: true});
-const image = new Gtk.Image({pixel_size: 56, hexpand: true, vexpand: true});
-const count = new Gtk.Label({visible: false});
-box.append(image);
-box.append(count);
+// Nothing is drawn in the window: it is (almost) transparent and empty.
+const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, halign: Gtk.Align.FILL, valign: Gtk.Align.FILL, hexpand: true, vexpand: true, width_request: WINDOW_SIZE, height_request: WINDOW_SIZE});
 win.set_child(box);
+let fileIcon = null;
 
 const source = new Gtk.DragSource({actions: Gdk.DragAction.COPY | Gdk.DragAction.LINK});
 source.connect('prepare', () => {
+    dbg('prepare');
     const list = uris.map(uri => `${uri}\r\n`).join('');
     const paths = uris.map(uri => Gio.File.new_for_uri(uri).get_path()).join('\n');
     return Gdk.ContentProvider.new_union([
@@ -74,11 +89,19 @@ source.connect('prepare', () => {
     ]);
 });
 source.connect('drag-begin', () => {
+    dbg('drag-begin');
     dragging = true;
-    source.set_icon(Gtk.WidgetPaintable.new(box), 36, 36);
+    // The picture that follows the pointer: the file's icon, straight from the icon theme.
+    try {
+        const theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+        source.set_icon(theme.lookup_by_gicon(fileIcon, 48, 1, Gtk.TextDirection.NONE, 0), 24, 24);
+    } catch (e) {
+        // the default drag icon will do
+    }
     send({ev: 'begin'});
 });
 source.connect('drag-end', () => {
+    dbg('drag-end');
     dragging = false;
     send({ev: 'end'});
     // Let the drop settle, then get out of the way.
@@ -88,6 +111,19 @@ source.connect('drag-end', () => {
     });
 });
 box.add_controller(source);
+{
+    const probe = new Gtk.EventControllerLegacy();
+    probe.set_propagation_phase(Gtk.PropagationPhase.CAPTURE);
+    probe.connect('event', (_c, ev) => {
+        const type = ev.get_event_type();
+        if (type !== Gdk.EventType.MOTION_NOTIFY)
+            dbg(`event ${type}`);
+        return false;
+    });
+    win.add_controller(probe);
+    win.connect('map', () => dbg('map'));
+    win.connect('unmap', () => dbg('unmap'));
+}
 win.connect('close-request', () => {
     win.set_visible(false);
     return true;
@@ -114,23 +150,21 @@ function handle(line) {
     }
     switch (message.cmd) {
     case 'show': {
+        dbg('show');
         uris = (message.uris ?? []).filter(uri => typeof uri === 'string' && uri.startsWith('file://'));
         if (uris.length === 0)
             return;
-        let icon = null;
         try {
-            icon = Gio.File.new_for_uri(uris[0]).query_info('standard::icon', Gio.FileQueryInfoFlags.NONE, null).get_icon();
+            fileIcon = Gio.File.new_for_uri(uris[0]).query_info('standard::icon', Gio.FileQueryInfoFlags.NONE, null).get_icon();
         } catch (e) {
-            icon = Gio.ThemedIcon.new('text-x-generic');
+            fileIcon = Gio.ThemedIcon.new('text-x-generic');
         }
-        image.set_from_gicon(icon);
-        count.set_label(`${uris.length} files`);
-        count.set_visible(uris.length > 1);
         win.present();
         armIdle();
         break;
     }
     case 'hide':
+        dbg(`hide dragging=${dragging}`);
         if (!dragging)
             win.set_visible(false);
         armIdle();
