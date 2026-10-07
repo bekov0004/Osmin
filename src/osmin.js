@@ -707,6 +707,8 @@ export class Osmin {
                 visit(child);
         };
         visit(this._actor);
+        // The file is out of the tray: the panel simply goes back to the default capsule.
+        this._settle();
     }
 
     _endDragOut() {
@@ -725,16 +727,6 @@ export class Osmin {
         // it is hovered; unmapping and mapping it again (within one frame) clears that.
         this._actor.hide();
         this._actor.show();
-        // Back to the normal rules: it closes after the usual delay once the pointer is away.
-        // (The actor never saw the pointer leave, so look at where the pointer really is.)
-        if (this._state === State.OPEN) {
-            const [x, y] = global.get_pointer();
-            const [ax, ay] = this._actor.get_transformed_position();
-            const [aw, ah] = this._actor.get_transformed_size();
-            const inside = x >= ax && x <= ax + aw && y >= ay && y <= ay + ah;
-            if (!inside && !this._pinned && this._settings.get('auto-collapse'))
-                this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
-        }
     }
 
     // --- keyboard input for widgets (the to-do entry) -------------------------
