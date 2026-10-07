@@ -284,7 +284,7 @@ export class TrayView extends St.BoxLayout {
 
     _update() {
         const count = this._files.items.length;
-        const {active, zone, count: dragged} = this._drop;
+        const {active, zone} = this._drop;
         const armed = zone === 'tray';
         this._caption.text = count > 0 ? `TRAY · ${count}` : 'TRAY';
         this._clear.visible = count > 0 && !active;
@@ -296,10 +296,9 @@ export class TrayView extends St.BoxLayout {
         this._target.visible = showTarget;
         this._scroll.visible = count > 0 && !active;
         if (showTarget) {
-            const files = dragged === 1 ? '1 file' : `${dragged} files`;
             if (active) {
                 this._targetTitle.text = 'Files Tray';
-                this._targetHint.text = armed ? `Release to add ${files}` : '';
+                this._targetHint.text = '';
             } else {
                 this._targetTitle.text = 'Files Tray';
                 this._targetHint.text = 'Drop files here. They stay until you remove them';
