@@ -31,6 +31,8 @@
 .osmin-camera {
     width: 14px;
     height: 14px;
+    min-width: 14px;
+    min-height: 14px;
     border-radius: 7px;
     background-color: #08080c;
     border: 1px solid rgba(255, 255, 255, 0.10);
@@ -39,6 +41,8 @@
 .osmin-camera-lens {
     width: 4px;
     height: 4px;
+    min-width: 4px;
+    min-height: 4px;
     border-radius: 2px;
     background-color: rgba(70, 110, 255, 0.55);
 }
