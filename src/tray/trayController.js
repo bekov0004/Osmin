@@ -23,7 +23,7 @@ export class TrayController {
         this._files.connectObject(
             'adding', (_service, count) => {
                 this._activity.setProgress(count, false);
-                this._peek(3000);
+                this._peek(1500);
             },
             'added', (_service, count) => {
                 this._activity.setProgress(count, true);
