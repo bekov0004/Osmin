@@ -19,6 +19,8 @@ import {PanelService} from './services/panelService.js';
 import {TimerService} from './services/timerService.js';
 import {NotesService} from './services/notesService.js';
 import {TodoService} from './services/todoService.js';
+import {NotificationsView} from './notifications/notificationsView.js';
+import {NotificationsService} from './services/notificationsService.js';
 import {ClipboardView} from './clipboard/clipboardView.js';
 import {DragOutService} from './tray/dragOut.js';
 import {ClipboardService} from './services/clipboardService.js';
@@ -127,6 +129,7 @@ export class Osmin {
             timer: new TimerService(),
             todo: new TodoService(),
             notes: new NotesService(),
+            notifications: new NotificationsService(),
             camera: new CameraService(),
             clipboard: new ClipboardService({
                 keepHistory: () => this._settings.get('clipboard-keep-history'),
@@ -151,6 +154,7 @@ export class Osmin {
             },
             onPaste: item => this._pasteClipboardItem(item),
         });
+        this._notificationsView = new NotificationsView({service: this._services.notifications});
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
@@ -184,6 +188,7 @@ export class Osmin {
         this._services.todo.load();
         this._services.notes.load();
         this._services.clipboard.start();
+        this._services.notifications.start();
         this._clock.start();
         this._services.media.start();
         this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
@@ -220,6 +225,8 @@ export class Osmin {
         this._tray = null;
         this._clipboardView?.destroy();
         this._clipboardView = null;
+        this._notificationsView?.destroy();
+        this._notificationsView = null;
         this._dragOut?.destroy();
         this._dragOut = null;
         this._drag?.destroy();
@@ -234,6 +241,7 @@ export class Osmin {
         this._services?.notes.destroy();
         this._services?.camera.destroy();
         this._services?.clipboard.destroy();
+        this._services?.notifications.destroy();
         this._services = null;
         this._unsubscribe = this._cards = this._events = null;
         this._clock = null;
@@ -406,6 +414,7 @@ export class Osmin {
             widgets: this._widgets,
             tray: this._tray.view,
             clipboard: this._clipboardView,
+            notifications: this._notificationsView,
             onOpenSettings: () => {
                 this._settle();
                 this._openPreferences();

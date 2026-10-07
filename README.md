@@ -33,6 +33,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   - **Shortcuts** – quick launchers for apps you pick in the settings (a *Detected / In use* editor),
     one or two columns of two rows. Off by default.
   - **Timer**, **To-do** and **Notes** – optional widgets (off by default; enable them in the settings).
+- **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
 - **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
