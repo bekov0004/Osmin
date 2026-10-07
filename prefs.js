@@ -925,6 +925,14 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('A running timer, music or a meeting instead of the time.'));
 
         this._rule(form);
+        this._row(form, _('Music card'), this._slider(settings, 'peek-media-seconds', [0.5, 10, 0.1], 1),
+            _('Seconds the card with the new track stays on screen.'));
+        this._row(form, _('Tray card'), this._slider(settings, 'peek-files-seconds', [0.5, 10, 0.1], 1),
+            _('Seconds the "Adding / Added files" card stays on screen.'));
+        this._row(form, _('Meeting card'), this._slider(settings, 'peek-calendar-seconds', [0.5, 30, 0.5], 1),
+            _('Seconds the card about an upcoming meeting stays on screen.'));
+
+        this._rule(form);
         this._row(form, _('Album corner radius'), this._slider(settings, 'album-corner-radius', [0, 24, 1]));
 
         const effects = [['bars', _('Audio spectrum')], ['waves', _('Waves')]];
@@ -949,7 +957,8 @@ export default class OsminPreferences extends ExtensionPreferences {
 
         this._resetRow(form, settings, ['activities-in-collapsed', 'album-corner-radius', 'media-effect',
             'colored-effects', 'activity-media',
-            'activity-timer', 'activity-calendar', 'activity-files']);
+            'activity-timer', 'activity-calendar', 'activity-files',
+            'peek-media-seconds', 'peek-files-seconds', 'peek-calendar-seconds']);
         return body;
     }
 }

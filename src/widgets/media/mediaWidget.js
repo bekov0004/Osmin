@@ -74,7 +74,7 @@ export class MediaWidget extends OsminWidget {
     _peek() {
         const player = this._media.active;
         if (this._settings.get('activity-media') && player?.isPlaying && player.metadata.title)
-            this._activities.peek(this._activity, {duration: 1500, priority: Priority.LOW});
+            this._activities.peek(this._activity, {duration: this._settings.get('peek-media-seconds') * 1000, priority: Priority.LOW});
     }
 
     createView() {

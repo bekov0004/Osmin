@@ -23,18 +23,18 @@ export class TrayController {
         this._files.connectObject(
             'adding', (_service, count) => {
                 this._activity.setProgress(count, false);
-                this._peek(1500);
+                this._peek();
             },
             'added', (_service, count) => {
                 this._activity.setProgress(count, true);
-                this._peek(1500);
+                this._peek();
             },
             this);
     }
 
-    _peek(duration) {
+    _peek() {
         if (this._settings.get('activity-files'))
-            this._activities.peek(this._activity, {duration});
+            this._activities.peek(this._activity, {duration: this._settings.get('peek-files-seconds') * 1000});
     }
 
     destroy() {

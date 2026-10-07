@@ -251,5 +251,26 @@
       <description>Show a card when files are added to the tray.</description>
     </key>
 
+    <key name="peek-media-seconds" type="d">
+      <range min="0.5" max="10.0"/>
+      <default>1.5</default>
+      <summary>Music card duration</summary>
+      <description>How many seconds the card with the new track stays on screen.</description>
+    </key>
+
+    <key name="peek-files-seconds" type="d">
+      <range min="0.5" max="10.0"/>
+      <default>1.5</default>
+      <summary>Tray card duration</summary>
+      <description>How many seconds the "Adding / Added files" card stays on screen.</description>
+    </key>
+
+    <key name="peek-calendar-seconds" type="d">
+      <range min="0.5" max="30.0"/>
+      <default>6.0</default>
+      <summary>Meeting card duration</summary>
+      <description>How many seconds the card about an upcoming meeting stays on screen.</description>
+    </key>
+
   </schema>
 </schemalist>

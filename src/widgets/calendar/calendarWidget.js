@@ -69,7 +69,7 @@ export class CalendarWidget extends OsminWidget {
         const key = `${next.id}:${started ? 'now' : 'soon'}`;
         if (!this._announced.has(key)) {
             this._announced.add(key);
-            this._activities.peek(this._activity, {duration: 6000, priority: Priority.HIGH});
+            this._activities.peek(this._activity, {duration: this._settings.get('peek-calendar-seconds') * 1000, priority: Priority.HIGH});
         }
     }
 

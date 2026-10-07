@@ -40,6 +40,9 @@ export const DEFAULTS = Object.freeze({
     'activity-timer': true,
     'activity-calendar': true,
     'activity-files': true,
+    'peek-media-seconds': 1.5,
+    'peek-files-seconds': 1.5,
+    'peek-calendar-seconds': 6.0,
 });
 
 /**
