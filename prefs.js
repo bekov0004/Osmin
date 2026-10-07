@@ -135,6 +135,7 @@ const WIDGET_ICONS = {
     mirror: 'camera-web-symbolic',
     timer: 'alarm-symbolic',
     todo: 'checkbox-checked-symbolic',
+    notes: 'document-edit-symbolic',
     shortcuts: 'view-app-grid-symbolic',
 };
 

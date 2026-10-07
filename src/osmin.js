@@ -17,6 +17,7 @@ import {FileService} from './services/fileService.js';
 import {MediaService} from './services/mediaService.js';
 import {PanelService} from './services/panelService.js';
 import {TimerService} from './services/timerService.js';
+import {NotesService} from './services/notesService.js';
 import {TodoService} from './services/todoService.js';
 import {ClipboardView} from './clipboard/clipboardView.js';
 import {DragOutService} from './tray/dragOut.js';
@@ -125,6 +126,7 @@ export class Osmin {
             activities: new ActivityManager(this._events),
             timer: new TimerService(),
             todo: new TodoService(),
+            notes: new NotesService(),
             camera: new CameraService(),
             clipboard: new ClipboardService({
                 keepHistory: () => this._settings.get('clipboard-keep-history'),
@@ -180,6 +182,7 @@ export class Osmin {
         this._tray.start();
         this._services.timer.load();
         this._services.todo.load();
+        this._services.notes.load();
         this._services.clipboard.start();
         this._clock.start();
         this._services.media.start();
@@ -228,6 +231,7 @@ export class Osmin {
         this._services?.activities.destroy();
         this._services?.timer.destroy();
         this._services?.todo.destroy();
+        this._services?.notes.destroy();
         this._services?.camera.destroy();
         this._services?.clipboard.destroy();
         this._services = null;

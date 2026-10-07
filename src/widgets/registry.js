@@ -1,5 +1,6 @@
 import {CalendarWidget} from './calendar/calendarWidget.js';
 import {MediaWidget} from './media/mediaWidget.js';
+import {NotesWidget} from './notes/notesWidget.js';
 import {MirrorWidget} from './mirror/mirrorWidget.js';
 import {ShortcutsWidget} from './shortcuts/shortcutsWidget.js';
 import {TimerWidget} from './timer/timerWidget.js';
@@ -12,5 +13,6 @@ export const WIDGET_CLASSES = [
     MirrorWidget,
     TimerWidget,
     TodoWidget,
+    NotesWidget,
     ShortcutsWidget,
 ];
