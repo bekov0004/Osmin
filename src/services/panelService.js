@@ -29,7 +29,9 @@ export class PanelService {
         this._wasVisible = true;
         this._anchorWidth = 0;
         this._styled = false;
-        this._originalStyle = '';
+        this._shellStyle = '';
+        this._barBackground = '';
+        this._ownStyle = '';
         this._corners = [];
     }
 
@@ -62,31 +64,48 @@ export class PanelService {
         const panel = Main.panel;
         if (!this._styled) {
             this._styled = true;
-            this._originalStyle = panel.style ?? '';
+            this._shellStyle = panel.style ?? '';
             this._corners = [panel._leftCorner, panel._rightCorner]
                 .filter(corner => corner)
                 .map(corner => ({corner, visible: corner.visible}));
+            // The overview writes to the panel's style (`Main.panel.style = null` when it
+            // closes, a transition duration during gestures). Keep our background and
+            // whatever the shell wrote, instead of losing the colour every time.
+            this._signals.connect(panel, 'notify::style', () => this._onPanelStyle());
         }
         const match = /^#?([0-9a-f]{6})$/i.exec(color ?? '');
         const hex = match ? match[1] : '000000';
         const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
         const alpha = Math.min(Math.max(Number(opacity) || 0, 0), 1);
-        panel.set_style(`background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)}); ` +
-            `${this._originalStyle}`);
+        this._barBackground = `background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)}); `;
+        this._writeBarStyle();
         for (const {corner} of this._corners)
             corner.hide();
+    }
+
+    _writeBarStyle() {
+        this._ownStyle = `${this._barBackground}${this._shellStyle}`;
+        if (Main.panel.style !== this._ownStyle)
+            Main.panel.set_style(this._ownStyle);
+    }
+
+    _onPanelStyle() {
+        if (!this._styled || Main.panel.style === this._ownStyle)
+            return;
+        // Someone else (the shell) replaced the style: remember theirs, put ours back.
+        this._shellStyle = Main.panel.style ?? '';
+        this._writeBarStyle();
     }
 
     _restoreBar() {
         if (!this._styled)
             return;
-        Main.panel.set_style(this._originalStyle || null);
-        for (const {corner, visible} of this._corners) {
+        this._styled = false; // first: the style handler must not fight the restore
+        Main.panel.set_style(this._shellStyle || null);
+        for (const {corner, visible} of this._corners)
             if (visible)
                 corner.show();
-        }
         this._corners = [];
-        this._styled = false;
     }
 
     destroy() {
