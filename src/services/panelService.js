@@ -135,7 +135,7 @@ export class PanelService {
     /**
      * @returns {{monitor: object, centerX: number, top: number, height: number}}
      *   panel geometry in stage coordinates; centerX is the middle of the
-     *   spot where the GNOME clock used to be.
+     *   primary monitor (where the GNOME clock used to be).
      */
     getGeometry() {
         // The monitor may not exist yet while the shell is still starting up.
@@ -143,13 +143,12 @@ export class PanelService {
             {x: 0, y: 0, width: global.stage.width || 1920, height: global.stage.height || 1080, index: 0};
         const panelBox = Main.layoutManager.panelBox;
 
-        let centerX = monitor.x + monitor.width / 2;
-        if (this._anchor?.mapped && this._anchor.width > 0) {
-            // NaN until the panel has allocated the anchor for the first time.
-            const [x] = this._anchor.get_transformed_position();
-            if (Number.isFinite(x))
-                centerX = x + this._anchor.width / 2;
-        }
+        // The capsule is centred on the screen, like a camera notch. It is not taken from the
+        // anchor's position: while the panel is still filling up (at login the keyboard
+        // layout, network and battery indicators arrive late) the anchor's box moves without
+        // its own allocation changing, so nothing told us and the capsule stayed off-centre
+        // until the first hover.
+        const centerX = monitor.x + monitor.width / 2;
         return {monitor, centerX, top: panelBox.y, height: panelBox.height};
     }
 
