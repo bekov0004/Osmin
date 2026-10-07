@@ -4,6 +4,7 @@ import St from 'gi://St';
 import {CameraState} from '../../services/cameraService.js';
 import {createButton} from '../../ui/button.js';
 import {OsminWidget} from '../widget.js';
+import {SquareLayout} from './squareLayout.js';
 
 /**
  * Mirror: a round webcam preview, like looking in a small mirror. The camera
@@ -30,15 +31,20 @@ export class MirrorWidget extends OsminWidget {
             y_expand: true,
         });
 
-        // The circle: as big as fits the column.
+        // The circle: the largest square that fits the column. Its holder has no
+        // preferred size, so the circle's size never depends on its own size.
+        const holder = new St.Widget({
+            layout_manager: new SquareLayout(),
+            x_expand: true,
+            y_expand: true,
+        });
         this._stage = new St.Widget({
             style_class: 'osmin-mirror-stage',
             layout_manager: new Clutter.BinLayout(),
             reactive: true,
             track_hover: true,
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
         });
+        holder.add_child(this._stage);
         this._stage.connect('button-press-event', (_actor, event) => {
             // A press on the flip button belongs to the button.
             const [x, y] = event.get_coords();
@@ -49,8 +55,6 @@ export class MirrorWidget extends OsminWidget {
             return Clutter.EVENT_STOP;
         });
         this._stage.connect('notify::hover', () => this._updateControls());
-        root.connect('notify::allocation', () => this._fitCircle());
-        root.connect('notify::mapped', () => this._fitCircle());
 
         this._video = new St.Widget({
             style_class: 'osmin-mirror-video',
@@ -111,7 +115,7 @@ export class MirrorWidget extends OsminWidget {
             },
         }));
         this._stage.add_child(this._controls);
-        root.add_child(this._stage);
+        root.add_child(holder);
 
         this._camera.connectObject('state-changed', () => this._update(), this);
         return root;
@@ -120,10 +124,6 @@ export class MirrorWidget extends OsminWidget {
     onViewCreated() {
         this._applyFlip();
         this._update();
-    }
-
-    onPageShown() {
-        this._fitCircle();
     }
 
     onPageHidden() {
@@ -145,16 +145,6 @@ export class MirrorWidget extends OsminWidget {
             this._camera.stop();
         else
             this._camera.start();
-    }
-
-    /** The largest square that fits in the widget's column. */
-    _fitCircle() {
-        const root = this._view;
-        if (!root?.mapped)
-            return;
-        const side = Math.max(Math.min(root.width, root.height) - 4, 0);
-        if (side > 0 && Math.round(this._stage.width) !== side)
-            this._stage.set_size(side, side);
     }
 
     _applyFlip() {
