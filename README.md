@@ -32,7 +32,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
     close the capsule; a green dot in the header shows it is on. Nothing is recorded.
   - **Shortcuts** – quick launchers for apps you pick in the settings (a *Detected / In use* editor),
     one or two columns of two rows. Off by default.
-  - **Timer** and **To-do** – optional widgets (off by default; enable them in the settings).
+  - **Timer**, **To-do** and **Notes** – optional widgets (off by default; enable them in the settings).
 - **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
