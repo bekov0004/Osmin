@@ -654,56 +654,62 @@
 }
 
 .osmin-tray-target {
-    border-radius: 18px;
-    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 26px;
+    background-color: rgba(255, 255, 255, 0.0);
 }
 
 .osmin-tray-target:active {
-    background-color: rgba(60, 140, 255, 0.10);
+    background-color: rgba(60, 140, 255, 0.0);
 }
 
 .osmin-tray-targets {
     spacing: 10px;
 }
 
+/* The second drop target: a deep navy tile, no outline. */
 .osmin-tray-bluetooth {
-    border-radius: 18px;
-    background-color: rgba(20, 60, 130, 0.55);
+    border-radius: 26px;
+    background-color: #0a2140;
 }
 
 .osmin-tray-bluetooth:active {
-    background-color: rgba(40, 110, 230, 0.75);
+    background-color: #0e3263;
 }
 
 .osmin-tray-bluetooth-icon {
-    icon-size: 22px;
-    color: #4a9bff;
+    width: 28px;
+    height: 28px;
+    color: #1a7bff;
 }
 
 .osmin-tray-bluetooth-title {
-    color: white;
-    font-size: 14px;
-    font-weight: 700;
+    color: rgba(214, 220, 232, 0.8);
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .osmin-tray-target-box {
-    spacing: 3px;
-    padding: 0 20px;
+    spacing: 8px;
+    padding: 0 22px;
 }
 
 .osmin-tray-target-icon {
-    icon-size: 22px;
+    width: 28px;
+    height: 28px;
+}
+
+.osmin-tray-target:active .osmin-tray-target-title {
     color: #3d8bff;
 }
 
 .osmin-tray-target-title {
-    color: #3d8bff;
-    font-size: 14px;
-    font-weight: 700;
+    color: #1368c9;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .osmin-tray-target-hint {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(61, 139, 255, 0.75);
     font-size: 11px;
 }
 

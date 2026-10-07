@@ -1,3 +1,4 @@
+import Cairo from 'gi://cairo';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
@@ -27,6 +28,7 @@ export class TrayView extends St.BoxLayout {
         this._drop = {active: false, zone: null, count: 0};
 
         const header = new St.BoxLayout({style_class: 'osmin-tray-header'});
+        this._header = header;
         this._caption = new St.Label({
             style_class: 'osmin-tray-caption',
             x_expand: true,
@@ -78,11 +80,12 @@ export class TrayView extends St.BoxLayout {
             x_align: Clutter.ActorAlign.FILL,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this._targetIcon = new St.Icon({
-            icon_name: 'folder-download-symbolic',
+        // A filled inbox tray, drawn here (no icon in the theme looks like it).
+        this._targetIcon = new St.DrawingArea({
             style_class: 'osmin-tray-target-icon',
             x_align: Clutter.ActorAlign.START,
         });
+        this._targetIcon.connect('repaint', area => this._paintTrayIcon(area));
         this._targetTitle = new St.Label({style_class: 'osmin-tray-target-title'});
         this._targetHint = new St.Label({style_class: 'osmin-tray-target-hint'});
         targetBox.add_child(this._targetIcon);
@@ -106,16 +109,18 @@ export class TrayView extends St.BoxLayout {
             y_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        btBox.add_child(new St.Icon({
-            icon_name: 'bluetooth-active-symbolic',
+        // The Bluetooth rune, drawn here (the theme's icon is a filled box).
+        const rune = new St.DrawingArea({
             style_class: 'osmin-tray-bluetooth-icon',
             x_align: Clutter.ActorAlign.START,
-        }));
+        });
+        rune.connect('repaint', area => this._paintRune(area));
+        btBox.add_child(rune);
         btBox.add_child(new St.Label({text: 'Bluetooth', style_class: 'osmin-tray-bluetooth-title'}));
-        btBox.add_child(new St.Label({text: 'Send to a device', style_class: 'osmin-tray-target-hint'}));
         this._bluetooth.add_child(btBox);
 
         const targets = new St.BoxLayout({x_expand: true, y_expand: true, style_class: 'osmin-tray-targets'});
+        targets.layout_manager.homogeneous = true; // both targets are always the same width
         targets.add_child(this._target);
         targets.add_child(this._bluetooth);
         this._targets = targets;
@@ -140,27 +145,50 @@ export class TrayView extends St.BoxLayout {
         this._update();
     }
 
-    /** The drop target under a stage point (with a margin), or null. */
+    /**
+     * The drop target under a stage point, or null. A point outside both targets
+     * still counts for the nearest one within the margin; a tie goes to the tray.
+     */
     zoneAt(x, y, margin = 0) {
-        const inside = actor => {
+        const distance = actor => {
             if (!actor.visible)
-                return false;
+                return Infinity;
             const [ax, ay] = actor.get_transformed_position();
             const [w, h] = actor.get_transformed_size();
-            return Number.isFinite(ax) && x >= ax - margin && x <= ax + w + margin &&
-                y >= ay - margin && y <= ay + h + margin;
+            if (!Number.isFinite(ax) || !Number.isFinite(ay))
+                return Infinity;
+            const dx = Math.max(ax - x, 0, x - (ax + w));
+            const dy = Math.max(ay - y, 0, y - (ay + h));
+            return Math.max(dx, dy);
         };
-        if (inside(this._bluetooth))
-            return 'bluetooth';
-        return inside(this._target) ? 'tray' : null;
+        const tray = distance(this._target);
+        const bluetooth = distance(this._bluetooth);
+        if (Math.min(tray, bluetooth) > margin)
+            return null;
+        return tray <= bluetooth ? 'tray' : 'bluetooth';
     }
 
+    /**
+     * The soft dashed outline of the drop target: round-capped dashes whose
+     * length is fitted so the pattern closes seamlessly all the way around.
+     */
     _paintOutline(area) {
         const cr = area.get_context();
         const [w, h] = area.get_surface_size();
         const armed = this._drop.zone === 'tray' && this._drop.active;
-        const r = 18;
-        const x = 1.5, y = 1.5, ww = w - 3, hh = h - 3;
+        const width = 2.6;
+        const inset = width / 2 + 0.5;
+        const x = inset, y = inset, ww = w - 2 * inset, hh = h - 2 * inset;
+        const r = Math.min(26, ww / 2, hh / 2);
+
+        const perimeter = 2 * (ww - 2 * r) + 2 * (hh - 2 * r) + 2 * Math.PI * r;
+        const count = Math.max(Math.round(perimeter / 19), 8);
+        const period = perimeter / count;
+        const dash = period * 0.52;
+        // Round caps add half the line width at both ends of every dash.
+        const on = Math.max(dash - width, 0.1);
+        const off = period - on;
+
         cr.newSubPath();
         cr.arc(x + ww - r, y + r, r, -Math.PI / 2, 0);
         cr.arc(x + ww - r, y + hh - r, r, 0, Math.PI / 2);
@@ -168,13 +196,73 @@ export class TrayView extends St.BoxLayout {
         cr.arc(x + r, y + r, r, Math.PI, 1.5 * Math.PI);
         cr.closePath();
         if (armed) {
-            cr.setSourceRGBA(0.22, 0.52, 1.0, 0.16);
+            cr.setSourceRGBA(0.24, 0.55, 1.0, 0.12);
             cr.fillPreserve();
         }
-        cr.setSourceRGBA(0.24, 0.55, 1.0, armed ? 1.0 : 0.85);
-        cr.setLineWidth(2.5);
-        cr.setDash([9, 6], 0);
+        if (armed)
+            cr.setSourceRGBA(0.24, 0.55, 1.0, 1.0);
+        else
+            cr.setSourceRGBA(0.047, 0.353, 0.69, 0.95);
+        cr.setLineWidth(width);
+        cr.setLineCap(Cairo.LineCap.ROUND);
+        cr.setLineJoin(Cairo.LineJoin.ROUND);
+        cr.setDash([on, off], 0);
         cr.stroke();
+        cr.$dispose();
+    }
+
+    _paintRune(area) {
+        const cr = area.get_context();
+        const [w, h] = area.get_surface_size();
+        cr.setSourceRGBA(0.102, 0.482, 1.0, 1.0);
+        cr.scale(w / 24, h / 24);
+        cr.moveTo(6.5, 7.5);
+        cr.lineTo(17, 17);
+        cr.lineTo(12, 21.5);
+        cr.lineTo(12, 2.5);
+        cr.lineTo(17, 7);
+        cr.lineTo(6.5, 16.5);
+        cr.setLineWidth(1.9);
+        cr.setLineCap(Cairo.LineCap.ROUND);
+        cr.setLineJoin(Cairo.LineJoin.ROUND);
+        cr.stroke();
+        cr.$dispose();
+    }
+
+    _paintTrayIcon(area) {
+        const cr = area.get_context();
+        const [w, h] = area.get_surface_size();
+        const armed = this._drop.zone === 'tray' && this._drop.active;
+        if (armed)
+            cr.setSourceRGBA(0.24, 0.545, 1.0, 1.0);
+        else
+            cr.setSourceRGBA(0.075, 0.408, 0.788, 1.0);
+        cr.scale(w / 24, h / 24);
+        // The open top: a thin outline.
+        cr.moveTo(3, 13);
+        cr.lineTo(5.9, 5.9);
+        cr.curveTo(6.3, 4.9, 6.9, 4.5, 7.9, 4.5);
+        cr.lineTo(16.1, 4.5);
+        cr.curveTo(17.1, 4.5, 17.7, 4.9, 18.1, 5.9);
+        cr.lineTo(21, 13);
+        cr.setLineWidth(1.8);
+        cr.setLineCap(Cairo.LineCap.ROUND);
+        cr.setLineJoin(Cairo.LineJoin.ROUND);
+        cr.stroke();
+        // The solid lower half with the dip in front.
+        cr.moveTo(3, 13);
+        cr.lineTo(8, 13);
+        cr.curveTo(9.2, 13, 9.7, 13.6, 10.1, 14.4);
+        cr.curveTo(10.6, 15.5, 11.2, 15.8, 12, 15.8);
+        cr.curveTo(12.8, 15.8, 13.4, 15.5, 13.9, 14.4);
+        cr.curveTo(14.3, 13.6, 14.8, 13, 16, 13);
+        cr.lineTo(21, 13);
+        cr.lineTo(21, 18);
+        cr.curveTo(21, 19.8, 20.2, 20.5, 18.5, 20.5);
+        cr.lineTo(5.5, 20.5);
+        cr.curveTo(3.8, 20.5, 3, 19.8, 3, 18);
+        cr.closePath();
+        cr.fill();
         cr.$dispose();
     }
 
@@ -200,16 +288,18 @@ export class TrayView extends St.BoxLayout {
         const armed = zone === 'tray';
         this._caption.text = count > 0 ? `TRAY · ${count}` : 'TRAY';
         this._clear.visible = count > 0 && !active;
+        // While dragging, only the drop targets are shown: no caption, no files.
+        this._header.visible = !active;
 
         // The target shows when there is nothing in the tray, or while dragging.
         const showTarget = active || count === 0;
         this._target.visible = showTarget;
-        this._scroll.visible = count > 0;
+        this._scroll.visible = count > 0 && !active;
         if (showTarget) {
             const files = dragged === 1 ? '1 file' : `${dragged} files`;
             if (active) {
                 this._targetTitle.text = 'Files Tray';
-                this._targetHint.text = armed ? `Release to add ${files}` : `Drop ${files} here`;
+                this._targetHint.text = armed ? `Release to add ${files}` : '';
             } else {
                 this._targetTitle.text = 'Files Tray';
                 this._targetHint.text = 'Drop files here. They stay until you remove them';
@@ -224,9 +314,9 @@ export class TrayView extends St.BoxLayout {
             this._bluetooth.add_style_pseudo_class('active');
         else
             this._bluetooth.remove_style_pseudo_class('active');
+        this._targetHint.visible = this._targetHint.text !== '';
         this._outline.queue_repaint();
-        // While dragging over a full tray the target covers the files.
-        this._targets.opacity = active && count > 0 ? 235 : 255;
+        this._targetIcon.queue_repaint();
     }
 
     _onScroll(event) {

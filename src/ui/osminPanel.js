@@ -40,6 +40,7 @@ export class OsminPanel extends St.BoxLayout {
         this._signature = '';
         this._pageIndex = 0;
         this._mode = PanelMode.OSMIN;
+        this._headerHidden = false;
         this._modeBeforeDrop = null;
         this._scale = 1;
 
@@ -212,6 +213,8 @@ export class OsminPanel extends St.BoxLayout {
      * target (and go back to what was shown when the drag ends).
      */
     setDrop({active, zone = null, count = 0}) {
+        // While dragging only the drop targets are shown: the tabs and settings step aside.
+        this._setHeaderHidden(active);
         if (active) {
             if (this._modeBeforeDrop === null)
                 this._modeBeforeDrop = this._mode;
@@ -223,6 +226,18 @@ export class OsminPanel extends St.BoxLayout {
             this.setMode(before, {animate: false});
         }
         this._tray.setDrop({active, zone, count});
+    }
+
+    _setHeaderHidden(hidden) {
+        if (this._headerHidden === hidden)
+            return;
+        this._headerHidden = hidden;
+        this._header.remove_all_transitions();
+        this._header.ease({
+            opacity: hidden ? 0 : 255,
+            duration: animDuration(hidden ? 120 : 180),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
     }
 
     /** Shows what the widget with this id has to offer (a page or the tray). */
@@ -291,12 +306,14 @@ export class OsminPanel extends St.BoxLayout {
         const targets = this._contentTargets();
         this._header.remove_all_transitions();
         this._header.set({opacity: 0});
-        this._header.ease({
-            opacity: 255,
-            duration: animDuration(200),
-            delay: animDuration(60),
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        });
+        if (!this._headerHidden) {
+            this._header.ease({
+                opacity: 255,
+                duration: animDuration(200),
+                delay: animDuration(60),
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
         targets.forEach((actor, i) => {
             actor.remove_all_transitions();
             actor.set({opacity: 0, translation_y: px(10, this._scale)});
