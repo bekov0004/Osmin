@@ -18,7 +18,7 @@ const BUTTON1 = Clutter.ModifierType.BUTTON1_MASK;
 // after at most this long.
 const WINDOW_TIMEOUT_MS = 1500;   // the helper's window must appear
 const START_TIMEOUT_MS = 1500;    // after the touch, the drag must start
-const DWELL_MS = 120;             // over the target before the finger lifts (a drop needs a moment)
+const DWELL_MS = 250;             // over the target before the finger lifts (a drop needs a moment)
 const LATE_START_MS = 700;        // the mouse is already up: how long to wait for the drag to start, then drop
 const END_TIMEOUT_MS = 2500;      // after the finger lifts, the helper must report the end
 const MAX_DRAG_MS = 90000;        // no drag lasts longer than this

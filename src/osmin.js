@@ -694,19 +694,47 @@ export class Osmin {
     _beginDragOut() {
         this._timers.clear('leave');
         this._draggingOut = true;
-        this._actor.hide();
-        for (const ear of this._ears)
-            ear.hide();
+        // The capsule stays on screen but lets input fall through to the window under it:
+        // the drag-out helper's window has to receive the finger, and shell UI is stacked above
+        // every window. (Only reactive actors are hit by the pointer, so switch them all off.)
+        this._passThrough = new Map();
+        const visit = actor => {
+            if (actor.reactive) {
+                this._passThrough.set(actor, true);
+                actor.reactive = false;
+            }
+            for (const child of actor.get_children())
+                visit(child);
+        };
+        visit(this._actor);
     }
 
     _endDragOut() {
         this._draggingOut = false;
+        for (const actor of this._passThrough?.keys() ?? []) {
+            try {
+                actor.reactive = true;
+            } catch (e) {
+                // that actor was destroyed during the drag
+            }
+        }
+        this._passThrough = null;
         if (!this._actor)
             return;
+        // While it was see-through it never noticed the pointer leaving, so it still believes
+        // it is hovered; unmapping and mapping it again (within one frame) clears that.
+        this._actor.hide();
         this._actor.show();
-        this._placeEars();
-        if (this._state === State.OPEN)
-            this._settle();
+        // Back to the normal rules: it closes after the usual delay once the pointer is away.
+        // (The actor never saw the pointer leave, so look at where the pointer really is.)
+        if (this._state === State.OPEN) {
+            const [x, y] = global.get_pointer();
+            const [ax, ay] = this._actor.get_transformed_position();
+            const [aw, ah] = this._actor.get_transformed_size();
+            const inside = x >= ax && x <= ax + aw && y >= ay && y <= ay + ah;
+            if (!inside && !this._pinned && this._settings.get('auto-collapse'))
+                this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
+        }
     }
 
     // --- keyboard input for widgets (the to-do entry) -------------------------
@@ -1115,7 +1143,7 @@ export class Osmin {
         const geo = this._panel.getGeometry();
         const target = this._target;
         const radius = scaled(COLLAPSED.has(this._state) ? Layout.EAR_RADIUS_CLOSED : Layout.EAR_RADIUS);
-        const show = HANGING.has(this._state) && !this._draggingOut;
+        const show = HANGING.has(this._state);
         // The ears cover the capsule's 1px side border along their height, so the border
         // turns into the curve instead of running straight up beside it.
         const border = Math.max(1, Math.round(scaled(1)));
