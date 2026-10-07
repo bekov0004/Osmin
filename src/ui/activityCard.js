@@ -25,7 +25,7 @@ export class ActivityCard extends St.Bin {
 
     /** Preferred island size in logical px (before UI scaling). */
     getSize() {
-        return this._activity?.peekSize ?? {width: 304, height: 54};
+        return this._activity?.peekSize ?? {width: 304, height: 46};
     }
 
     update(card) {

@@ -39,6 +39,10 @@ import {SignalTracker} from './utils/signals.js';
 import {Timers} from './utils/timers.js';
 
 // Resizing between two cards, or after a card update: calm, no overshoot.
+// How far a card's content reaches up into the band of the top bar, so the card
+// hangs only a little below the bar instead of stacking under it.
+const CARD_OVERLAP = 24;
+
 const RESIZE = {duration: 220, mode: Clutter.AnimationMode.EASE_OUT_CUBIC};
 
 // States in which the capsule hangs from the top edge (the rest sit inside the bar).
@@ -1056,7 +1060,7 @@ export class Osmin {
             if (this._cardSize) {
                 return {
                     width: scaled(this._cardSize.width),
-                    height: geo.height + scaled(this._cardSize.height),
+                    height: geo.height + scaled(this._cardSize.height - CARD_OVERLAP),
                 };
             }
             return this._closedSize(geo);
@@ -1137,7 +1141,7 @@ export class Osmin {
         const top = Math.round(geo.height / getScaleFactor());
         if (this._cardTop !== top) {
             this._cardTop = top;
-            this._cardLayer.style = `padding-top: ${top}px;`;
+            this._cardLayer.style = `padding-top: ${Math.max(0, top - CARD_OVERLAP)}px;`;
         }
     }
 

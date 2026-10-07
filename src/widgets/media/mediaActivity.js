@@ -25,7 +25,7 @@ export class MediaActivity extends LiveActivity {
     }
 
     get peekSize() {
-        return {width: 330, height: 62};
+        return {width: 330, height: 54};
     }
 
     /** Album art on the left of the camera dot, the music effect on the right (like the Dynamic Island). */

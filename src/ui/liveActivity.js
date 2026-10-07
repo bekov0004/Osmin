@@ -39,7 +39,7 @@ export class LiveActivity extends Signals.EventEmitter {
 
     /** Size of the peek card in CSS px. */
     get peekSize() {
-        return {width: 320, height: 60};
+        return {width: 320, height: 50};
     }
 
     /** @returns {{left: St.Actor, right: St.Actor}} what goes left and right of the camera dot */

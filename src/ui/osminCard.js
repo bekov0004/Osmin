@@ -64,7 +64,7 @@ export class OsminCard extends St.BoxLayout {
 
     /** Preferred island size in logical px (before UI scaling). */
     getSize() {
-        return {width: 304, height: this._card.description ? 66 : 54};
+        return {width: 304, height: this._card.description ? 56 : 46};
     }
 
     update(card) {

@@ -30,7 +30,7 @@ export class FilesActivity extends LiveActivity {
     }
 
     get peekSize() {
-        return {width: 300, height: 56};
+        return {width: 300, height: 46};
     }
 
     createCompactParts() {
