@@ -50,8 +50,12 @@ export class TimerWidget extends OsminWidget {
             this._activities.start(this._activity);
         else
             this._activities.end('timer');
-        if (this._timer.state !== TimerState.DONE)
+        // The "time is up" card goes when the timer is no longer finished (+1 min, reset). The
+        // card that hovering brings has buttons for these very changes and must stay.
+        const done = this._timer.state === TimerState.DONE;
+        if (this._wasDone && !done)
             this._activities.dismissPeek('timer');
+        this._wasDone = done;
         this._update();
     }
 
