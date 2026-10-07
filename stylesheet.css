@@ -666,23 +666,23 @@
     spacing: 10px;
 }
 
-/* The second drop target: a deep navy tile, no outline. */
-.osmin-tray-bluetooth {
+/* The second drop target (LocalSend): a deep teal tile, no outline. */
+.osmin-tray-localsend {
     border-radius: 26px;
-    background-color: #0a2140;
+    background-color: #0a2a2b;
 }
 
-.osmin-tray-bluetooth:active {
-    background-color: #0e3263;
+.osmin-tray-localsend:active {
+    background-color: #0e4244;
 }
 
-.osmin-tray-bluetooth-icon {
+.osmin-tray-localsend-icon {
     width: 28px;
     height: 28px;
     color: #1a7bff;
 }
 
-.osmin-tray-bluetooth-title {
+.osmin-tray-localsend-title {
     color: rgba(214, 220, 232, 0.8);
     font-size: 13px;
     font-weight: 600;

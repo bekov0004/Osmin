@@ -651,8 +651,15 @@ export class Osmin {
         // The tray's activity shows the "Adding / Added" card.
         if (dropped && zone === 'tray')
             await this._services.files.add(uris);
-        else if (dropped && zone === 'bluetooth')
-            this._services.files.sendViaBluetooth(uris);
+        else if (dropped && zone === 'localsend' && !this._services.files.sendViaLocalSend(uris)) {
+            this._events.emit({
+                type: EventType.CUSTOM,
+                icon: 'dialog-information-symbolic',
+                title: 'LocalSend is not installed',
+                description: 'Install LocalSend to send files to nearby devices',
+                duration: 4000,
+            });
+        }
         this._panelView?.setDrop({active: false});
         if (this._state === State.DROP)
             this._setState(State.CLOSED);

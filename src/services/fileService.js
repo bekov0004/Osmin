@@ -102,16 +102,44 @@ export class FileService extends Signals.EventEmitter {
         });
     }
 
-    /** Opens GNOME's Bluetooth "send files" dialog for the files. */
-    sendViaBluetooth(uris) {
+    /**
+     * Hands the files to LocalSend (the snap, the Flatpak or a packaged build):
+     * the app opens with them on its Send tab, where you pick the device.
+     * @returns {boolean} whether LocalSend could be started
+     */
+    sendViaLocalSend(uris) {
         const paths = uris.map(uri => Gio.File.new_for_uri(uri).get_path()).filter(Boolean);
         if (paths.length === 0)
-            return;
-        try {
-            GLib.spawn_async(null, ['bluetooth-sendto', ...paths], null, GLib.SpawnFlags.SEARCH_PATH, null);
-        } catch (e) {
-            console.warn(`[osmin] bluetooth-sendto failed: ${e.message}`);
+            return false;
+        const command = FileService._localSendCommand();
+        if (!command) {
+            console.warn('[osmin] LocalSend is not installed');
+            return false;
         }
+        try {
+            GLib.spawn_async(null, [...command, ...paths], null,
+                GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.STDOUT_TO_DEV_NULL |
+                GLib.SpawnFlags.STDERR_TO_DEV_NULL, null);
+            return true;
+        } catch (e) {
+            console.warn(`[osmin] could not start LocalSend: ${e.message}`);
+            return false;
+        }
+    }
+
+    /** The command that starts LocalSend, or null when it is not installed. */
+    static _localSendCommand() {
+        for (const name of ['localsend', 'localsend_app', 'localsend-app']) {
+            const found = GLib.find_program_in_path(name) ?? (GLib.file_test(`/snap/bin/${name}`,
+                GLib.FileTest.IS_EXECUTABLE) ? `/snap/bin/${name}` : null);
+            if (found)
+                return [found];
+        }
+        const flatpakApp = 'org.localsend.localsend_app';
+        const roots = ['/var/lib/flatpak/app', `${GLib.get_user_data_dir()}/flatpak/app`];
+        if (roots.some(root => GLib.file_test(`${root}/${flatpakApp}`, GLib.FileTest.IS_DIR)))
+            return ['flatpak', 'run', flatpakApp];
+        return null;
     }
 
     /** Selects the file in the file manager (FileManager1), or opens its folder. */

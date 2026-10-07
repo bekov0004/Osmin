@@ -37,7 +37,8 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
   manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
-  target sends the files by Bluetooth (GNOME's *Send files* dialog). **Drag a file out of the tray**
+  target hands the files to [LocalSend](https://localsend.org) (snap, Flatpak or a packaged build), which opens with them
+  on its Send tab so you pick the device. **Drag a file out of the tray**
   into any other app or folder.
 - **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
   first. A click puts it into the app you were using (Ctrl+V; or only copies, see the settings); hover
@@ -170,7 +171,7 @@ src/
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
 - Quick Apps are not implemented. There is
-  no AirDrop; the second drop target sends files by Bluetooth instead.
+  no AirDrop; the second drop target hands files to LocalSend instead (it must be installed).
 - A shell extension cannot start a drag into another application itself. Dragging a file out of the
   tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
   pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.

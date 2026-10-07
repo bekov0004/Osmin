@@ -93,10 +93,10 @@ export class TrayView extends St.BoxLayout {
         targetBox.add_child(this._targetHint);
         this._target.add_child(targetBox);
 
-        // Second drop target (like AirDrop on the Mac): send the files by Bluetooth.
-        this._bluetooth = new St.BoxLayout({
+        // Second drop target (like AirDrop on the Mac): hand the files to LocalSend.
+        this._localsend = new St.BoxLayout({
             vertical: true,
-            style_class: 'osmin-tray-bluetooth',
+            style_class: 'osmin-tray-localsend',
             x_expand: true,
             y_expand: true,
             y_align: Clutter.ActorAlign.FILL,
@@ -109,20 +109,20 @@ export class TrayView extends St.BoxLayout {
             y_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        // The Bluetooth rune, drawn here (the theme's icon is a filled box).
+        // The LocalSend mark (a dot inside a dashed ring), drawn here.
         const rune = new St.DrawingArea({
-            style_class: 'osmin-tray-bluetooth-icon',
+            style_class: 'osmin-tray-localsend-icon',
             x_align: Clutter.ActorAlign.START,
         });
-        rune.connect('repaint', area => this._paintRune(area));
+        rune.connect('repaint', area => this._paintLocalSendMark(area));
         btBox.add_child(rune);
-        btBox.add_child(new St.Label({text: 'Bluetooth', style_class: 'osmin-tray-bluetooth-title'}));
-        this._bluetooth.add_child(btBox);
+        btBox.add_child(new St.Label({text: 'LocalSend', style_class: 'osmin-tray-localsend-title'}));
+        this._localsend.add_child(btBox);
 
         const targets = new St.BoxLayout({x_expand: true, y_expand: true, style_class: 'osmin-tray-targets'});
         targets.layout_manager.homogeneous = true; // both targets are always the same width
         targets.add_child(this._target);
-        targets.add_child(this._bluetooth);
+        targets.add_child(this._localsend);
         this._targets = targets;
         area.add_child(targets);
 
@@ -138,7 +138,7 @@ export class TrayView extends St.BoxLayout {
     /**
      * @param {{active: boolean, zone?: string|null, count?: number}} drop
      *   active: files are being dragged over the capsule; zone: 'tray' or
-     *   'bluetooth' while the pointer is over that target (releasing now uses it).
+     *   'localsend' while the pointer is over that target (releasing now uses it).
      */
     setDrop({active, zone = null, count = this._drop.count}) {
         this._drop = {active, zone, count};
@@ -162,10 +162,10 @@ export class TrayView extends St.BoxLayout {
             return Math.max(dx, dy);
         };
         const tray = distance(this._target);
-        const bluetooth = distance(this._bluetooth);
-        if (Math.min(tray, bluetooth) > margin)
+        const localsend = distance(this._localsend);
+        if (Math.min(tray, localsend) > margin)
             return null;
-        return tray <= bluetooth ? 'tray' : 'bluetooth';
+        return tray <= localsend ? 'tray' : 'localsend';
     }
 
     /**
@@ -211,21 +211,23 @@ export class TrayView extends St.BoxLayout {
         cr.$dispose();
     }
 
-    _paintRune(area) {
+    _paintLocalSendMark(area) {
         const cr = area.get_context();
         const [w, h] = area.get_surface_size();
-        cr.setSourceRGBA(0.102, 0.482, 1.0, 1.0);
+        cr.setSourceRGBA(0.102, 0.702, 0.635, 1.0);
         cr.scale(w / 24, h / 24);
-        cr.moveTo(6.5, 7.5);
-        cr.lineTo(17, 17);
-        cr.lineTo(12, 21.5);
-        cr.lineTo(12, 2.5);
-        cr.lineTo(17, 7);
-        cr.lineTo(6.5, 16.5);
-        cr.setLineWidth(1.9);
+        cr.arc(12, 12, 4.2, 0, 2 * Math.PI);
+        cr.fill();
+        // The ring: eight round dashes.
+        cr.setLineWidth(2.1);
         cr.setLineCap(Cairo.LineCap.ROUND);
-        cr.setLineJoin(Cairo.LineJoin.ROUND);
-        cr.stroke();
+        const segments = 8, gap = 0.34;
+        for (let i = 0; i < segments; i++) {
+            const start = (i / segments) * 2 * Math.PI + gap / 2;
+            cr.newSubPath();
+            cr.arc(12, 12, 9, start, start + (2 * Math.PI) / segments - gap);
+            cr.stroke();
+        }
         cr.$dispose();
     }
 
@@ -308,11 +310,11 @@ export class TrayView extends St.BoxLayout {
             this._target.add_style_pseudo_class('active');
         else
             this._target.remove_style_pseudo_class('active');
-        this._bluetooth.visible = active;
-        if (zone === 'bluetooth' && active)
-            this._bluetooth.add_style_pseudo_class('active');
+        this._localsend.visible = active;
+        if (zone === 'localsend' && active)
+            this._localsend.add_style_pseudo_class('active');
         else
-            this._bluetooth.remove_style_pseudo_class('active');
+            this._localsend.remove_style_pseudo_class('active');
         this._targetHint.visible = this._targetHint.text !== '';
         this._outline.queue_repaint();
         this._targetIcon.queue_repaint();
