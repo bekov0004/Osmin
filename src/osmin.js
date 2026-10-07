@@ -33,7 +33,7 @@ import {
     HOVER_INTENT_MS, HOVER_LEAVE_MS, INTERACTION_GRACE_MS, Layout, Motion, OPEN_DWELL_MS,
     OPEN_LEAVE_MS, SCROLL_LOCK_MS, SCROLL_THRESHOLD, State,
 } from './utils/constants.js';
-import {EventType} from './utils/events.js';
+import {EventType, Priority} from './utils/events.js';
 import {getScaleFactor, scaled} from './utils/scale.js';
 import {SignalTracker} from './utils/signals.js';
 import {Timers} from './utils/timers.js';
@@ -88,6 +88,7 @@ export class Osmin {
         this._dragUris = null;
         this._dragArmed = null;
         this._compactActivity = null;
+        this._hoverCard = false;     // the card on screen was brought by hovering the collapsed capsule
         this._openPage = null;
         this._destroying = false;
         this._grab = null;
@@ -422,6 +423,9 @@ export class Osmin {
         this._cardLayer.add_child(widget);
         this._cardWidget = widget;
         this._cardSize = widget.getSize();
+        // The pointer is already on the capsule (it is what brought this card): keep the card.
+        if (this._hoverCard && this._hovered())
+            this._cards.pause();
 
         const alreadyCard = this._state === State.CARD;
         if (this._state === State.OPEN)
@@ -809,6 +813,12 @@ export class Osmin {
             // Brushing the top bar must not open anything: rest first, then swell, then open.
             if (hovered) {
                 this._timers.set('hover', HOVER_INTENT_MS, () => {
+                    // Something is going on (music, a timer, a meeting): its card comes first;
+                    // a click on it opens the panel, moving the pointer away closes it again.
+                    if (this._compactActivity && this._settings.get('open-on-hover')) {
+                        this._showActivityCard();
+                        return;
+                    }
                     this._setState(State.HOVER);
                     if (this._settings.get('open-on-hover'))
                         this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
@@ -837,12 +847,26 @@ export class Osmin {
             break;
         case State.CARD:
             // Keep a card on screen while the pointer is on it.
-            if (hovered)
+            if (hovered) {
+                this._timers.clear('leave');
                 this._cards.pause();
-            else
+            } else {
                 this._cards.resume();
+                // The card that hovering brought goes away as soon as the pointer does.
+                if (this._hoverCard)
+                    this._timers.set('leave', OPEN_LEAVE_MS, () => this._cards.hideCurrent());
+            }
             break;
         }
+    }
+
+    /** Hovering the collapsed capsule while an activity is going on: show that activity's card. */
+    _showActivityCard() {
+        const activity = this._compactActivity;
+        if (!activity)
+            return;
+        this._hoverCard = true;
+        this._services.activities.peek(activity, {duration: 6000, priority: Priority.HIGH, force: true});
     }
 
     _onClicked() {
@@ -1001,6 +1025,7 @@ export class Osmin {
         if (previous === State.CARD) {
             this._cards.resume();
             this._cardSize = null;
+            this._hoverCard = false;
         }
 
         const wasPanel = PANEL_STATES.has(previous);
