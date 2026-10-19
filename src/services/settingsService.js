@@ -10,6 +10,7 @@ export const DEFAULTS = Object.freeze({
     'open-on-hover': true,
     'auto-collapse': true,
     'activities-in-collapsed': true,
+    'monitors': ['primary'],
     'enabled-widgets': [...DEFAULT_WIDGETS],
     'widget-cells': Object.fromEntries(WIDGET_INFO.map(w => [w.id, w.cells])),
     'width-mode': 'auto',

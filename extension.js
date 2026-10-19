@@ -1,6 +1,6 @@
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {Osmin} from './src/osmin.js';
+import {OsminHost} from './src/osminHost.js';
 import {SettingsService} from './src/services/settingsService.js';
 
 export default class OsminExtension extends Extension {
@@ -13,7 +13,7 @@ export default class OsminExtension extends Extension {
             console.warn(`[osmin] settings unavailable, using defaults: ${e.message}`);
         }
         this._settings = new SettingsService(gsettings);
-        this._osmin = new Osmin(this._settings, {openPreferences: () => this.openPreferences()});
+        this._osmin = new OsminHost(this._settings, {openPreferences: () => this.openPreferences()});
         this._osmin.enable();
     }
 

@@ -48,6 +48,12 @@
       <description>Show a running timer, music or an upcoming meeting instead of the time while collapsed.</description>
     </key>
 
+    <key name="monitors" type="as">
+      <default>['primary']</default>
+      <summary>Monitors with a capsule</summary>
+      <description>Where Osmin is shown: 'primary' (whichever monitor is the primary one) and/or connector names such as 'HDMI-1'. Monitors that are not connected are ignored.</description>
+    </key>
+
     <key name="enabled-widgets" type="as">
       <default>['media', 'calendar', 'mirror']</default>
       <summary>Widgets and their order</summary>

@@ -128,8 +128,11 @@ export class CalendarWidget extends OsminWidget {
     destroy() {
         this._calendar.disconnectObject(this);
         this._calendar.clearRange('view');
-        this._calendar.clearRange('activity');
-        this._activities.end('calendar');
+        // Only the widget that published the activity (the first capsule's) ends it.
+        if (this._activity) {
+            this._calendar.clearRange('activity');
+            this._activities.end('calendar');
+        }
         this._activity?.destroy();
         super.destroy();
     }

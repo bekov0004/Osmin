@@ -5,25 +5,13 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
-import {ActivityManager} from './services/activityManager.js';
-import {ArtworkService} from './services/artworkService.js';
-import {CalendarService} from './services/calendarService.js';
-import {CameraService, CameraState} from './services/cameraService.js';
+import {CameraState} from './services/cameraService.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
-import {EventManager} from './services/eventManager.js';
-import {FileService} from './services/fileService.js';
-import {MediaService} from './services/mediaService.js';
-import {PanelService} from './services/panelService.js';
-import {TimerService} from './services/timerService.js';
-import {NotesService} from './services/notesService.js';
-import {TodoService} from './services/todoService.js';
 import {NotificationsView} from './notifications/notificationsView.js';
-import {NotificationsService} from './services/notificationsService.js';
 import {ClipboardView} from './clipboard/clipboardView.js';
 import {DragOutService} from './tray/dragOut.js';
-import {ClipboardService} from './services/clipboardService.js';
 import {TrayController} from './tray/trayController.js';
 import {ClosedView} from './ui/closedView.js';
 import {Ear} from './ui/ear.js';
@@ -70,11 +58,18 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
  */
 export class Osmin {
     /**
+     * One capsule, on one monitor. The services, the event stream and the top bar belong to the
+     * OsminHost and are shared by every capsule; everything that is seen and every gesture is here.
      * @param {SettingsService} settings
-     * @param {{openPreferences?: Function}} [options]
+     * @param {{shared: {events, services, panel}, monitorIndex: () => number, leader: boolean,
+     *          openPreferences?: Function}} options
+     *   `leader`: the first capsule publishes the Live Activities of the widgets (once, for all).
      */
-    constructor(settings, {openPreferences = () => {}} = {}) {
+    constructor(settings, {shared, monitorIndex, leader, openPreferences = () => {}}) {
         this._settings = settings;
+        this._shared = shared;
+        this._monitorIndex = monitorIndex;
+        this._leader = leader;
         this._openPreferences = openPreferences;
         this._state = null;
         this._signals = new SignalTracker();
@@ -107,39 +102,18 @@ export class Osmin {
     }
 
     enable() {
-        this._panel = new PanelService({
-            onChanged: () => this._relayout(),
-            onToggleRequest: () => this.toggle(),
-        });
+        this._panel = this._shared.panel;
+        this._events = this._shared.events;
+        this._services = this._shared.services;
         this._clock = new ClockService(now => this._onTick(now));
-        this._events = new EventManager();
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
             this._cards.show(event);
             if (!PANEL_STATES.has(this._state) && event.type !== EventType.ACTIVITY)
                 this._closedView.setActivity(true);
         });
-
-        this._services = {
-            media: new MediaService(),
-            artwork: new ArtworkService(),
-            files: new FileService({persist: () => this._settings.get('tray-keep-files')}),
-            calendar: new CalendarService(),
-            activities: new ActivityManager(this._events),
-            timer: new TimerService(),
-            todo: new TodoService(),
-            notes: new NotesService(),
-            notifications: new NotificationsService(),
-            camera: new CameraService(),
-            clipboard: new ClipboardService({
-                keepHistory: () => this._settings.get('clipboard-keep-history'),
-                maxItems: () => this._settings.get('clipboard-max-items'),
-            }),
-        };
-        this._services.activities.attach({
-            cards: this._cards,
-            isOpen: () => this._state === State.OPEN,
-        });
+        this._activityHost = {cards: this._cards, isOpen: () => this._state === State.OPEN};
+        this._services.activities.attach(this._activityHost);
         this._drag = new DragService();
         this._dragOut = new DragOutService({
             onBegin: () => this._beginDragOut(),
@@ -159,8 +133,6 @@ export class Osmin {
         this._buildActor();
         this._applyAppearance();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
-        this._panel.enable();
-        this._applyBarLook();
         Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
         for (const ear of this._ears)
             Main.layoutManager.addChrome(ear, {trackFullscreen: true});
@@ -182,17 +154,9 @@ export class Osmin {
             'state-changed',
             () => this._panelView.setCameraActive(this._services.camera.state === CameraState.ON),
             this);
-        this._widgets.forEach(widget => widget.start());
+        this._startWidgets();
         this._tray.start();
-        this._services.timer.load();
-        this._services.todo.load();
-        this._services.notes.load();
-        this._services.clipboard.start();
-        this._services.notifications.start();
         this._clock.start();
-        this._services.media.start();
-        this._services.calendar.start().catch(e => console.warn(`[osmin] calendar failed: ${e.message}`));
-        this._services.files.load().catch(e => console.warn(`[osmin] loading the file tray failed: ${e.message}`));
         this._drag.connectObject(
             'drag-started', (_s, uris) => this._onDragStarted(uris),
             'drag-moved', (_s, x, y) => this._onDragMoved(x, y),
@@ -216,8 +180,8 @@ export class Osmin {
         this._timers.destroy();
         this._signals.disconnectAll();
         this._unsubscribe?.();
+        this._services?.activities.detach(this._activityHost);
         this._cards?.destroy();
-        this._events?.destroy();
         this._clock?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
         this._widgets = null;
@@ -231,19 +195,8 @@ export class Osmin {
         this._dragOut = null;
         this._drag?.destroy();
         this._drag = null;
-        this._services?.media.destroy();
-        this._services?.artwork.destroy();
-        this._services?.files.destroy();
-        this._services?.calendar.destroy();
-        this._services?.activities.destroy();
-        this._services?.timer.destroy();
-        this._services?.todo.destroy();
-        this._services?.notes.destroy();
-        this._services?.camera.destroy();
-        this._services?.clipboard.destroy();
-        this._services?.notifications.destroy();
-        this._services = null;
-        this._unsubscribe = this._cards = this._events = null;
+        this._services = this._events = this._panel = this._shared = null;
+        this._unsubscribe = this._cards = null;
         this._clock = null;
 
         for (const ear of this._ears.splice(0)) {
@@ -257,9 +210,6 @@ export class Osmin {
         }
         this._cardWidget = null;
 
-        // Last: brings the GNOME clock back.
-        this._panel?.destroy();
-        this._panel = null;
     }
 
     /** `pinned`: opened without the pointer (keyboard); stays until closed or the pointer visits it. */
@@ -328,14 +278,6 @@ export class Osmin {
             ear.setColor(0, 0, 0, opacity);
     }
 
-    /** The top bar's colour and transparency (transparent by default, so the capsule hangs from the edge). */
-    _applyBarLook() {
-        this._panel.setBarLook({
-            color: this._settings.get('panel-color'),
-            opacity: this._settings.get('panel-opacity'),
-        });
-    }
-
     _onSettingChanged(key) {
         if (this._destroying || !this._actor)
             return;
@@ -348,10 +290,6 @@ export class Osmin {
             break;
         case 'collapsed-width-adjust':
             this._relayout();
-            break;
-        case 'panel-color':
-        case 'panel-opacity':
-            this._applyBarLook();
             break;
         case 'size-scale':
         case 'width-mode':
@@ -404,9 +342,15 @@ export class Osmin {
         this._panelView.opacity = 0;
         this._panelView.hide();
         this._content.add_child(this._panelView);
-        this._widgets.forEach(widget => widget.start());
+        this._startWidgets();
         this._panelView.tick(GLib.DateTime.new_now_local());
         this._relayout();
+    }
+
+    /** Only the first capsule publishes the widgets' Live Activities: they are shared by all. */
+    _startWidgets() {
+        if (this._leader)
+            this._widgets.forEach(widget => widget.start());
     }
 
     _createPanelView() {
@@ -650,7 +594,7 @@ export class Osmin {
     _onDragMoved(x, y) {
         if (!this._dragUris || this._ownDrag() || this._state === State.CARD)
             return;
-        const geo = this._panel.getGeometry();
+        const geo = this._geometry();
         const hot = Math.abs(x - geo.centerX) <= scaled(Layout.DROP_HOT_HALF_WIDTH) &&
             y <= geo.top + scaled(Layout.DROP_HOT_HEIGHT);
 
@@ -802,7 +746,7 @@ export class Osmin {
         const margin = scaled(Layout.APPROACH_MARGIN);
         const near = !!t && this._state === State.CLOSED &&
             x >= t.x - margin && x <= t.x + t.width + margin &&
-            y >= this._panel.getGeometry().top && y <= t.y + t.height + margin;
+            y >= this._geometry().top && y <= t.y + t.height + margin;
         if (near !== this._approach) {
             this._approach = near;
             if (!this._actor.hover)
@@ -1147,7 +1091,7 @@ export class Osmin {
     }
 
     _geometryFor(state) {
-        const geo = this._panel.getGeometry();
+        const geo = this._geometry();
         const size = this._sizeFor(state, geo);
         const margin = scaled(Layout.SCREEN_MARGIN);
         const x = clamp(Math.round(geo.centerX - size.width / 2),
@@ -1170,7 +1114,7 @@ export class Osmin {
     _placeEars(params = null) {
         if (this._ears.length === 0)
             return;
-        const geo = this._panel.getGeometry();
+        const geo = this._geometry();
         const target = this._target;
         const radius = scaled(COLLAPSED.has(this._state) ? Layout.EAR_RADIUS_CLOSED : Layout.EAR_RADIUS);
         const show = HANGING.has(this._state);
@@ -1212,14 +1156,20 @@ export class Osmin {
     _syncAnchor() {
         if (!this._actor)
             return;
-        const geo = this._panel.getGeometry();
-        this._panel.setAnchorWidth(this._closedSize(geo).width);
+        const geo = this._geometry();
+        // The top bar's spot is reserved for the capsule that sits on the bar.
+        if (geo.monitor.index === Main.layoutManager.primaryIndex)
+            this._panel.setAnchorWidth(this._closedSize(geo).width);
         // Cards hang below the band of the top bar.
         const top = Math.round(geo.height / getScaleFactor());
         if (this._cardTop !== top) {
             this._cardTop = top;
             this._cardLayer.style = `padding-top: ${Math.max(0, top - CARD_OVERLAP)}px;`;
         }
+    }
+
+    _geometry() {
+        return this._panel.getGeometry(this._monitorIndex());
     }
 
     /** Re-applies the geometry without animation (monitor, scale or panel changes). */

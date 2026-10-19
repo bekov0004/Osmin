@@ -42,6 +42,8 @@ export class PanelService {
         this._anchor.reactive = false;
         this._anchor.can_focus = false;
         this._anchor.opacity = 0;
+        if (this._anchorWidth)
+            this._anchor.set_width(this._anchorWidth);
         Main.panel.addToStatusArea(ANCHOR_ROLE, this._anchor, 0, 'center');
 
         this._signals.connect(this._anchor, 'notify::allocation', () => this._onChanged());
@@ -133,13 +135,15 @@ export class PanelService {
     }
 
     /**
+     * @param {number} [index] the monitor; the primary one by default
      * @returns {{monitor: object, centerX: number, top: number, height: number}}
      *   panel geometry in stage coordinates; centerX is the middle of the
-     *   primary monitor (where the GNOME clock used to be).
+     *   monitor (on the primary one, where the GNOME clock used to be).
      */
-    getGeometry() {
+    getGeometry(index = null) {
         // The monitor may not exist yet while the shell is still starting up.
-        const monitor = Main.layoutManager.primaryMonitor ??
+        const monitor = (index === null ? null : Main.layoutManager.monitors[index]) ??
+            Main.layoutManager.primaryMonitor ??
             {x: 0, y: 0, width: global.stage.width || 1920, height: global.stage.height || 1080, index: 0};
         const panelBox = Main.layoutManager.panelBox;
 
@@ -149,7 +153,9 @@ export class PanelService {
         // its own allocation changing, so nothing told us and the capsule stayed off-centre
         // until the first hover.
         const centerX = monitor.x + monitor.width / 2;
-        return {monitor, centerX, top: panelBox.y, height: panelBox.height};
+        // The top bar is only on the primary monitor; on the others the capsule hangs from the screen edge.
+        const onPanel = monitor.index === Main.layoutManager.primaryIndex;
+        return {monitor, centerX, top: onPanel ? panelBox.y : monitor.y, height: panelBox.height};
     }
 
     _hideDateMenu() {

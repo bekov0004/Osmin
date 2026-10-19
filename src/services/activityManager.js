@@ -21,14 +21,16 @@ export class ActivityManager extends Signals.EventEmitter {
         this._events = events;
         this._ongoing = new Map();
         this._pinned = null; // chosen by scrolling; otherwise the highest priority
-        this._cards = null;
-        this._isOpen = () => false;
+        this._hosts = [];
     }
 
-    /** @param {{cards: CardManager, isOpen: () => boolean}} host */
-    attach({cards, isOpen}) {
-        this._cards = cards;
-        this._isOpen = isOpen;
+    /** @param {{cards: CardManager, isOpen: () => boolean}} host one per capsule (one per monitor) */
+    attach(host) {
+        this._hosts.push(host);
+    }
+
+    detach(host) {
+        this._hosts = this._hosts.filter(h => h !== host);
     }
 
     get ongoing() {
@@ -94,7 +96,7 @@ export class ActivityManager extends Signals.EventEmitter {
      *   `force` shows the peek even while the panel is open (alarms).
      */
     peek(activity, {duration = 4000, priority = Priority.NORMAL, persistent = false, force = false} = {}) {
-        if (this._isOpen() && !force)
+        if (!force && this._hosts.some(host => host.isOpen()))
             return;
         this._events.emit({
             id: `activity:${activity.id}`,
@@ -108,13 +110,14 @@ export class ActivityManager extends Signals.EventEmitter {
     }
 
     dismissPeek(id) {
-        this._cards?.hide(`activity:${id}`);
+        for (const host of this._hosts)
+            host.cards.hide(`activity:${id}`);
     }
 
     destroy() {
         for (const activity of this._ongoing.values())
             activity.disconnectObject(this);
         this._ongoing.clear();
-        this._cards = null;
+        this._hosts = [];
     }
 }

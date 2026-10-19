@@ -397,8 +397,64 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._row(form, _('Animation speed'), this._slider(settings, 'animation-speed', [0.5, 2.0, 0.1], 1),
             _('Higher is faster.'));
 
+        this._rule(form);
+        this._row(form, _('Show on'), this._monitorsEditor(settings),
+            _('The monitors that get a capsule. "Primary" follows the monitor GNOME calls primary; the top bar is only there.'));
+
         this._resetRow(form, settings, settings.settings_schema.list_keys(), _('Reset all settings'));
         return body;
+    }
+
+    /** One switch per connected monitor (and one for "the primary one"); the choice is a list of connector names. */
+    _monitorsEditor(settings) {
+        const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 6});
+        const entries = [['primary', _('Primary monitor')]];
+        const monitors = Gdk.Display.get_default()?.get_monitors();
+        for (let i = 0; monitors && i < monitors.get_n_items(); i++) {
+            const monitor = monitors.get_item(i);
+            const connector = monitor.get_connector();
+            if (!connector)
+                continue;
+            const geometry = monitor.get_geometry();
+            const name = [monitor.get_manufacturer(), monitor.get_model()].filter(Boolean).join(' ');
+            entries.push([connector, `${connector}${name ? ` · ${name}` : ''} · ${geometry.width}×${geometry.height}`]);
+        }
+        // Monitors that are chosen but not connected now stay in the list, so unplugging a screen forgets nothing.
+        for (const id of settings.get_strv('monitors')) {
+            if (!entries.some(([entry]) => entry === id))
+                entries.push([id, `${id} · ${_('not connected')}`]);
+        }
+
+        const update = (id, on) => {
+            const chosen = settings.get_strv('monitors').filter(entry => entry !== id);
+            if (on)
+                chosen.push(id);
+            // Never leave the list empty: Osmin would have nowhere to be.
+            settings.set_strv('monitors', chosen.length > 0 ? chosen : ['primary']);
+        };
+        const switches = new Map();
+        const sync = () => {
+            const chosen = settings.get_strv('monitors');
+            for (const [id, toggle] of switches) {
+                if (toggle.active !== chosen.includes(id))
+                    toggle.active = chosen.includes(id);
+            }
+        };
+        for (const [id, label] of entries) {
+            const row = new Gtk.Box({spacing: 10});
+            const toggle = new Gtk.Switch({valign: Gtk.Align.CENTER, active: settings.get_strv('monitors').includes(id)});
+            toggle.connect('notify::active', () => {
+                if (toggle.active !== settings.get_strv('monitors').includes(id))
+                    update(id, toggle.active);
+            });
+            switches.set(id, toggle);
+            row.append(toggle);
+            row.append(new Gtk.Label({label}));
+            box.append(row);
+        }
+        const changedId = settings.connect('changed::monitors', sync);
+        box.connect('destroy', () => settings.disconnect(changedId));
+        return box;
     }
 
     /** "[switch] Title" with an optional note below, like the checkbox rows of the reference. */

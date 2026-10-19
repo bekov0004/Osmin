@@ -119,7 +119,9 @@ export class MediaWidget extends OsminWidget {
     destroy() {
         this._media.disconnectObject(this);
         this._settings.disconnectObject(this);
-        this._activities.end('media');
+        // Only the widget that published the activity (the first capsule's) ends it.
+        if (this._activity)
+            this._activities.end('media');
         this._activity?.destroy();
         this._stopTickers();
         this._player = null;
