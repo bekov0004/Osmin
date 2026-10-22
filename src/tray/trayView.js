@@ -16,7 +16,7 @@ export class TrayView extends St.BoxLayout {
     }
 
     /** @param {FileService} files */
-    constructor(files, drag = null) {
+    constructor(files, drag = null, onSend = null) {
         super({
             vertical: true,
             style_class: 'osmin-tray',
@@ -25,6 +25,7 @@ export class TrayView extends St.BoxLayout {
         });
         this._files = files;
         this._drag = drag;
+        this._onSend = onSend;
         this._drop = {active: false, zone: null, count: 0};
 
         const header = new St.BoxLayout({style_class: 'osmin-tray-header'});
@@ -35,6 +36,10 @@ export class TrayView extends St.BoxLayout {
             y_align: Clutter.ActorAlign.CENTER,
         });
         header.add_child(this._caption);
+        // Everything in the tray goes to the LocalSend card (single files: the send button on a file).
+        this._sendAll = new St.Button({label: 'Send all', style_class: 'osmin-tray-clear', can_focus: true});
+        this._sendAll.connect('clicked', () => this._onSend?.(this._files.items.map(i => i.uri)));
+        header.add_child(this._sendAll);
         this._clear = new St.Button({label: 'Clear', style_class: 'osmin-tray-clear', can_focus: true});
         this._clear.connect('clicked', () => this._files.clear());
         header.add_child(this._clear);
@@ -277,6 +282,7 @@ export class TrayView extends St.BoxLayout {
                 onOpen: uri => this._files.open(uri),
                 onShowInFolder: uri => this._files.showInFolder(uri),
                 onCopy: uri => this._files.copyToClipboard([uri]),
+                onSend: uri => this._onSend?.([uri]),
                 onRemove: uri => this._files.remove(uri),
                 drag: this._drag,
             }));
@@ -290,6 +296,7 @@ export class TrayView extends St.BoxLayout {
         const armed = zone === 'tray';
         this._caption.text = count > 0 ? `TRAY · ${count}` : 'TRAY';
         this._clear.visible = count > 0 && !active;
+        this._sendAll.visible = count > 0 && !active && !!this._onSend;
         // While dragging, only the drop targets are shown: no caption, no files.
         this._header.visible = !active;
 

@@ -35,7 +35,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   - **Timer**, **To-do** and **Notes** – optional widgets (off by default; enable them in the settings).
 - **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
 - **Monitors** – choose which monitors get a capsule (settings → General → Show on); the services and Live Activities are shared, each monitor has its own capsule and panel.
-- **Shortcuts** – a key for each section (Osmin, Tray, Clipboard, Alerts) opens the panel on it; pressing it again closes the panel. Set them in settings → General; none are set by default.
+- **Shortcuts** – a key for each section (Osmin, Tray, Clipboard, Alerts) opens the panel on it; pressing it again closes the panel. Set them in settings → General; none are set by default. GNOME itself uses Super+V (its notification list); the switch "Free Super+V from GNOME" takes that binding away while Osmin is enabled and restores it on disable, so Super+V can be recorded for Clipboard.
 - **Pull to enlarge** – in the Clipboard and Alerts tabs a two-finger swipe down on the touchpad makes the panel taller (up to about 60% of the screen), a swipe up shrinks it back; it resets when the panel closes.
 - **Enlarged mirror** – a button on the Mirror circle (or a two-finger swipe down over it) turns the capsule into a card as wide as the music card but taller, with a big square preview and a vertical zoom slider; its corner button (or a two-finger swipe up) shrinks it back.
 - **Enlarged calendar** – the same for the Calendar: a button (shown on hover) or a two-finger swipe down over it turns the capsule into a taller card with a month grid and the events of the chosen day; a swipe up or the corner button shrinks it back.
@@ -45,7 +45,9 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
   target sends the files with the [LocalSend](https://localsend.org) protocol, built into Osmin (the
   LocalSend app is not needed): a card lists the devices running LocalSend on your network, you pick one,
-  and it shows the transfer; the other device asks its user to accept. Sending only; folders are skipped. **Drag a file out of the tray**
+  and it shows the transfer; the other device asks its user to accept. Files are collected first: drop
+  more on the target (the card stays) or use the send button on a file / "Send all" in the tray, remove
+  the ones you do not want, then pick the device. Sending only; folders are skipped. **Drag a file out of the tray**
   into any other app or folder.
 - **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
 - **Copied files** – a file copied in the file manager appears in Clipboard as its name with the file icon (not as a path); clicking it pastes the file itself (a file manager gets its own file type, browsers and chats a uri list, terminals and editors the path).

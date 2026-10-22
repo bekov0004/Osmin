@@ -89,6 +89,7 @@ export class Osmin {
         this._lastInteraction = 0;
         this._pinned = false;
         this._dragUris = null;
+        this._localSend = null;
         this._dragArmed = null;
         this._compactActivity = null;
         this._hoverCard = false;     // the card on screen was brought by hovering the collapsed capsule
@@ -134,7 +135,12 @@ export class Osmin {
             onBegin: () => this._beginDragOut(),
             onEnd: () => this._endDragOut(),
         });
-        this._tray = new TrayController({services: this._services, settings: this._settings, dragOut: this._dragOut});
+        this._tray = new TrayController({
+            services: this._services,
+            settings: this._settings,
+            dragOut: this._dragOut,
+            onSend: uris => this._offerLocalSend(uris),
+        });
         this._clipboardView = new ClipboardView({
             service: this._services.clipboard,
             ui: {
@@ -196,6 +202,8 @@ export class Osmin {
         this._signals.disconnectAll();
         this._unsubscribe?.();
         this._services?.activities.detach(this._activityHost);
+        this._localSend?.destroy();
+        this._localSend = null;
         this._cards?.destroy();
         this._clock?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
@@ -635,7 +643,7 @@ export class Osmin {
     }
 
     _onDragMoved(x, y) {
-        if (!this._dragUris || this._ownDrag() || this._state === State.CARD)
+        if (!this._dragUris || this._ownDrag() || (this._state === State.CARD && !this._localSend?.shown))
             return;
         const geo = this._geometry();
         const hot = Math.abs(x - geo.centerX) <= scaled(Layout.DROP_HOT_HALF_WIDTH) &&
@@ -671,18 +679,26 @@ export class Osmin {
             this._offerLocalSend(uris);
     }
 
-    /** Files were dropped on the LocalSend target: a card to pick the device, then the transfer. */
+    /** Files were dropped on the LocalSend target (or sent from the tray): the card collects them, you pick the device. */
     _offerLocalSend(uris) {
-        const activity = new LocalSendActivity({
-            service: this._services.localSend,
-            uris,
-            onDismiss: () => this._cards.hide(`activity:${activity.id}`),
-            notify: (title, description, icon) => this._events.emit({
-                type: EventType.CUSTOM, icon, title, description, duration: 4000,
-            }),
-        });
-        activity.scan();
-        this._services.activities.peek(activity, {persistent: true, priority: Priority.HIGH, force: true, target: this});
+        if (!this._localSend) {
+            this._localSend = new LocalSendActivity({
+                service: this._services.localSend,
+                onDismiss: () => this._cards.hide(`activity:${this._localSend.id}`),
+                notify: (title, description, icon) => this._events.emit({
+                    type: EventType.CUSTOM, icon, title, description, duration: 4000,
+                }),
+            });
+        }
+        this._localSend.offer(uris);
+        const show = () => this._services.activities.peek(this._localSend, {persistent: true, priority: Priority.HIGH, force: true, target: this});
+        if (this._state === State.CARD) {
+            show();
+        } else {
+            // The card may still be "current" in the card manager (a new drag took the capsule from it): start it afresh.
+            this._cards.clear();
+            this._timers.set('localsend', 200, show);
+        }
     }
 
     // --- clipboard -------------------------------------------------------------

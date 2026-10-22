@@ -24,7 +24,10 @@ const decode = bytes => new TextDecoder().decode(bytes.get_data());
  * registered or announced), and a transfer is "prepare-upload" (the receiver
  * asks its user to accept) followed by one upload per file.
  *
- * Signal: 'found' (device) while scanning. A device is
+ * It also keeps the "basket": the files that are waiting to be sent (added by dropping
+ * them on the LocalSend target or from the tray), so several can be collected first.
+ *
+ * Signals: 'basket-changed'; 'found' (device) while scanning. A device is
  * {ip, port, protocol, alias, deviceModel, deviceType}.
  */
 export class LocalSendService extends Signals.EventEmitter {
@@ -33,6 +36,7 @@ export class LocalSendService extends Signals.EventEmitter {
         this._cancellable = new Gio.Cancellable();
         this._fingerprint = Array.from({length: 32}, () => Math.floor(Math.random() * 16).toString(16)).join('');
         this._scanning = null;
+        this._basket = [];
         this._certificate = undefined; // undefined: not loaded yet; null: could not be made
     }
 
@@ -73,6 +77,26 @@ export class LocalSendService extends Signals.EventEmitter {
             message.set_tls_client_certificate(this._certificate);
             return true;
         });
+    }
+
+    /** file:// URIs waiting to be sent */
+    get basket() {
+        return this._basket;
+    }
+
+    addToBasket(uris) {
+        const added = uris.filter(uri => !this._basket.includes(uri));
+        if (added.length === 0)
+            return;
+        this._basket.push(...added);
+        this.emit('basket-changed');
+    }
+
+    removeFromBasket(uris) {
+        const before = this._basket.length;
+        this._basket = this._basket.filter(uri => !uris.includes(uri));
+        if (this._basket.length !== before)
+            this.emit('basket-changed');
     }
 
     get _me() {

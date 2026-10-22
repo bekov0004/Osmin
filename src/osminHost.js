@@ -1,3 +1,4 @@
+import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -87,6 +88,7 @@ export class OsminHost {
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
+        this._syncSuperV();
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._syncCapsules({rebuild: true}));
 
         const services = this._services;
@@ -103,6 +105,7 @@ export class OsminHost {
     destroy() {
         this._settings?.disconnectObject(this);
         this._removeShortcuts();
+        this._restoreMessageTrayBinding();
         this._signals.disconnectAll();
         for (const osmin of [...this._capsules.values()].reverse())
             osmin.destroy();
@@ -148,6 +151,36 @@ export class OsminHost {
         }
     }
 
+    /**
+     * GNOME opens its notification list on Super+V, so that combination cannot be used for a Osmin
+     * shortcut. With "free-super-v" on, that default binding is taken away (and given back on disable).
+     */
+    _syncSuperV() {
+        const wanted = this._settings.get('free-super-v');
+        const gsettings = this._settings.gsettings;
+        if (!gsettings)
+            return;
+        const shell = new Gio.Settings({schema_id: 'org.gnome.shell.keybindings'});
+        const saved = gsettings.get_strv('saved-message-tray-binding');
+        if (!wanted) {
+            this._restoreMessageTrayBinding();
+            return;
+        }
+        // Left over from a shell that stopped without disabling Osmin: the saved list is the original.
+        const original = saved.length > 0 ? saved : shell.get_strv('toggle-message-tray');
+        gsettings.set_strv('saved-message-tray-binding', original);
+        shell.set_strv('toggle-message-tray', original.filter(binding => binding.toLowerCase() !== '<super>v'));
+    }
+
+    _restoreMessageTrayBinding() {
+        const gsettings = this._settings?.gsettings;
+        const saved = gsettings?.get_strv('saved-message-tray-binding') ?? [];
+        if (saved.length === 0)
+            return;
+        new Gio.Settings({schema_id: 'org.gnome.shell.keybindings'}).set_strv('toggle-message-tray', saved);
+        gsettings.set_strv('saved-message-tray-binding', []);
+    }
+
     _removeShortcuts() {
         for (const key of this._shortcutKeys)
             Main.wm.removeKeybinding(key);
@@ -166,6 +199,8 @@ export class OsminHost {
     _onSettingChanged(key) {
         if (key === 'monitors')
             this._syncCapsules();
+        else if (key === 'free-super-v')
+            this._syncSuperV();
         else if (key === 'panel-color' || key === 'panel-opacity')
             this._applyBarLook();
     }

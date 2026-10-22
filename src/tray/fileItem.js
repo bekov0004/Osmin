@@ -12,10 +12,10 @@ export class FileItem extends St.Widget {
     }
 
     /**
-     * @param {{item: object, onOpen, onShowInFolder, onCopy, onRemove, drag?: {arm, disarm, prepare, begin, cancel}}} params
+     * @param {{item: object, onOpen, onShowInFolder, onCopy, onSend, onRemove, drag?: {arm, disarm, prepare, begin, cancel}}} params
      *   drag: hooks that let the file be dragged out into other applications
      */
-    constructor({item, onOpen, onShowInFolder, onCopy, onRemove, drag}) {
+    constructor({item, onOpen, onShowInFolder, onCopy, onSend, onRemove, drag}) {
         super({
             style_class: 'osmin-file-item',
             layout_manager: new Clutter.BinLayout(),
@@ -54,6 +54,7 @@ export class FileItem extends St.Widget {
         for (const [iconName, handler] of [
             ['folder-open-symbolic', onShowInFolder],
             ['edit-copy-symbolic', onCopy],
+            ['mail-send-symbolic', onSend],
             ['window-close-symbolic', onRemove],
         ]) {
             this._actions.add_child(createButton({

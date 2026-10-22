@@ -48,6 +48,18 @@
       <description>Show a running timer, music or an upcoming meeting instead of the time while collapsed.</description>
     </key>
 
+    <key name="free-super-v" type="b">
+      <default>false</default>
+      <summary>Free Super+V from GNOME</summary>
+      <description>GNOME opens its notification list on Super+V. While this is on and Osmin is enabled, that default binding is taken away so Super+V (or Super+M) can be used for a Osmin shortcut; it is given back when Osmin is disabled.</description>
+    </key>
+
+    <key name="saved-message-tray-binding" type="as">
+      <default>[]</default>
+      <summary>GNOME's own toggle-message-tray binding, saved while it is freed</summary>
+      <description>Internal: restored when Osmin is disabled, or at the next start if the shell stopped without disabling Osmin.</description>
+    </key>
+
     <key name="shortcut-osmin" type="as">
       <default>[]</default>
       <summary>Shortcut: open the Osmin section</summary>

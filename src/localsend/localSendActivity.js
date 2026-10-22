@@ -7,7 +7,7 @@ import {createButton} from '../ui/button.js';
 import {LiveActivity} from '../ui/liveActivity.js';
 import {scaled} from '../utils/scale.js';
 
-const HEIGHT = 210; // css px
+const HEIGHT = 276; // css px
 const BAR_WIDTH = 250;
 
 const DEVICE_ICONS = {
@@ -33,11 +33,10 @@ const sizeText = bytes => {
  * announced with a notification instead.
  */
 export class LocalSendActivity extends LiveActivity {
-    /** @param {{service: LocalSendService, uris: string[], onDismiss: () => void, notify: (title, description, icon) => void}} params */
-    constructor({service, uris, onDismiss, notify}) {
+    /** @param {{service: LocalSendService, onDismiss: () => void, notify: (title, description, icon) => void}} params */
+    constructor({service, onDismiss, notify}) {
         super({id: 'localsend', widgetId: 'tray'});
         this._service = service;
-        this._uris = uris;
         this._onDismiss = onDismiss;
         this._notify = notify;
         this._cancellable = null;
@@ -49,6 +48,7 @@ export class LocalSendActivity extends LiveActivity {
         this.message = '';
         this.shown = false;
         this._gone = false;
+        this._scanned = false;
         this._dismissTimer = 0;
     }
 
@@ -64,10 +64,20 @@ export class LocalSendActivity extends LiveActivity {
         throw new Error('The LocalSend card has no compact face');
     }
 
+    /** Files were dropped / sent from the tray: they join the basket; after a transfer, start over. */
+    offer(uris) {
+        this._service.addToBasket(uris);
+        if (this.phase === 'done' || this.phase === 'error' || !this._scanned)
+            this.scan();
+        else
+            this.notifyChanged();
+    }
+
     /** Starts looking for devices. */
     scan() {
         this.devices = [];
         this.phase = 'scan';
+        this._scanned = true;
         this.notifyChanged();
         this._service.disconnectObject(this);
         this._service.connectObject('found', (_s, device) => {
@@ -86,7 +96,8 @@ export class LocalSendActivity extends LiveActivity {
 
     /** Sends the files to a device. */
     async sendTo(device) {
-        if (this._cancellable)
+        const uris = [...this._service.basket];
+        if (this._cancellable || uris.length === 0)
             return;
         this._service.cancelScan();
         this._device = device;
@@ -96,7 +107,7 @@ export class LocalSendActivity extends LiveActivity {
         this.sent = 0;
         this.notifyChanged();
         try {
-            const result = await this._service.send(device, this._uris, {
+            const result = await this._service.send(device, uris, {
                 cancellable: this._cancellable,
                 onState: state => {
                     this.phase = state.phase;
@@ -105,6 +116,7 @@ export class LocalSendActivity extends LiveActivity {
                     this.notifyChanged();
                 },
             });
+            this._service.removeFromBasket(uris);
             this.phase = 'done';
             this.message = result.skipped > 0 ? `Sent (${result.skipped} folder skipped)` : `Sent to ${device.alias}`;
             if (!this.shown)
@@ -157,12 +169,14 @@ export class LocalSendActivity extends LiveActivity {
 
         const render = () => {
             body.destroy_all_children();
-            const count = this._uris.length;
+            const count = this._service.basket.length;
             switch (this.phase) {
             case 'scan':
             case 'pick':
                 title.text = this.phase === 'scan' ? 'Looking for devices…' : 'Send to';
-                body.add_child(this._createList());
+                body.add_child(this._createBasket());
+                body.add_child(count > 0 ? this._createList() : this._createNote('document-send-symbolic',
+                    'Drop files on the LocalSend target, or use the send button on a file in the tray'));
                 break;
             case 'waiting':
             case 'sending':
@@ -179,18 +193,79 @@ export class LocalSendActivity extends LiveActivity {
                     {label: 'Try again', onClick: () => this.scan()}));
             }
             close.visible = true;
-            if (count === 0)
-                title.text = 'Nothing to send';
         };
 
         this.connectObject('changed', render, root);
+        this._service.connectObject('basket-changed', render, root);
         this.shown = true;
         root.connect('destroy', () => {
             this.disconnectObject(root);
+            this._service.disconnectObject(root);
             this.shown = false;
         });
         render();
         return root;
+    }
+
+    /** The files waiting to be sent, each with a remove button. */
+    _createBasket() {
+        const files = this._service.basket;
+        const box = new St.BoxLayout({vertical: true, x_expand: true, style_class: 'osmin-ls-basket'});
+        if (files.length === 0)
+            return box;
+        const rows = new St.BoxLayout({vertical: true, x_expand: true});
+        let total = 0;
+        for (const uri of files) {
+            const file = Gio.File.new_for_uri(uri);
+            let size = 0;
+            let icon = null;
+            try {
+                const info = file.query_info('standard::size,standard::symbolic-icon', Gio.FileQueryInfoFlags.NONE, null);
+                size = info.get_size();
+                icon = info.get_symbolic_icon();
+            } catch (e) {
+                // gone since it was added: it is skipped when sending
+            }
+            total += size;
+            const row = new St.BoxLayout({style_class: 'osmin-ls-file', x_expand: true});
+            const image = new St.Icon({icon_name: 'text-x-generic-symbolic', style_class: 'osmin-ls-file-icon', y_align: Clutter.ActorAlign.CENTER});
+            if (icon)
+                image.gicon = icon;
+            row.add_child(image);
+            const name = new St.Label({text: file.get_basename(), style_class: 'osmin-ls-file-name', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+            name.clutter_text.ellipsize = Pango.EllipsizeMode.MIDDLE;
+            row.add_child(name);
+            row.add_child(new St.Label({text: sizeText(size), style_class: 'osmin-ls-device-model', y_align: Clutter.ActorAlign.CENTER}));
+            const remove = createButton({
+                iconName: 'window-close-symbolic',
+                styleClass: 'osmin-ls-file-remove',
+                onClick: () => this._service.removeFromBasket([uri]),
+            });
+            remove.y_align = Clutter.ActorAlign.CENTER;
+            row.add_child(remove);
+            rows.add_child(row);
+        }
+        const scroll = new St.ScrollView({
+            style_class: 'osmin-ls-basket-scroll',
+            hscrollbar_policy: St.PolicyType.NEVER,
+            vscrollbar_policy: St.PolicyType.AUTOMATIC,
+            overlay_scrollbars: true,
+            x_expand: true,
+        });
+        scroll.add_child(rows);
+        box.add_child(scroll);
+        const summary = new St.BoxLayout({style_class: 'osmin-ls-summary'});
+        summary.add_child(new St.Label({
+            text: `${files.length} file${files.length === 1 ? '' : 's'} · ${sizeText(total)}  —  drop more to add`,
+            style_class: 'osmin-ls-device-model',
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+        const clear = new St.Button({label: 'Clear', style_class: 'osmin-tray-clear', can_focus: true});
+        clear.connect('clicked', () => this._service.removeFromBasket([...files]));
+        summary.add_child(clear);
+        box.add_child(summary);
+        return box;
     }
 
     _createList() {

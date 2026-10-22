@@ -7,6 +7,8 @@ export const DEFAULTS = Object.freeze({
     'corner-radius': 32,
     'background-opacity': 0.96,
     'animation-speed': 1.0,
+    'free-super-v': false,
+    'saved-message-tray-binding': [],
     'open-on-hover': true,
     'auto-collapse': true,
     'activities-in-collapsed': true,

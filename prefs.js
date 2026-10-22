@@ -409,6 +409,9 @@ export default class OsminPreferences extends ExtensionPreferences {
                 key === 'shortcut-alerts' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
         }
 
+        this._toggleRow(form, settings, 'free-super-v', '', _('Free Super+V from GNOME'),
+            _('GNOME opens its notification list on Super+V, so you cannot record it. This takes that binding away while Osmin is enabled and gives it back when Osmin is disabled. Turn it on first, then record Super+V.'));
+
         this._rule(form);
         this._row(form, _('Show on'), this._monitorsEditor(settings),
             _('The monitors that get a capsule. "Primary" follows the monitor GNOME calls primary; the top bar is only there.'));
