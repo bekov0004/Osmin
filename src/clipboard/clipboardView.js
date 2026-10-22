@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
@@ -39,17 +40,31 @@ class ClipRow extends St.Widget {
 
         const main = new St.Button({style_class: 'osmin-clip-main', x_expand: true, can_focus: true});
         const row = new St.BoxLayout({x_expand: true, style_class: 'osmin-clip-row'});
+        let flat = item.text.replace(/\s+/g, ' ').trim();
+        let fileIcon = null;
+        if (item.files?.length) {
+            // Copied files: the file's icon and name instead of the path.
+            const first = Gio.File.new_for_uri(item.files[0]);
+            flat = first.get_basename() + (item.files.length > 1 ? `  +${item.files.length - 1}` : '');
+            try {
+                fileIcon = first.query_info('standard::symbolic-icon', Gio.FileQueryInfoFlags.NONE, null).get_symbolic_icon();
+            } catch (e) {
+                fileIcon = null;
+            }
+        }
         let iconName = 'text-x-generic-symbolic';
         if (item.saved)
             iconName = 'starred-symbolic';
         else if (isLink(item.text))
             iconName = 'insert-link-symbolic';
-        row.add_child(new St.Icon({
+        const kind = new St.Icon({
             icon_name: iconName,
             style_class: item.saved ? 'osmin-clip-star' : 'osmin-clip-kind',
             y_align: Clutter.ActorAlign.CENTER,
-        }));
-        const flat = item.text.replace(/\s+/g, ' ').trim();
+        });
+        if (fileIcon && !item.saved)
+            kind.gicon = fileIcon;
+        row.add_child(kind);
         const text = new St.Label({
             text: flat.length > PREVIEW_CHARS ? `${flat.slice(0, PREVIEW_CHARS)}…` : flat,
             style_class: 'osmin-clip-text',

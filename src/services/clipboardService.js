@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
@@ -10,6 +11,22 @@ const MAX_LENGTH = 20000;
 const MAX_SAVED = 100;
 // Password managers mark what they copy with this type: never record it.
 const PASSWORD_HINT = 'x-kde-passwordManagerHint';
+// Copied files: the file manager's own type, and the common one.
+const FILES_TYPE = 'x-special/gnome-copied-files';
+const URI_LIST_TYPE = 'text/uri-list';
+// Where a file item is pasted as a file manager's file / as a path; anywhere else as a uri list.
+const FILE_MANAGERS = /nautilus|nemo|thunar|caja|pcmanfm|dolphin|files/i;
+const TEXT_APPS = /terminal|console|konsole|xterm|alacritty|kitty|tilix|gedit|text-editor|kate|code|sublime|emacs|vim|idea|studio/i;
+
+/** The file:// uris in the content of a copied-files / uri-list clipboard type. */
+function parseFileUris(bytes) {
+    if (!bytes)
+        return [];
+    const text = new TextDecoder().decode(bytes.get_data());
+    return text.split(/\r?\n/).map(line => line.trim()).filter(line => line.startsWith('file://'));
+}
+
+const uriToPath = uri => Gio.File.new_for_uri(uri).get_path() ?? uri;
 
 /**
  * The clipboard history. Text you copy with Ctrl+C is collected (newest
@@ -18,7 +35,10 @@ const PASSWORD_HINT = 'x-kde-passwordManagerHint';
  * saved if "keep history" is on, so copied passwords and the like do not end
  * up on disk by default. Nothing is sent anywhere.
  *
- * Items: {id, text, saved, note, at}. `saved`: pinned (kept, never pushed
+ * Copied files are recorded too ({text: their paths, files: [uris]}); putting such an item
+ * back offers the files, so a file manager or a chat pastes the file, not its path.
+ *
+ * Items: {id, text, files?, saved, note, at}. `saved`: pinned (kept, never pushed
  * out); `note`: written by the user.
  *
  * Signal: 'changed'.
@@ -50,6 +70,7 @@ export class ClipboardService extends Signals.EventEmitter {
                 .map(item => ({
                     id: 0,
                     text: item.text.slice(0, MAX_LENGTH),
+                    files: Array.isArray(item.files) && item.files.every(u => typeof u === 'string') ? item.files : null,
                     saved: item.saved === true,
                     note: item.note === true,
                     at: Number(item.at) || 0,
@@ -79,14 +100,26 @@ export class ClipboardService extends Signals.EventEmitter {
         const mimetypes = this._clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD) ?? [];
         if (mimetypes.includes(PASSWORD_HINT))
             return;
-        this._clipboard.get_text(St.ClipboardType.CLIPBOARD, (_clipboard, text) => {
+        const type = [FILES_TYPE, URI_LIST_TYPE].find(t => mimetypes.includes(t));
+        const readText = () => this._clipboard.get_text(St.ClipboardType.CLIPBOARD, (_clipboard, text) => {
             if (typeof text === 'string')
                 this.add(text);
+        });
+        if (!type) {
+            readText();
+            return;
+        }
+        this._clipboard.get_content(St.ClipboardType.CLIPBOARD, type, (_clipboard, bytes) => {
+            const uris = parseFileUris(bytes);
+            if (uris.length === 0)
+                readText();
+            else
+                this.add(uris.map(uriToPath).join('\n'), uris);
         });
     }
 
     /** Records copied text (moves it to the top if it is already there). */
-    add(text) {
+    add(text, files = null) {
         if (text.trim() === '')
             return;
         text = text.slice(0, MAX_LENGTH);
@@ -98,7 +131,7 @@ export class ClipboardService extends Signals.EventEmitter {
             item.at = Date.now();
             this._items.unshift(item);
         } else {
-            this._items.unshift({id: this._nextId++, text, saved: false, note: false, at: Date.now()});
+            this._items.unshift({id: this._nextId++, text, files, saved: false, note: false, at: Date.now()});
         }
         this._trim();
         this._changed();
@@ -155,9 +188,26 @@ export class ClipboardService extends Signals.EventEmitter {
         const item = this._items.find(i => i.id === id);
         if (!item)
             return;
-        this._clipboard.set_text(St.ClipboardType.CLIPBOARD, item.text);
+        const files = item.files?.filter(uri => Gio.File.new_for_uri(uri).query_exists(null));
+        if (files?.length) {
+            // The file manager takes its own type; browsers and chats the uri list; text apps the path.
+            const app = global.display.focus_window?.get_wm_class() ?? '';
+            if (TEXT_APPS.test(app) && !FILE_MANAGERS.test(app))
+                this._clipboard.set_text(St.ClipboardType.CLIPBOARD, item.text);
+            else if (FILE_MANAGERS.test(app))
+                this._setContent(FILES_TYPE, `copy\n${files.join('\n')}`);
+            else
+                this._setContent(URI_LIST_TYPE, `${files.join('\r\n')}\r\n`);
+        } else {
+            this._clipboard.set_text(St.ClipboardType.CLIPBOARD, item.text);
+        }
         // Putting it back makes it the newest again.
-        this.add(item.text);
+        this.add(item.text, item.files);
+    }
+
+    _setContent(mimetype, text) {
+        this._clipboard.set_content(St.ClipboardType.CLIPBOARD, mimetype,
+            new GLib.Bytes(new TextEncoder().encode(text)));
     }
 
     /** Presses Ctrl+V in whatever has the keyboard focus. */
@@ -214,7 +264,7 @@ export class ClipboardService extends Signals.EventEmitter {
             version: 1,
             items: this._items
                 .filter(item => keep || item.saved)
-                .map(({text, saved, note, at}) => ({text, saved, note, at})),
+                .map(({text, files, saved, note, at}) => ({text, files, saved, note, at})),
         });
     }
 }

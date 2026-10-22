@@ -47,6 +47,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   on its Send tab so you pick the device. **Drag a file out of the tray**
   into any other app or folder.
 - **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
+- **Copied files** – a file copied in the file manager appears in Clipboard as its name with the file icon (not as a path); clicking it pastes the file itself (a file manager gets its own file type, browsers and chats a uri list, terminals and editors the path).
   first. A click puts it into the app you were using (Ctrl+V; or only copies, see the settings); hover
   for copy / pin / remove. The first card is for your own notes (Enter saves them). Pinned items and
   notes are saved; the rest of the history is only kept in memory unless you turn on *Keep history*.
