@@ -1399,6 +1399,100 @@
 
 /* LocalSend section */
 .osmin-lsv {
+    padding: 0 18px 6px 18px;
+    spacing: 3px;
+}
+
+.osmin-lsv-caption {
+    spacing: 4px;
+}
+
+.osmin-lsv-title {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.osmin-lsv-on {
+    color: #4d8dff;
+}
+
+.osmin-lsv-hint {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 11px;
+}
+
+.osmin-lsv-chips {
+    spacing: 6px;
+}
+
+.osmin-lsv-chip {
+    spacing: 6px;
+    padding: 2px 5px 2px 10px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-lsv-chip-icon {
+    icon-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.osmin-lsv-chip-name {
+    max-width: 110px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.osmin-lsv-chip-size {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+}
+
+.osmin-lsv-tiles {
+    spacing: 8px;
+}
+
+.osmin-lsv-tile {
+    padding: 3px 12px 3px 5px;
+    border-radius: 15px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-lsv-tile:hover,
+.osmin-lsv-tile:focus {
+    background-color: rgba(77, 141, 255, 0.28);
+}
+
+.osmin-lsv-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+    background-color: rgba(77, 141, 255, 0.22);
+}
+
+.osmin-lsv-badge-icon {
+    icon-size: 14px;
+    color: #4d8dff;
+}
+
+.osmin-lsv-tile-texts {
+    margin-left: 7px;
+    min-width: 70px;
+}
+
+.osmin-ls-buttons {
+    spacing: 10px;
+}
+
+.osmin-button.osmin-ls-accept {
+    background-color: #4d8dff;
+}
+
+/* LocalSend section */
+.osmin-lsv {
     padding: 2px 16px 6px 16px;
     spacing: 14px;
 }

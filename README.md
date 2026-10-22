@@ -36,16 +36,16 @@ what is going on) and an **expanded** container that hangs from the top edge of 
 - **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
 - **Monitors** – choose which monitors get a capsule (settings → General → Show on); the services and Live Activities are shared, each monitor has its own capsule and panel.
 - **Shortcuts** – a key for each section (Osmin, Tray, Clipboard, Alerts) opens the panel on it; pressing it again closes the panel. Set them in settings → General; none are set by default. GNOME itself uses Super+V (its notification list); the switch "Free Super+V from GNOME" takes that binding away while Osmin is enabled and restores it on disable, so Super+V can be recorded for Clipboard.
-- **Pull to enlarge** – in the Clipboard, Alerts and LocalSend tabs a two-finger swipe down grows the panel to fit all its items (at most 40% of the screen height; with a single item nothing changes), a swipe up shrinks it back. The list always scrolls first: the panel resizes only when the list has reached its top (swipe down) or bottom (swipe up), or has nothing to scroll. It resets when the panel closes or the tab changes.
+- **Pull to enlarge** – in the Clipboard and Alerts tabs a two-finger swipe down grows the panel to fit all its items (at most 40% of the screen height; with a single item nothing changes), a swipe up shrinks it back. The list always scrolls first: the panel resizes only when the list has reached its top (swipe down) or bottom (swipe up), or has nothing to scroll. It resets when the panel closes or the tab changes.
 - **Enlarged mirror** – a button on the Mirror circle (or a two-finger swipe down over it) turns the capsule into a card as wide as the music card but taller, with a big square preview and a vertical zoom slider; its corner button (or a two-finger swipe up) shrinks it back.
 - **Enlarged calendar** – the same for the Calendar: a button (shown on hover) or a two-finger swipe down over it turns the capsule into a taller card with a month grid and the events of the chosen day; a swipe up or the corner button shrinks it back.
 - **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
   manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
-  target puts them in the **LocalSend** section (a tab next to Tray) instead: the files wait on the left
-  (drop more, "Add from Tray", the send button on a tray file or "Send all", ✕ to remove), the devices
-  running [LocalSend](https://localsend.org) on your network are on the right, and a click on one sends
+  target puts them in the **LocalSend** section (a tab next to Tray) instead: the files wait as chips in the top
+  row (drop more, "Add from Tray", the send button on a tray file or "Send all", ✕ to remove), the devices
+  running [LocalSend](https://localsend.org) on your network are tiles in the row below, and a click on one sends
   (the other device asks its user to accept). The protocol is built into Osmin; the LocalSend app is not
   needed. Folders are skipped.
   **Receiving** is off by default: Settings → General → LocalSend → *Receive files* makes the computer

@@ -1036,7 +1036,7 @@ export class Osmin {
 
     /** The items of an open list changed: a grown panel follows the new count. */
     _onListChanged() {
-        if (this._state === State.OPEN && this._expanded && this._panelView.growable)
+        if (this._state === State.OPEN && ((this._expanded && this._panelView.growable) || this._panelView.mode === PanelMode.LOCALSEND))
             this._applyGeometry({duration: 150, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
@@ -1288,13 +1288,19 @@ export class Osmin {
             this._expanded = false;
         // A list grown to fit its items (the size is measured with the panel at its normal height).
         this._panelView.setExtraHeight(0);
-        const base = Math.min(this._panelView.getHeightForWidth(width), normalCap);
+        let base = Math.min(this._panelView.getHeightForWidth(width), normalCap);
+        // A section that is not a scrolling list (LocalSend) simply gets the height it needs.
+        const needed = this._panelView.contentExtra(width);
+        if (needed > 0) {
+            this._panelView.setExtraHeight(needed);
+            base = Math.min(this._panelView.getHeightForWidth(width), normalCap);
+        }
         const previous = this._extraHeight;
         this._baseOpenHeight = base;
         this._extraHeight = this._expanded ? this._fitExtraFrom(previous) : 0;
         if (this._extraHeight <= 0)
             return {width, height: base};
-        this._panelView.setExtraHeight(this._extraHeight);
+        this._panelView.setExtraHeight(needed + this._extraHeight);
         return {width, height: Math.min(this._panelView.getHeightForWidth(width), base + this._extraHeight)};
     }
 

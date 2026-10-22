@@ -7,7 +7,7 @@ import St from 'gi://St';
 import {createButton} from '../ui/button.js';
 import {scaled} from '../utils/scale.js';
 
-const BAR_WIDTH = 150;
+const BAR_WIDTH = 300;
 
 const DEVICE_ICONS = {
     mobile: 'phone-symbolic',
@@ -25,10 +25,40 @@ const sizeText = bytes => {
     return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 };
 
+/** A row that scrolls sideways with the wheel / a swipe, without a scroll bar (like the Tray's). */
+function createSideScroll(content) {
+    const scroll = new St.ScrollView({
+        hscrollbar_policy: St.PolicyType.EXTERNAL,
+        vscrollbar_policy: St.PolicyType.NEVER,
+        overlay_scrollbars: true,
+        x_expand: true,
+    });
+    scroll.add_child(content);
+    scroll.connect('scroll-event', (_actor, event) => {
+        const adjustment = scroll.hadjustment;
+        if (adjustment.upper <= adjustment.page_size)
+            return Clutter.EVENT_PROPAGATE;
+        switch (event.get_scroll_direction()) {
+        case Clutter.ScrollDirection.UP:
+        case Clutter.ScrollDirection.LEFT:
+            adjustment.value -= 70;
+            return Clutter.EVENT_STOP;
+        case Clutter.ScrollDirection.DOWN:
+        case Clutter.ScrollDirection.RIGHT:
+            adjustment.value += 70;
+            return Clutter.EVENT_STOP;
+        default:
+            return Clutter.EVENT_PROPAGATE;
+        }
+    });
+    return scroll;
+}
+
 /**
- * The LocalSend section of the panel: on the left the files waiting to be sent, on the right the
- * devices on the network (a click sends), or the transfer. Receiving can be switched on at the
- * bottom of the right column.
+ * The LocalSend section of the panel, built like the Tray: a row of chips for the files that wait
+ * to be sent, and below it a row of tiles for the devices on the network (a click sends). While a
+ * transfer runs the devices row shows its progress. Receiving is switched on and off at the end of
+ * the "Send to" line.
  */
 export class LocalSendView extends St.BoxLayout {
     static {
@@ -37,16 +67,10 @@ export class LocalSendView extends St.BoxLayout {
 
     /** @param {{session: LocalSendSession, getTrayUris: () => string[], receiving: {get: () => boolean, set: (on: boolean) => void}}} params */
     constructor({session, getTrayUris, receiving}) {
-        super({style_class: 'osmin-lsv', x_expand: true, y_expand: true});
+        super({vertical: true, style_class: 'osmin-lsv', x_expand: true, y_expand: true});
         this._session = session;
         this._getTrayUris = getTrayUris;
-        this._targets = [];
         this._receiving = receiving;
-
-        this._left = new St.BoxLayout({vertical: true, style_class: 'osmin-lsv-col', x_expand: true, y_expand: true});
-        this._right = new St.BoxLayout({vertical: true, style_class: 'osmin-lsv-col osmin-lsv-right', x_expand: true, y_expand: true});
-        this.add_child(this._left);
-        this.add_child(this._right);
 
         session.connectObject('changed', () => this._render(), this);
         this.connect('notify::mapped', () => {
@@ -57,28 +81,28 @@ export class LocalSendView extends St.BoxLayout {
         this._render();
     }
 
+    /** Nothing here scrolls up and down: the panel keeps its height. */
+    get scrollTargets() {
+        return [];
+    }
+
     _render() {
-        this._renderNow();
+        this.destroy_all_children();
+        this._buildFiles();
+        this._buildDevices();
         this.onContentChanged?.();
     }
 
-    get scrollTargets() {
-        return this._targets;
-    }
-
-    _renderNow() {
-        this._targets = [];
-        this._left.destroy_all_children();
-        this._right.destroy_all_children();
-        this._buildFiles();
-        this._buildRight();
-    }
-
-    _heading(text, action = null) {
-        const row = new St.BoxLayout({style_class: 'osmin-lsv-heading'});
+    /** "CAPTION" on the left, small text buttons on the right. */
+    _caption(text, actions = []) {
+        const row = new St.BoxLayout({style_class: 'osmin-lsv-caption'});
         row.add_child(new St.Label({text, style_class: 'osmin-lsv-title', x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
-        if (action) {
-            const button = new St.Button({label: action.label, style_class: 'osmin-tray-clear', can_focus: true});
+        for (const action of actions) {
+            const button = new St.Button({
+                label: action.label,
+                style_class: `osmin-tray-clear${action.active ? ' osmin-lsv-on' : ''}`,
+                can_focus: true,
+            });
             button.connect('clicked', () => action.onClick());
             row.add_child(button);
         }
@@ -90,7 +114,7 @@ export class LocalSendView extends St.BoxLayout {
     _buildFiles() {
         const files = this._session.basket;
         let total = 0;
-        const rows = new St.BoxLayout({vertical: true, x_expand: true});
+        const chips = new St.BoxLayout({style_class: 'osmin-lsv-chips', y_align: Clutter.ActorAlign.CENTER});
         for (const uri of files) {
             const file = Gio.File.new_for_uri(uri);
             let size = 0;
@@ -103,116 +127,119 @@ export class LocalSendView extends St.BoxLayout {
                 // gone since it was added: skipped when sending
             }
             total += size;
-            const row = new St.BoxLayout({style_class: 'osmin-ls-file', x_expand: true});
-            const image = new St.Icon({icon_name: 'text-x-generic-symbolic', style_class: 'osmin-ls-file-icon', y_align: Clutter.ActorAlign.CENTER});
+            const chip = new St.BoxLayout({style_class: 'osmin-lsv-chip', y_align: Clutter.ActorAlign.CENTER});
+            const image = new St.Icon({icon_name: 'text-x-generic-symbolic', style_class: 'osmin-lsv-chip-icon', y_align: Clutter.ActorAlign.CENTER});
             if (icon)
                 image.gicon = icon;
-            row.add_child(image);
-            const name = new St.Label({text: file.get_basename(), style_class: 'osmin-ls-file-name', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+            chip.add_child(image);
+            const name = new St.Label({text: file.get_basename(), style_class: 'osmin-lsv-chip-name', y_align: Clutter.ActorAlign.CENTER});
             name.clutter_text.ellipsize = Pango.EllipsizeMode.MIDDLE;
-            row.add_child(name);
-            row.add_child(new St.Label({text: sizeText(size), style_class: 'osmin-ls-device-model', y_align: Clutter.ActorAlign.CENTER}));
+            chip.add_child(name);
+            chip.add_child(new St.Label({text: sizeText(size), style_class: 'osmin-lsv-chip-size', y_align: Clutter.ActorAlign.CENTER}));
             const remove = createButton({
                 iconName: 'window-close-symbolic',
                 styleClass: 'osmin-ls-file-remove',
                 onClick: () => this._session.remove([uri]),
             });
             remove.y_align = Clutter.ActorAlign.CENTER;
-            row.add_child(remove);
-            rows.add_child(row);
+            chip.add_child(remove);
+            chips.add_child(chip);
         }
 
-        const title = files.length === 0 ? 'Files' : `Files · ${files.length} · ${sizeText(total)}`;
-        this._left.add_child(this._heading(title, files.length > 0 ? {label: 'Clear', onClick: () => this._session.remove([...files])} : null));
-
+        const title = files.length === 0 ? 'FILES' : `FILES · ${files.length} · ${sizeText(total)}`;
+        this.add_child(this._caption(title, [
+            {label: 'Add from Tray', onClick: () => this._session.offer(this._getTrayUris())},
+            ...(files.length > 0 ? [{label: 'Clear', onClick: () => this._session.remove([...files])}] : []),
+        ]));
         if (files.length === 0) {
-            const empty = new St.BoxLayout({vertical: true, x_expand: true, y_expand: true, y_align: Clutter.ActorAlign.CENTER, style_class: 'osmin-ls-note'});
-            empty.add_child(new St.Label({text: 'Drop files on the capsule, or add them from the Tray', style_class: 'osmin-ls-status', x_align: Clutter.ActorAlign.CENTER}));
-            const add = createButton({label: 'Add from Tray', styleClass: 'osmin-ls-cancel', onClick: () => this._session.offer(this._getTrayUris())});
-            add.x_align = Clutter.ActorAlign.CENTER;
-            empty.add_child(add);
-            this._left.add_child(empty);
+            this.add_child(new St.Label({
+                text: 'Drop files on the capsule, or add them from the Tray',
+                style_class: 'osmin-lsv-hint',
+                y_align: Clutter.ActorAlign.CENTER,
+                y_expand: true,
+            }));
             return;
         }
-        const scroll = new St.ScrollView({
-            hscrollbar_policy: St.PolicyType.NEVER,
-            vscrollbar_policy: St.PolicyType.AUTOMATIC,
-            overlay_scrollbars: true,
-            x_expand: true,
-            y_expand: true,
-        });
-        scroll.add_child(rows);
-        this._left.add_child(scroll);
-        this._targets.push({scroll, list: rows});
+        this.add_child(createSideScroll(chips));
     }
 
     // --- devices / transfer -----------------------------------------------------
 
-    _buildRight() {
+    _buildDevices() {
         const s = this._session;
+        const receiving = this._receiving.get();
+        const receive = {
+            label: receiving ? 'Receiving: on' : 'Receiving: off',
+            active: receiving,
+            onClick: () => {
+                this._receiving.set(!this._receiving.get());
+                this._render();
+            },
+        };
         switch (s.phase) {
         case 'waiting':
         case 'sending':
-            this._right.add_child(this._heading(`To ${s.device?.alias ?? 'device'}`));
-            this._right.add_child(this._createProgress());
-            break;
+            this.add_child(this._caption(`SENDING TO ${(s.device?.alias ?? '').toUpperCase()}`));
+            this.add_child(this._createProgress());
+            return;
         case 'done':
-            this._right.add_child(this._heading('Done'));
-            this._right.add_child(this._createNote('emblem-ok-symbolic', s.message, {label: 'OK', onClick: () => s.refresh()}));
-            break;
+            this.add_child(this._caption('DONE'));
+            this.add_child(this._createNote('emblem-ok-symbolic', s.message, {label: 'OK', onClick: () => s.refresh()}));
+            return;
         case 'error':
-            this._right.add_child(this._heading('LocalSend'));
-            this._right.add_child(this._createNote('dialog-warning-symbolic', s.message, {label: 'Try again', onClick: () => s.refresh({force: true})}));
-            break;
+            this.add_child(this._caption('LOCALSEND'));
+            this.add_child(this._createNote('dialog-warning-symbolic', s.message, {label: 'Try again', onClick: () => s.refresh({force: true})}));
+            return;
         default:
-            this._right.add_child(this._heading(s.phase === 'scan' ? 'Looking for devices…' : 'Send to',
-                {label: 'Refresh', onClick: () => s.refresh({force: true})}));
-            this._right.add_child(this._createDevices());
+            this.add_child(this._caption(s.phase === 'scan' ? 'LOOKING FOR DEVICES…' : 'SEND TO', [
+                {label: 'Refresh', onClick: () => s.refresh({force: true})},
+                receive,
+            ]));
+            this.add_child(this._createDevices());
         }
-        this._right.add_child(this._createReceiveRow());
     }
 
     _createDevices() {
         const s = this._session;
         if (s.devices.length === 0) {
-            return this._createNote('network-wireless-symbolic', s.phase === 'scan'
-                ? 'Open LocalSend on the other device (same network)' : 'No devices found',
-            s.phase === 'pick' ? {label: 'Search again', onClick: () => s.refresh({force: true})} : null);
+            return new St.Label({
+                text: s.phase === 'scan' ? 'Open LocalSend on the other device (same network)' : 'No devices found',
+                style_class: 'osmin-lsv-hint',
+                y_align: Clutter.ActorAlign.CENTER,
+                y_expand: true,
+            });
         }
-        const list = new St.BoxLayout({vertical: true, style_class: 'osmin-ls-list', x_expand: true});
+        const tiles = new St.BoxLayout({style_class: 'osmin-lsv-tiles', y_align: Clutter.ActorAlign.CENTER});
         const empty = s.basket.length === 0;
         for (const device of s.devices) {
-            const row = new St.Button({style_class: 'osmin-ls-device', x_expand: true, can_focus: true, reactive: !empty, opacity: empty ? 110 : 255});
-            const box = new St.BoxLayout({x_expand: true});
-            box.add_child(new St.Icon({
-                icon_name: DEVICE_ICONS[device.deviceType] ?? 'computer-symbolic',
-                style_class: 'osmin-ls-device-icon',
-                y_align: Clutter.ActorAlign.CENTER,
-            }));
-            const name = new St.Label({text: device.alias, style_class: 'osmin-ls-device-name', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+            const tile = new St.Button({
+                style_class: 'osmin-lsv-tile',
+                can_focus: true,
+                reactive: !empty,
+                opacity: empty ? 110 : 255,
+            });
+            const box = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER});
+            const badge = new St.Bin({style_class: 'osmin-lsv-badge', y_align: Clutter.ActorAlign.CENTER});
+            badge.set_child(new St.Icon({icon_name: DEVICE_ICONS[device.deviceType] ?? 'computer-symbolic', style_class: 'osmin-lsv-badge-icon'}));
+            box.add_child(badge);
+            const texts = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.CENTER, style_class: 'osmin-lsv-tile-texts'});
+            const name = new St.Label({text: device.alias, style_class: 'osmin-ls-device-name'});
             name.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-            box.add_child(name);
-            box.add_child(new St.Label({text: device.deviceModel, style_class: 'osmin-ls-device-model', y_align: Clutter.ActorAlign.CENTER}));
-            row.set_child(box);
-            row.connect('clicked', () => s.sendTo(device));
-            list.add_child(row);
+            texts.add_child(name);
+            texts.add_child(new St.Label({text: device.deviceModel || 'LocalSend', style_class: 'osmin-ls-device-model'}));
+            box.add_child(texts);
+            tile.set_child(box);
+            tile.connect('clicked', () => s.sendTo(device));
+            tiles.add_child(tile);
         }
-        const scroll = new St.ScrollView({
-            hscrollbar_policy: St.PolicyType.NEVER,
-            vscrollbar_policy: St.PolicyType.AUTOMATIC,
-            overlay_scrollbars: true,
-            x_expand: true,
-            y_expand: true,
-        });
-        scroll.add_child(list);
-        this._targets.push({scroll, list});
-        return scroll;
+        return createSideScroll(tiles);
     }
 
     _createProgress() {
         const s = this._session;
-        const box = new St.BoxLayout({vertical: true, style_class: 'osmin-ls-progress', x_expand: true, y_expand: true, y_align: Clutter.ActorAlign.CENTER});
-        box.add_child(new St.Label({
+        const box = new St.BoxLayout({style_class: 'osmin-ls-progress', x_expand: true, y_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const column = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER, style_class: 'osmin-ls-progress'});
+        column.add_child(new St.Label({
             text: s.phase === 'waiting' ? `Waiting for ${s.device?.alias ?? 'the device'} to accept…` : `${sizeText(s.sent)} of ${sizeText(s.total)}`,
             style_class: 'osmin-ls-status',
         }));
@@ -225,42 +252,24 @@ export class LocalSendView extends St.BoxLayout {
         const stack = new St.Widget({layout_manager: new Clutter.BinLayout()});
         stack.add_child(track);
         stack.add_child(fill);
-        box.add_child(stack);
+        column.add_child(stack);
+        box.add_child(column);
         const cancel = createButton({label: 'Cancel', styleClass: 'osmin-ls-cancel', onClick: () => s.cancel()});
-        cancel.x_align = Clutter.ActorAlign.START;
+        cancel.y_align = Clutter.ActorAlign.CENTER;
         box.add_child(cancel);
         return box;
     }
 
     _createNote(iconName, text, action = null) {
-        const box = new St.BoxLayout({vertical: true, x_expand: true, y_expand: true, y_align: Clutter.ActorAlign.CENTER, style_class: 'osmin-ls-note'});
-        const line = new St.BoxLayout({x_align: Clutter.ActorAlign.START});
-        line.add_child(new St.Icon({icon_name: iconName, style_class: 'osmin-ls-note-icon', y_align: Clutter.ActorAlign.CENTER}));
-        const label = new St.Label({text, style_class: 'osmin-ls-status', y_align: Clutter.ActorAlign.CENTER});
-        label.clutter_text.line_wrap = true;
-        label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-        line.add_child(label);
-        box.add_child(line);
+        const box = new St.BoxLayout({x_expand: true, y_expand: true, y_align: Clutter.ActorAlign.CENTER, style_class: 'osmin-ls-note'});
+        box.add_child(new St.Icon({icon_name: iconName, style_class: 'osmin-ls-note-icon', y_align: Clutter.ActorAlign.CENTER}));
+        box.add_child(new St.Label({text, style_class: 'osmin-ls-status', x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
         if (action) {
             const button = createButton({label: action.label, styleClass: 'osmin-ls-cancel', onClick: action.onClick});
-            button.x_align = Clutter.ActorAlign.START;
+            button.y_align = Clutter.ActorAlign.CENTER;
             box.add_child(button);
         }
         return box;
-    }
-
-    /** "Receive files": whether other devices can send to this computer. */
-    _createReceiveRow() {
-        const row = new St.BoxLayout({style_class: 'osmin-lsv-receive'});
-        row.add_child(new St.Label({text: 'Receive files', style_class: 'osmin-ls-device-model', x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
-        const on = this._receiving.get();
-        const button = new St.Button({label: on ? 'On' : 'Off', style_class: `osmin-tray-clear osmin-lsv-toggle${on ? ' osmin-lsv-on' : ''}`, can_focus: true});
-        button.connect('clicked', () => {
-            this._receiving.set(!this._receiving.get());
-            this._render();
-        });
-        row.add_child(button);
-        return row;
     }
 
     destroy() {

@@ -158,7 +158,7 @@ export class OsminPanel extends St.BoxLayout {
 
     /** Modes whose list can be pulled taller (a two-finger swipe down). */
     get growable() {
-        return this._mode === PanelMode.CLIPBOARD || this._mode === PanelMode.NOTIFICATIONS || this._mode === PanelMode.LOCALSEND;
+        return this._mode === PanelMode.CLIPBOARD || this._mode === PanelMode.NOTIFICATIONS;
     }
 
     /** The scrolling lists of the section on screen: [{scroll, list}] (none for the widgets' pages). */
@@ -166,10 +166,17 @@ export class OsminPanel extends St.BoxLayout {
         return this._mode === PanelMode.OSMIN ? [] : (this._viewFor(this._mode).scrollTargets ?? []);
     }
 
+    /** px the section on screen needs beyond the normal body height to show all its content (LocalSend). */
+    contentExtra(width) {
+        if (this._mode !== PanelMode.LOCALSEND || !this._baseBodyHeight)
+            return 0;
+        return Math.max(0, this._localsend.get_preferred_height(width)[1] - this._baseBodyHeight);
+    }
+
     /** Makes the body (and the list in it) `extra` px taller than the widgets' row (0 = back to normal). */
     setExtraHeight(extra) {
         if (this._baseBodyHeight)
-            this._body.set_height(this._baseBodyHeight + (this.growable ? Math.max(0, extra) : 0));
+            this._body.set_height(this._baseBodyHeight + (this.growable || this._mode === PanelMode.LOCALSEND ? Math.max(0, extra) : 0));
         // The new height must reach the cached size request of the panel before it is asked for it.
         this.queue_relayout();
     }
