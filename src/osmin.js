@@ -158,6 +158,14 @@ export class Osmin {
                 endTextInput: () => this._endTextInput(),
             },
             onPaste: item => this._pasteClipboardItem(item),
+            drag: this._dragOut && {
+                warm: () => this._dragOut.warm(),
+                arm: (payload, stillOver) => this._dragOut.arm(payload, stillOver),
+                disarm: () => this._dragOut.disarm(),
+                prepare: payload => this._dragOut.prepare(payload),
+                begin: () => this._dragOut.begin(),
+                cancel: () => this._dragOut.cancel(),
+            },
         });
         this._notificationsView = new NotificationsView({service: this._services.notifications});
         this._localSend = new LocalSendSession({

@@ -54,6 +54,8 @@ function send(object) {
 }
 
 let uris = [];
+let dragText = null; // set instead of `uris` when text is dragged
+const TEXT_PREFIX = 'osmin-text:';
 let dragging = false;
 let idleId = 0;
 
@@ -81,6 +83,12 @@ let fileIcon = null;
 const source = new Gtk.DragSource({actions: Gdk.DragAction.COPY | Gdk.DragAction.LINK});
 source.connect('prepare', () => {
     dbg('prepare');
+    if (dragText !== null) {
+        return Gdk.ContentProvider.new_union([
+            Gdk.ContentProvider.new_for_bytes('text/plain;charset=utf-8', new GLib.Bytes(encoder.encode(dragText))),
+            Gdk.ContentProvider.new_for_bytes('text/plain', new GLib.Bytes(encoder.encode(dragText))),
+        ]);
+    }
     const list = uris.map(uri => `${uri}\r\n`).join('');
     const paths = uris.map(uri => Gio.File.new_for_uri(uri).get_path()).join('\n');
     return Gdk.ContentProvider.new_union([
@@ -151,13 +159,21 @@ function handle(line) {
     switch (message.cmd) {
     case 'show': {
         dbg('show');
-        uris = (message.uris ?? []).filter(uri => typeof uri === 'string' && uri.startsWith('file://'));
-        if (uris.length === 0)
-            return;
-        try {
-            fileIcon = Gio.File.new_for_uri(uris[0]).query_info('standard::icon', Gio.FileQueryInfoFlags.NONE, null).get_icon();
-        } catch (e) {
+        const given = message.uris ?? [];
+        if (typeof given[0] === 'string' && given[0].startsWith(TEXT_PREFIX)) {
+            dragText = given[0].slice(TEXT_PREFIX.length);
+            uris = [];
             fileIcon = Gio.ThemedIcon.new('text-x-generic');
+        } else {
+            dragText = null;
+            uris = given.filter(uri => typeof uri === 'string' && uri.startsWith('file://'));
+            if (uris.length === 0)
+                return;
+            try {
+                fileIcon = Gio.File.new_for_uri(uris[0]).query_info('standard::icon', Gio.FileQueryInfoFlags.NONE, null).get_icon();
+            } catch (e) {
+                fileIcon = Gio.ThemedIcon.new('text-x-generic');
+            }
         }
         win.present();
         armIdle();

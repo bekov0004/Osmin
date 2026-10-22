@@ -14,9 +14,9 @@ export class TrayController {
         this._activity = new FilesActivity();
         this.view = new TrayView(this._files, dragOut && {
             warm: () => dragOut.warm(),
-            arm: (uri, stillOver) => dragOut.arm([uri], stillOver),
+            arm: (payload, stillOver) => dragOut.arm(payload, stillOver),
             disarm: () => dragOut.disarm(),
-            prepare: uri => dragOut.prepare([uri]),
+            prepare: payload => dragOut.prepare(payload),
             begin: () => dragOut.begin(),
             cancel: () => dragOut.cancel(),
         }, onSend);

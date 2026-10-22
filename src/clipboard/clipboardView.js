@@ -5,6 +5,7 @@ import Pango from 'gi://Pango';
 import St from 'gi://St';
 
 import {createButton} from '../ui/button.js';
+import {makeDraggable, textPayload} from '../tray/dragHandle.js';
 
 const PREVIEW_CHARS = 140;
 
@@ -27,7 +28,7 @@ class ClipRow extends St.Widget {
         GObject.registerClass({GTypeName: 'OsminClipRow'}, this);
     }
 
-    constructor({item, onPaste, onCopy, onPin, onRemove}) {
+    constructor({item, onPaste, onCopy, onPin, onRemove, drag = null}) {
         super({
             style_class: 'osmin-clip',
             layout_manager: new Clutter.BinLayout(),
@@ -105,6 +106,18 @@ class ClipRow extends St.Widget {
             }));
         }
         this.add_child(this._actions);
+        // A text or a file of the history can be dragged out into other applications.
+        if (drag) {
+            makeDraggable(this, {
+                payload: item.files?.length ? item.files : textPayload(item.text),
+                drag,
+                isAction: event => {
+                    const [x, y] = event.get_coords();
+                    const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+                    return !!target && target !== this._actions && this._actions.contains(target);
+                },
+            });
+        }
         this.connect('notify::hover', () => {
             this._when.opacity = this.hover ? 0 : 255;
             this._actions.visible = this.hover;
@@ -127,7 +140,7 @@ export class ClipboardView extends St.BoxLayout {
      * @param {{service: ClipboardService, ui: {beginTextInput, endTextInput},
      *          onPaste: (item) => void}} params
      */
-    constructor({service, ui, onPaste}) {
+    constructor({service, ui, onPaste, drag = null}) {
         super({
             vertical: true,
             style_class: 'osmin-tray osmin-clipboard',
@@ -136,6 +149,7 @@ export class ClipboardView extends St.BoxLayout {
         });
         this._service = service;
         this._ui = ui;
+        this._drag = drag;
         this._onPaste = onPaste;
         this._typing = false;
 
@@ -276,6 +290,7 @@ export class ClipboardView extends St.BoxLayout {
             this._list.add_child(new ClipRow({
                 item,
                 onPaste: i => this._onPaste(i),
+                drag: this._drag,
                 onCopy: i => this._service.copy(i.id),
                 onPin: i => this._service.togglePin(i.id),
                 onRemove: i => this._service.remove(i.id),

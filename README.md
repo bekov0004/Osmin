@@ -54,6 +54,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   streamed to the Downloads folder under a free name (`name (1).ext`), never over an existing file. **Drag a file out of the tray**
   into any other app or folder.
 - **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
+- **Drag out of Clipboard** – press an item and drag it into any other app: a text is dropped as text, a copied file as the file (the same helper window as for the Tray, see the notes below).
 - **Copied files** – a file copied in the file manager appears in Clipboard as its name with the file icon (not as a path); clicking it pastes the file itself (a file manager gets its own file type, browsers and chats a uri list, terminals and editors the path).
   first. A click puts it into the app you were using (Ctrl+V; or only copies, see the settings); hover
   for copy / pin / remove. The first card is for your own notes (Enter saves them). Pinned items and

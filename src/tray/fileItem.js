@@ -4,6 +4,7 @@ import Pango from 'gi://Pango';
 import St from 'gi://St';
 
 import {createButton} from '../ui/button.js';
+import {makeDraggable} from './dragHandle.js';
 
 /** One file in the tray: icon or thumbnail, name, and actions shown on hover. */
 export class FileItem extends St.Widget {
@@ -65,52 +66,9 @@ export class FileItem extends St.Widget {
         }
         this.add_child(this._actions);
 
-        if (drag) {
-            this.connect('destroy', () => drag.disarm?.());
-            // As soon as the tray is on screen, start the helper (it takes a while to come up).
-            this.connect('notify::mapped', () => {
-                if (this.mapped)
-                    drag.warm?.();
-            });
-            let origin = null;
-            let started = false;
-            this.connect('captured-event', (_actor, event) => {
-                switch (event.type()) {
-                case Clutter.EventType.BUTTON_PRESS:
-                    // The small buttons (folder, copy, remove) are not drag handles.
-                    if (event.get_button() === Clutter.BUTTON_PRIMARY && !this._pressOnAction(event)) {
-                        origin = event.get_coords();
-                        started = false;
-                        drag.prepare(item.uri);
-                    }
-                    break;
-                case Clutter.EventType.MOTION:
-                    // The pointer is on this file: keep the drag-out helper waiting under it.
-                    if (!origin)
-                        drag.arm(item.uri, () => this.hover);
-                    if (origin && !started) {
-                        const [x, y] = event.get_coords();
-                        if (Math.hypot(x - origin[0], y - origin[1]) > 10) {
-                            started = true;
-                            drag.begin();
-                        }
-                    }
-                    break;
-                case Clutter.EventType.BUTTON_RELEASE:
-                    if (origin && !started)
-                        drag.cancel();
-                    origin = null;
-                    break;
-                }
-                return Clutter.EVENT_PROPAGATE;
-            });
-        }
+        if (drag)
+            makeDraggable(this, {payload: [item.uri], drag, isAction: event => this._pressOnAction(event)});
         this.connect('notify::hover', () => {
-            // The pointer rests on a file: get the drag-out helper ready, under the pointer.
-            if (this.hover)
-                drag?.arm?.(item.uri, () => this.hover);
-            else
-                drag?.disarm?.();
             this._actions.ease({
                 opacity: this.hover ? 255 : 0,
                 duration: 120,
