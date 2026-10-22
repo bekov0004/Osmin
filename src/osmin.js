@@ -7,6 +7,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CameraState} from './services/cameraService.js';
+import {LocalSendActivity} from './localsend/localSendActivity.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
@@ -663,18 +664,25 @@ export class Osmin {
         // The tray's activity shows the "Adding / Added" card.
         if (dropped && zone === 'tray')
             await this._services.files.add(uris);
-        else if (dropped && zone === 'localsend' && !this._services.files.sendViaLocalSend(uris)) {
-            this._events.emit({
-                type: EventType.CUSTOM,
-                icon: 'dialog-information-symbolic',
-                title: 'LocalSend is not installed',
-                description: 'Install LocalSend to send files to nearby devices',
-                duration: 4000,
-            });
-        }
         this._panelView?.setDrop({active: false});
         if (this._state === State.DROP)
             this._setState(State.CLOSED);
+        if (dropped && zone === 'localsend')
+            this._offerLocalSend(uris);
+    }
+
+    /** Files were dropped on the LocalSend target: a card to pick the device, then the transfer. */
+    _offerLocalSend(uris) {
+        const activity = new LocalSendActivity({
+            service: this._services.localSend,
+            uris,
+            onDismiss: () => this._cards.hide(`activity:${activity.id}`),
+            notify: (title, description, icon) => this._events.emit({
+                type: EventType.CUSTOM, icon, title, description, duration: 4000,
+            }),
+        });
+        activity.scan();
+        this._services.activities.peek(activity, {persistent: true, priority: Priority.HIGH, force: true, target: this});
     }
 
     // --- clipboard -------------------------------------------------------------

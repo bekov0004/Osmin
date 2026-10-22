@@ -6,6 +6,7 @@ import {Osmin} from './osmin.js';
 import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
+import {LocalSendService} from './services/localSendService.js';
 import {CameraService} from './services/cameraService.js';
 import {ClipboardService} from './services/clipboardService.js';
 import {EventManager} from './services/eventManager.js';
@@ -76,6 +77,7 @@ export class OsminHost {
             notes: new NotesService(),
             notifications: new NotificationsService(),
             camera: new CameraService(),
+            localSend: new LocalSendService(),
             clipboard: new ClipboardService({
                 keepHistory: () => this._settings.get('clipboard-keep-history'),
                 maxItems: () => this._settings.get('clipboard-max-items'),
@@ -117,6 +119,7 @@ export class OsminHost {
             services.todo.destroy();
             services.notes.destroy();
             services.camera.destroy();
+            services.localSend.destroy();
             services.clipboard.destroy();
             services.notifications.destroy();
         }

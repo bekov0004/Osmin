@@ -43,8 +43,9 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
   manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
-  target hands the files to [LocalSend](https://localsend.org) (snap, Flatpak or a packaged build), which opens with them
-  on its Send tab so you pick the device. **Drag a file out of the tray**
+  target sends the files with the [LocalSend](https://localsend.org) protocol, built into Osmin (the
+  LocalSend app is not needed): a card lists the devices running LocalSend on your network, you pick one,
+  and it shows the transfer; the other device asks its user to accept. Sending only; folders are skipped. **Drag a file out of the tray**
   into any other app or folder.
 - **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
 - **Copied files** – a file copied in the file manager appears in Clipboard as its name with the file icon (not as a path); clicking it pastes the file itself (a file manager gets its own file type, browsers and chats a uri list, terminals and editors the path).
@@ -178,7 +179,7 @@ src/
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
 - Quick Apps are not implemented. There is
-  no AirDrop; the second drop target hands files to LocalSend instead (it must be installed).
+  no AirDrop; the second drop target sends files to LocalSend devices instead (sending only, no receiving).
 - A shell extension cannot start a drag into another application itself. Dragging a file out of the
   tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
   pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.

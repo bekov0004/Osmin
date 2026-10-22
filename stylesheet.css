@@ -1263,3 +1263,90 @@
 .osmin-cal-big-scroll {
     min-height: 54px;
 }
+
+/* LocalSend card */
+.osmin-ls {
+    padding: 12px 14px 12px 14px;
+    spacing: 6px;
+}
+
+.osmin-ls-header {
+    spacing: 6px;
+}
+
+.osmin-ls-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.osmin-ls-list {
+    spacing: 2px;
+}
+
+.osmin-ls-device {
+    border-radius: 10px;
+    padding: 7px 8px;
+}
+
+.osmin-ls-device:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.osmin-ls-device-icon {
+    icon-size: 16px;
+    color: #4d8dff;
+    margin-right: 10px;
+}
+
+.osmin-ls-device-name {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.osmin-ls-device-model {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+}
+
+.osmin-ls-progress {
+    spacing: 8px;
+}
+
+.osmin-ls-status {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+}
+
+.osmin-ls-bar {
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.osmin-ls-bar-fill {
+    height: 6px;
+    border-radius: 3px;
+    background-color: #4d8dff;
+}
+
+.osmin-button.osmin-ls-cancel {
+    padding: 4px 14px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-ls-cancel .osmin-button-label {
+    font-size: 11px;
+}
+
+.osmin-ls-note {
+    spacing: 10px;
+}
+
+.osmin-ls-note-icon {
+    icon-size: 16px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-right: 8px;
+}
