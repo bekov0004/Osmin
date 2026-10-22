@@ -298,13 +298,8 @@ export class TrayView extends St.BoxLayout {
         this._target.visible = showTarget;
         this._scroll.visible = count > 0 && !active;
         if (showTarget) {
-            if (active) {
-                this._targetTitle.text = 'Files Tray';
-                this._targetHint.text = '';
-            } else {
-                this._targetTitle.text = 'Files Tray';
-                this._targetHint.text = 'Drop files here. They stay until you remove them';
-            }
+            this._targetTitle.text = 'Files Tray';
+            this._targetHint.text = '';
         }
         if (armed && active)
             this._target.add_style_pseudo_class('active');
