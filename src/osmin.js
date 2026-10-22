@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -42,6 +43,9 @@ const HANGING = new Set([State.CLOSED, State.HOVER, State.OPEN, State.CARD, Stat
 const COLLAPSED = new Set([State.CLOSED, State.HOVER]);
 // States that show the panel (widgets / tray).
 const PANEL_STATES = new Set([State.OPEN, State.DROP]);
+
+// Touchpad scroll units (a short swipe is a few of them) to pixels of extra height.
+const PULL_PX_PER_UNIT = 40;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -92,6 +96,8 @@ export class Osmin {
         this._grab = null;
         this._onTextInputEnd = null;
         this._scrollAccumulator = 0;
+        this._extraHeight = 0;       // px a list was pulled taller (Clipboard / Alerts)
+        this._maxExtra = 0;
         this._approach = false;
         this._stageMotionId = 0;
     }
@@ -105,6 +111,11 @@ export class Osmin {
         this._panel = this._shared.panel;
         this._events = this._shared.events;
         this._services = this._shared.services;
+        try {
+            this._touchpad = new Gio.Settings({schema_id: 'org.gnome.desktop.peripherals.touchpad'});
+        } catch (e) {
+            this._touchpad = null;
+        }
         this._clock = new ClockService(now => this._onTick(now));
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
@@ -195,6 +206,7 @@ export class Osmin {
         this._dragOut = null;
         this._drag?.destroy();
         this._drag = null;
+        this._touchpad = null;
         this._services = this._events = this._panel = this._shared = null;
         this._unsubscribe = this._cards = null;
         this._clock = null;
@@ -377,6 +389,11 @@ export class Osmin {
             tray: this._tray.view,
             clipboard: this._clipboardView,
             notifications: this._notificationsView,
+            // A list pulled taller is only for its own tab: the others go back to the normal height.
+            onModeChanged: () => {
+                if (this._state === State.OPEN && this._actor)
+                    this._applyGeometry({duration: 200});
+            },
             onOpenSettings: () => {
                 this._settle();
                 this._openPreferences();
@@ -583,6 +600,8 @@ export class Osmin {
                     return Clutter.EVENT_STOP;
                 }
             }
+            if (event.type() === Clutter.EventType.SCROLL && this._onPullScroll(event))
+                return Clutter.EVENT_STOP;
             switch (event.type()) {
             case Clutter.EventType.BUTTON_PRESS:
             case Clutter.EventType.SCROLL:
@@ -866,6 +885,33 @@ export class Osmin {
     }
 
     /**
+     * Two fingers down on the Clipboard / Alerts list pull the panel taller, two fingers up push it
+     * back; only when it cannot move further does the list itself scroll. Follows the fingers.
+     * @returns {boolean} whether the swipe was used for this
+     */
+    _onPullScroll(event) {
+        if (this._state !== State.OPEN || !this._panelView.growable ||
+            event.get_scroll_direction() !== Clutter.ScrollDirection.SMOOTH ||
+            event.get_scroll_source() === Clutter.ScrollSource.WHEEL)
+            return false;
+        const [dx, dy] = event.get_scroll_delta();
+        if (Math.abs(dy) <= Math.abs(dx) || dy === 0)
+            return false;
+        // With natural scrolling the content follows the fingers, so "fingers down" is a negative delta.
+        const natural = this._touchpad?.get_boolean('natural-scroll') ?? true;
+        const down = natural ? dy < 0 : dy > 0;
+        if (this._maxExtra === 0 && down)
+            return false;
+        const next = clamp(this._extraHeight + Math.abs(dy) * PULL_PX_PER_UNIT * (down ? 1 : -1), 0, this._maxExtra);
+        if (next === this._extraHeight)
+            return false;
+        this._extraHeight = next;
+        this._timers.clear('leave');
+        this._applyGeometry({duration: 70, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        return true;
+    }
+
+    /**
      * Scrolling over the capsule: pages of the open panel, or the ongoing
      * activities of the collapsed capsule. Deliberately hard to trigger by
      * accident: one step per notch / swipe, then a short lock.
@@ -994,6 +1040,8 @@ export class Osmin {
         if (state !== State.HOVER)
             this._timers.clear('dwell');
         this._approach = false;
+        if (state !== State.OPEN && state !== State.DROP)
+            this._extraHeight = 0;
 
         if (previous !== State.CARD && state !== State.CARD)
             this._resumeOpen = false;
@@ -1081,9 +1129,19 @@ export class Osmin {
         });
         this._panelView.applyLayout(layout, {scale, headerHeight: geo.height});
         const width = Math.round(layout.widthCss * scale);
-        const height = Math.min(this._panelView.getHeightForWidth(width),
-            Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO));
-        return {width, height};
+        const normalCap = Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO);
+        if (!this._panelView.growable)
+            this._extraHeight = 0;
+        // A list pulled taller with two fingers: how far it may go depends on how tall it is anyway.
+        this._panelView.setExtraHeight(0);
+        const base = Math.min(this._panelView.getHeightForWidth(width), normalCap);
+        this._maxExtra = this._panelView.growable
+            ? Math.max(0, Math.round(geo.monitor.height * Layout.EXPANDED_MAX_HEIGHT_RATIO) - base) : 0;
+        this._extraHeight = Math.min(this._extraHeight, this._maxExtra);
+        if (this._extraHeight <= 0)
+            return {width, height: base};
+        this._panelView.setExtraHeight(this._extraHeight);
+        return {width, height: Math.min(this._panelView.getHeightForWidth(width), base + this._extraHeight)};
     }
 
     _sizeFor(state, geo) {

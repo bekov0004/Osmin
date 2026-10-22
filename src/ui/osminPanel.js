@@ -26,7 +26,7 @@ export class OsminPanel extends St.BoxLayout {
     }
 
     /** @param {{widgets: OsminWidget[], tray: TrayView, clipboard: ClipboardView, notifications: NotificationsView, onOpenSettings: Function}} params */
-    constructor({widgets, tray, clipboard, notifications, onOpenSettings}) {
+    constructor({widgets, tray, clipboard, notifications, onOpenSettings, onModeChanged = () => {}}) {
         super({
             vertical: true,
             style_class: 'osmin-panel',
@@ -37,6 +37,7 @@ export class OsminPanel extends St.BoxLayout {
         this._tray = tray;
         this._clipboard = clipboard;
         this._notifications = notifications;
+        this._onModeChanged = onModeChanged;
         this._pages = [];
         this._signature = '';
         this._pageIndex = 0;
@@ -123,7 +124,8 @@ export class OsminPanel extends St.BoxLayout {
         this.set_width(px(layout.widthCss, scale));
         this._header.set_height(headerHeight);
         this._header.style = `padding: 0 ${layout.padding}px;`;
-        this._body.set_height(px(layout.rowHeight, scale));
+        this._baseBodyHeight = px(layout.rowHeight, scale);
+        this._body.set_height(this._baseBodyHeight);
 
         const signature = layout.pages.map(page => page.map(w => w.id).join('+')).join('|');
         if (signature !== this._signature) {
@@ -145,6 +147,19 @@ export class OsminPanel extends St.BoxLayout {
             });
         });
         this._updateDots();
+    }
+
+    /** Modes whose list can be pulled taller (a two-finger swipe down). */
+    get growable() {
+        return this._mode === PanelMode.CLIPBOARD || this._mode === PanelMode.NOTIFICATIONS;
+    }
+
+    /** Makes the body (and the list in it) `extra` px taller than the widgets' row (0 = back to normal). */
+    setExtraHeight(extra) {
+        if (this._baseBodyHeight)
+            this._body.set_height(this._baseBodyHeight + (this.growable ? Math.max(0, extra) : 0));
+        // The new height must reach the cached size request of the panel before it is asked for it.
+        this.queue_relayout();
     }
 
     /** Height in px the panel needs at its current width. */
@@ -195,6 +210,7 @@ export class OsminPanel extends St.BoxLayout {
             this.setOpen(true);
         this._updateTabs();
         this._updateDots();
+        this._onModeChanged();
 
         from.remove_all_transitions();
         to.remove_all_transitions();

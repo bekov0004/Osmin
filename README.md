@@ -36,6 +36,7 @@ what is going on) and an **expanded** container that hangs from the top edge of 
 - **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
 - **Monitors** – choose which monitors get a capsule (settings → General → Show on); the services and Live Activities are shared, each monitor has its own capsule and panel.
 - **Shortcuts** – a key for each section (Osmin, Tray, Clipboard, Alerts) opens the panel on it; pressing it again closes the panel. Set them in settings → General; none are set by default.
+- **Pull to enlarge** – in the Clipboard and Alerts tabs a two-finger swipe down on the touchpad makes the panel taller (up to about 60% of the screen), a swipe up shrinks it back; it resets when the panel closes.
 - **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
