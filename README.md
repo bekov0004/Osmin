@@ -43,11 +43,11 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   expands into the tray and shows the drop target; release to add them. Files are referenced, never
   copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
   manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
-  target sends the files with the [LocalSend](https://localsend.org) protocol, built into Osmin (the
-  LocalSend app is not needed): a card lists the devices running LocalSend on your network, you pick one,
-  and it shows the transfer; the other device asks its user to accept. Files are collected first: drop
-  more on the target (the card stays) or use the send button on a file / "Send all" in the tray, remove
-  the ones you do not want, then pick the device. Folders are skipped.
+  target puts them in the **LocalSend** section (a tab next to Tray) instead: the files wait on the left
+  (drop more, "Add from Tray", the send button on a tray file or "Send all", ✕ to remove), the devices
+  running [LocalSend](https://localsend.org) on your network are on the right, and a click on one sends
+  (the other device asks its user to accept). The protocol is built into Osmin; the LocalSend app is not
+  needed. Folders are skipped.
   **Receiving** is off by default: Settings → General → LocalSend → *Receive files* makes the computer
   visible to LocalSend devices (it listens on port 53317 with its own certificate, so close the LocalSend
   app first). Every transfer asks in a card (Accept / Decline, 60 s then it is declined); accepted files are

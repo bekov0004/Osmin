@@ -7,7 +7,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CameraState} from './services/cameraService.js';
-import {LocalSendActivity} from './localsend/localSendActivity.js';
+import {LocalSendSession} from './localsend/localSendSession.js';
+import {LocalSendView} from './localsend/localSendView.js';
 import {LocalSendReceiveActivity} from './localsend/localSendReceiveActivity.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
@@ -19,7 +20,7 @@ import {TrayController} from './tray/trayController.js';
 import {ClosedView} from './ui/closedView.js';
 import {Ear} from './ui/ear.js';
 import {computeLayout} from './ui/osminLayout.js';
-import {OsminPanel} from './ui/osminPanel.js';
+import {OsminPanel, PanelMode} from './ui/osminPanel.js';
 import {cardClassFor, createCard} from './ui/cardFactory.js';
 import {WIDGET_CLASSES} from './widgets/registry.js';
 import {animDuration, fadeIn, fadeOut, setAnimationSpeed} from './utils/animation.js';
@@ -91,9 +92,12 @@ export class Osmin {
         this._pinned = false;
         this._dragUris = null;
         this._localSend = null;
+        this._localSendView = null;
         this._incoming = null;
         this._dragArmed = null;
         this._compactActivity = null;
+        this._pinnedActivity = null; // what this capsule's user chose to see by scrolling
+        this._knownActivities = new Set();
         this._hoverCard = false;     // the card on screen was brought by hovering the collapsed capsule
         this._openPage = null;
         this._destroying = false;
@@ -152,6 +156,21 @@ export class Osmin {
             onPaste: item => this._pasteClipboardItem(item),
         });
         this._notificationsView = new NotificationsView({service: this._services.notifications});
+        this._localSend = new LocalSendSession({
+            service: this._services.localSend,
+            isVisible: () => this._state === State.OPEN && this._panelView?.mode === PanelMode.LOCALSEND,
+            notify: (title, description, icon) => this._events.emit({
+                type: EventType.CUSTOM, icon, title, description, duration: 4000,
+            }),
+        });
+        this._localSendView = new LocalSendView({
+            session: this._localSend,
+            getTrayUris: () => this._services.files.items.map(item => item.uri),
+            receiving: {
+                get: () => this._settings.get('localsend-receive'),
+                set: on => this._settings.gsettings?.set_boolean('localsend-receive', on),
+            },
+        });
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
@@ -170,7 +189,7 @@ export class Osmin {
         });
 
         this._services.activities.connectObject(
-            'ongoing-changed', () => this._syncCompact(),
+            'ongoing-changed', () => this._onOngoingChanged(),
             'compact-resized', () => this._onCompactResized(),
             this);
         this._services.camera.connectObject(
@@ -206,6 +225,8 @@ export class Osmin {
         this._services?.activities.detach(this._activityHost);
         this._localSend?.destroy();
         this._localSend = null;
+        this._localSendView?.destroy();
+        this._localSendView = null;
         this._incoming?.destroy();
         this._incoming = null;
         this._cards?.destroy();
@@ -264,7 +285,7 @@ export class Osmin {
     }
 
     /**
-     * Opens the panel on a section ('osmin', 'tray', 'clipboard' or 'notifications'); when that
+     * Opens the panel on a section ('osmin', 'tray', 'localsend', 'clipboard' or 'notifications'); when that
      * section is already shown, closes it (a shortcut pressed twice).
      */
     openSection(section) {
@@ -405,6 +426,7 @@ export class Osmin {
         const panel = new OsminPanel({
             widgets: this._widgets,
             tray: this._tray.view,
+            localsend: this._localSendView,
             clipboard: this._clipboardView,
             notifications: this._notificationsView,
             // A list pulled taller is only for its own tab: the others go back to the normal height.
@@ -599,7 +621,7 @@ export class Osmin {
             case 'off':
                 return Clutter.EVENT_STOP;
             default:
-                if (this._services.activities.cycle(1)) {
+                if (this._cycleActivity(1)) {
                     this._timers.clear('dwell'); // the user is flipping through, not opening
                     return Clutter.EVENT_STOP;
                 }
@@ -647,7 +669,7 @@ export class Osmin {
     }
 
     _onDragMoved(x, y) {
-        if (!this._dragUris || this._ownDrag() || (this._state === State.CARD && !this._localSend?.shown))
+        if (!this._dragUris || this._ownDrag() || this._state === State.CARD)
             return;
         const geo = this._geometry();
         const hot = Math.abs(x - geo.centerX) <= scaled(Layout.DROP_HOT_HALF_WIDTH) &&
@@ -683,26 +705,13 @@ export class Osmin {
             this._offerLocalSend(uris);
     }
 
-    /** Files were dropped on the LocalSend target (or sent from the tray): the card collects them, you pick the device. */
+    /** Files were dropped on the LocalSend target (or sent from the tray): they join the basket in the LocalSend section. */
     _offerLocalSend(uris) {
-        if (!this._localSend) {
-            this._localSend = new LocalSendActivity({
-                service: this._services.localSend,
-                onDismiss: () => this._cards.hide(`activity:${this._localSend.id}`),
-                notify: (title, description, icon) => this._events.emit({
-                    type: EventType.CUSTOM, icon, title, description, duration: 4000,
-                }),
-            });
-        }
         this._localSend.offer(uris);
-        const show = () => this._services.activities.peek(this._localSend, {persistent: true, priority: Priority.HIGH, force: true, target: this});
-        if (this._state === State.CARD) {
-            show();
-        } else {
-            // The card may still be "current" in the card manager (a new drag took the capsule from it): start it afresh.
-            this._cards.clear();
-            this._timers.set('localsend', 200, show);
-        }
+        if (this._state === State.OPEN)
+            this._panelView.setMode(PanelMode.LOCALSEND);
+        else
+            this.openSection('localsend');
     }
 
     /** Someone wants to send files: a card asks, then shows the transfer. */
@@ -908,7 +917,7 @@ export class Osmin {
         if (!activity)
             return;
         this._hoverCard = true;
-        this._services.activities.peek(activity, {duration: 6000, priority: Priority.HIGH, force: true});
+        this._services.activities.peek(activity, {duration: 6000, priority: Priority.HIGH, force: true, target: this});
     }
 
     _onClicked() {
@@ -1040,8 +1049,31 @@ export class Osmin {
                 player.previous();
             return Clutter.EVENT_STOP;
         }
-        this._services.activities.cycle(step);
+        this._cycleActivity(step);
         return Clutter.EVENT_STOP;
+    }
+
+    /**
+     * The set of ongoing activities changed. What this capsule's user chose by scrolling is forgotten
+     * when something new starts (or the chosen one ends); other capsules keep their own choice.
+     */
+    _onOngoingChanged() {
+        const ids = new Set(this._services.activities.ongoing.map(a => a.id));
+        const started = [...ids].some(id => !this._knownActivities.has(id));
+        this._knownActivities = ids;
+        if (started || (this._pinnedActivity && !ids.has(this._pinnedActivity)))
+            this._pinnedActivity = null;
+        this._syncCompact();
+    }
+
+    /** Scrolling the collapsed capsule: shows the next ongoing activity, on this capsule only. */
+    _cycleActivity(direction) {
+        const id = this._services.activities.next(direction, this._pinnedActivity);
+        if (!id)
+            return false;
+        this._pinnedActivity = id;
+        this._syncCompact();
+        return true;
     }
 
     /** Shows the ongoing activity with the highest priority in the collapsed capsule. */
@@ -1049,7 +1081,7 @@ export class Osmin {
         if (this._destroying || !this._actor)
             return;
         const activity = this._settings.get('activities-in-collapsed')
-            ? this._services.activities.compact : null;
+            ? this._services.activities.pick(this._pinnedActivity) : null;
         if (activity === this._compactActivity && !force)
             return;
         this._compactActivity = activity;

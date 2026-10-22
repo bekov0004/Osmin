@@ -5,8 +5,8 @@ import St from 'gi://St';
 import {animDuration} from '../utils/animation.js';
 import {createButton} from './button.js';
 
-export const PanelMode = Object.freeze({OSMIN: 'osmin', TRAY: 'tray', CLIPBOARD: 'clipboard', NOTIFICATIONS: 'notifications'});
-const MODE_ORDER = [PanelMode.OSMIN, PanelMode.TRAY, PanelMode.CLIPBOARD, PanelMode.NOTIFICATIONS];
+export const PanelMode = Object.freeze({OSMIN: 'osmin', TRAY: 'tray', LOCALSEND: 'localsend', CLIPBOARD: 'clipboard', NOTIFICATIONS: 'notifications'});
+const MODE_ORDER = [PanelMode.OSMIN, PanelMode.TRAY, PanelMode.LOCALSEND, PanelMode.CLIPBOARD, PanelMode.NOTIFICATIONS];
 
 const px = (css, scale) => Math.round(css * scale);
 
@@ -26,7 +26,7 @@ export class OsminPanel extends St.BoxLayout {
     }
 
     /** @param {{widgets: OsminWidget[], tray: TrayView, clipboard: ClipboardView, notifications: NotificationsView, onOpenSettings: Function}} params */
-    constructor({widgets, tray, clipboard, notifications, onOpenSettings, onModeChanged = () => {}}) {
+    constructor({widgets, tray, localsend, clipboard, notifications, onOpenSettings, onModeChanged = () => {}}) {
         super({
             vertical: true,
             style_class: 'osmin-panel',
@@ -35,6 +35,7 @@ export class OsminPanel extends St.BoxLayout {
         });
         this._widgets = widgets;
         this._tray = tray;
+        this._localsend = localsend;
         this._clipboard = clipboard;
         this._notifications = notifications;
         this._onModeChanged = onModeChanged;
@@ -63,10 +64,13 @@ export class OsminPanel extends St.BoxLayout {
         this._tray.hide();
         this._clipboard.opacity = 0;
         this._clipboard.hide();
+        this._localsend.opacity = 0;
+        this._localsend.hide();
         this._body.add_child(this._osminView);
         this._body.add_child(this._tray);
         this._notifications.opacity = 0;
         this._notifications.hide();
+        this._body.add_child(this._localsend);
         this._body.add_child(this._clipboard);
         this._body.add_child(this._notifications);
         this.add_child(this._body);
@@ -95,6 +99,7 @@ export class OsminPanel extends St.BoxLayout {
     /** Lets go of the tray view (owned by the tray controller) before this panel is destroyed. */
     remove_tray() {
         this._body.remove_child(this._tray);
+        this._body.remove_child(this._localsend);
         this._body.remove_child(this._clipboard);
         this._body.remove_child(this._notifications);
     }
@@ -103,6 +108,8 @@ export class OsminPanel extends St.BoxLayout {
         switch (mode) {
         case PanelMode.TRAY:
             return this._tray;
+        case PanelMode.LOCALSEND:
+            return this._localsend;
         case PanelMode.CLIPBOARD:
             return this._clipboard;
         case PanelMode.NOTIFICATIONS:
@@ -151,7 +158,7 @@ export class OsminPanel extends St.BoxLayout {
 
     /** Modes whose list can be pulled taller (a two-finger swipe down). */
     get growable() {
-        return this._mode === PanelMode.CLIPBOARD || this._mode === PanelMode.NOTIFICATIONS;
+        return this._mode === PanelMode.CLIPBOARD || this._mode === PanelMode.NOTIFICATIONS || this._mode === PanelMode.LOCALSEND;
     }
 
     /** Makes the body (and the list in it) `extra` px taller than the widgets' row (0 = back to normal). */
@@ -267,7 +274,7 @@ export class OsminPanel extends St.BoxLayout {
 
     /** Shows what the widget with this id has to offer (a page or the tray). */
     showWidget(id) {
-        const section = {tray: PanelMode.TRAY, clipboard: PanelMode.CLIPBOARD, notifications: PanelMode.NOTIFICATIONS}[id];
+        const section = {tray: PanelMode.TRAY, localsend: PanelMode.LOCALSEND, clipboard: PanelMode.CLIPBOARD, notifications: PanelMode.NOTIFICATIONS}[id];
         if (section) {
             this.setMode(section, {animate: false});
             return;
@@ -391,6 +398,7 @@ export class OsminPanel extends St.BoxLayout {
         for (const [mode, label, icon] of [
             [PanelMode.OSMIN, 'Osmin', 'view-grid-symbolic'],
             [PanelMode.TRAY, 'Tray', 'folder-download-symbolic'],
+            [PanelMode.LOCALSEND, 'LocalSend', 'network-wireless-symbolic'],
             [PanelMode.CLIPBOARD, 'Clipboard', 'edit-paste-symbolic'],
             [PanelMode.NOTIFICATIONS, 'Alerts', 'preferences-system-notifications-symbolic'],
         ]) {
