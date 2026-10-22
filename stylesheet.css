@@ -1040,34 +1040,38 @@
 }
 
 /* Clipboard */
+.osmin-clipboard-body {
+    spacing: 10px;
+}
+
+.osmin-clip-list {
+    spacing: 1px;
+}
+
 .osmin-clip {
-    width: 132px;
-    border-radius: 12px;
+    border-radius: 9px;
+}
+
+.osmin-clip:hover {
     background-color: rgba(255, 255, 255, 0.07);
 }
 
-.osmin-clip-saved {
-    background-color: rgba(70, 140, 255, 0.16);
-}
-
 .osmin-clip-main {
-    padding: 8px 9px 6px 9px;
-    border-radius: 12px;
+    padding: 3px 8px;
+    border-radius: 9px;
 }
 
-.osmin-clip-main:hover,
 .osmin-clip-main:focus {
     background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-clip-row {
+    spacing: 8px;
 }
 
 .osmin-clip-text {
     color: white;
     font-size: 11px;
-}
-
-.osmin-clip-foot {
-    spacing: 4px;
-    margin-top: 2px;
 }
 
 .osmin-clip-when {
@@ -1076,44 +1080,67 @@
     font-weight: 600;
 }
 
+.osmin-clip-kind {
+    icon-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
 .osmin-clip-star {
-    icon-size: 10px;
+    icon-size: 12px;
     color: #4a9bff;
 }
 
 .osmin-clip-actions {
-    spacing: 0;
-    padding: 3px;
+    spacing: 2px;
+    padding-right: 4px;
 }
 
 .osmin-button.osmin-clip-action {
-    width: 20px;
-    height: 20px;
-    border-radius: 10px;
-    background-color: rgba(0, 0, 0, 0.55);
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background-color: rgba(255, 255, 255, 0.1);
     color: white;
 }
 
 .osmin-button.osmin-clip-action:hover {
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.28);
 }
 
 .osmin-clip-action .osmin-button-icon {
     icon-size: 11px;
 }
 
-.osmin-clip-new {
-    padding: 8px 9px 6px 9px;
-    spacing: 4px;
-    border: 1px dashed rgba(255, 255, 255, 0.25);
-    background-color: transparent;
+.osmin-clip-bar {
+    spacing: 6px;
+}
+
+.osmin-clip-find {
+    icon-size: 12px;
+    color: rgba(255, 255, 255, 0.45);
+    margin-right: 4px;
+}
+
+.osmin-clip-add {
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 10px;
+    border-radius: 11px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-clip-add:hover,
+.osmin-clip-add:checked {
+    background-color: rgba(120, 170, 255, 0.35);
 }
 
 .osmin-clip-entry {
     color: white;
     font-size: 11px;
-    padding: 4px 6px;
-    border-radius: 8px;
+    height: 22px;
+    padding: 0 10px;
+    border-radius: 11px;
     background-color: rgba(255, 255, 255, 0.08);
     border: 1px solid transparent;
     caret-color: white;

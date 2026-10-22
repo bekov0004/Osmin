@@ -5,7 +5,9 @@ import St from 'gi://St';
 
 import {createButton} from '../ui/button.js';
 
-const PREVIEW_CHARS = 110;
+const PREVIEW_CHARS = 140;
+
+const isLink = text => /^https?:\/\/\S+$/.test(text.trim());
 
 function ago(at) {
     const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
@@ -18,10 +20,10 @@ function ago(at) {
     return `${Math.round(seconds / 86400)} d`;
 }
 
-/** One item of the history: its text, when, and hover actions (copy, pin, remove). */
-class ClipCard extends St.Widget {
+/** One item of the history: a single row (kind, text, when); hover shows copy / pin / remove. */
+class ClipRow extends St.Widget {
     static {
-        GObject.registerClass({GTypeName: 'OsminClipCard'}, this);
+        GObject.registerClass({GTypeName: 'OsminClipRow'}, this);
     }
 
     constructor({item, onPaste, onCopy, onPin, onRemove}) {
@@ -30,72 +32,69 @@ class ClipCard extends St.Widget {
             layout_manager: new Clutter.BinLayout(),
             reactive: true,
             track_hover: true,
+            x_expand: true,
         });
         if (item.saved)
             this.add_style_class_name('osmin-clip-saved');
 
-        const main = new St.Button({
-            style_class: 'osmin-clip-main',
-            x_expand: true,
-            y_expand: true,
-            can_focus: true,
-        });
-        const box = new St.BoxLayout({vertical: true, x_expand: true, y_expand: true});
+        const main = new St.Button({style_class: 'osmin-clip-main', x_expand: true, can_focus: true});
+        const row = new St.BoxLayout({x_expand: true, style_class: 'osmin-clip-row'});
+        let iconName = 'text-x-generic-symbolic';
+        if (item.saved)
+            iconName = 'starred-symbolic';
+        else if (isLink(item.text))
+            iconName = 'insert-link-symbolic';
+        row.add_child(new St.Icon({
+            icon_name: iconName,
+            style_class: item.saved ? 'osmin-clip-star' : 'osmin-clip-kind',
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
         const flat = item.text.replace(/\s+/g, ' ').trim();
-        const preview = new St.Label({
+        const text = new St.Label({
             text: flat.length > PREVIEW_CHARS ? `${flat.slice(0, PREVIEW_CHARS)}…` : flat,
             style_class: 'osmin-clip-text',
-            y_expand: true,
-            y_align: Clutter.ActorAlign.START,
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
         });
-        preview.clutter_text.line_wrap = true;
-        preview.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-        preview.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-        box.add_child(preview);
-
-        const foot = new St.BoxLayout({style_class: 'osmin-clip-foot'});
-        if (item.saved) {
-            foot.add_child(new St.Icon({
-                icon_name: 'starred-symbolic',
-                style_class: 'osmin-clip-star',
-                y_align: Clutter.ActorAlign.CENTER,
-            }));
-        }
-        foot.add_child(new St.Label({
+        text.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        row.add_child(text);
+        this._when = new St.Label({
             text: item.note ? 'Note' : ago(item.at),
             style_class: 'osmin-clip-when',
             y_align: Clutter.ActorAlign.CENTER,
-        }));
-        box.add_child(foot);
-        main.set_child(box);
+        });
+        row.add_child(this._when);
+        main.set_child(row);
         main.connect('clicked', () => onPaste(item));
         this.add_child(main);
 
+        // The actions replace the time while the pointer is on the row.
         this._actions = new St.BoxLayout({
             style_class: 'osmin-clip-actions',
             x_expand: true,
             y_expand: true,
             x_align: Clutter.ActorAlign.END,
-            y_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
             opacity: 0,
+            visible: false,
         });
-        for (const [iconName, handler] of [
+        for (const [name, handler] of [
             ['edit-copy-symbolic', onCopy],
             [item.saved ? 'non-starred-symbolic' : 'starred-symbolic', onPin],
             ['window-close-symbolic', onRemove],
         ]) {
             this._actions.add_child(createButton({
-                iconName,
+                iconName: name,
                 styleClass: 'osmin-clip-action',
                 onClick: () => handler(item),
             }));
         }
         this.add_child(this._actions);
-        this.connect('notify::hover', () => this._actions.ease({
-            opacity: this.hover ? 255 : 0,
-            duration: 120,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        }));
+        this.connect('notify::hover', () => {
+            this._when.opacity = this.hover ? 0 : 255;
+            this._actions.visible = this.hover;
+            this._actions.opacity = this.hover ? 255 : 0;
+        });
     }
 }
 
@@ -125,32 +124,33 @@ export class ClipboardView extends St.BoxLayout {
         this._onPaste = onPaste;
         this._typing = false;
 
-        const header = new St.BoxLayout({style_class: 'osmin-tray-header'});
-        this._caption = new St.Label({
-            style_class: 'osmin-tray-caption',
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        header.add_child(this._caption);
-        this._clear = new St.Button({label: 'Clear', style_class: 'osmin-tray-clear', can_focus: true});
-        this._clear.connect('clicked', () => this._service.clear());
-        header.add_child(this._clear);
-        this.add_child(header);
 
+        this._noteMode = false;
+        this._buildBar();
+        this.add_child(this._bar);
+        const body = new St.BoxLayout({style_class: 'osmin-clipboard-body', x_expand: true, y_expand: true});
         this._scroll = new St.ScrollView({
             style_class: 'osmin-tray-scroll',
             x_expand: true,
             y_expand: true,
             overlay_scrollbars: true,
-            hscrollbar_policy: St.PolicyType.EXTERNAL,
-            vscrollbar_policy: St.PolicyType.NEVER,
+            hscrollbar_policy: St.PolicyType.NEVER,
+            vscrollbar_policy: St.PolicyType.AUTOMATIC,
         });
-        this._row = new St.BoxLayout({style_class: 'osmin-tray-row', y_expand: true});
-        this._scroll.add_child(this._row);
-        this._scroll.connect('scroll-event', (_actor, event) => this._onScroll(event));
-        this.add_child(this._scroll);
+        this._list = new St.BoxLayout({vertical: true, style_class: 'osmin-clip-list', x_expand: true});
+        this._scroll.add_child(this._list);
+        this._empty = new St.Label({
+            text: 'Copied text shows up here',
+            style_class: 'osmin-todo-empty',
+            x_expand: true,
+            y_expand: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        body.add_child(this._scroll);
+        body.add_child(this._empty);
+        this.add_child(body);
 
-        this._buildNoteCard();
         this._service.connectObject('changed', () => this._rebuild(), this);
         this._rebuild();
     }
@@ -170,31 +170,60 @@ export class ClipboardView extends St.BoxLayout {
             this._ui.endTextInput();
     }
 
-    _buildNoteCard() {
-        this._noteCard = new St.BoxLayout({vertical: true, style_class: 'osmin-clip osmin-clip-new'});
-        this._noteCard.add_child(new St.Label({text: 'NEW NOTE', style_class: 'osmin-clip-when'}));
+    /** The search field, which turns into a note field with the "+ Note" button. */
+    _buildBar() {
+        this._bar = new St.BoxLayout({style_class: 'osmin-clip-bar', x_expand: true});
         this._entry = new St.Entry({
-            hint_text: 'Write something…',
+            hint_text: 'Search…',
             style_class: 'osmin-clip-entry',
             can_focus: true,
             x_expand: true,
-            y_expand: true,
         });
+        this._entry.set_primary_icon(new St.Icon({icon_name: 'edit-find-symbolic', style_class: 'osmin-clip-find'}));
         const text = this._entry.clutter_text;
+        text.connect('text-changed', () => {
+            if (!this._noteMode)
+                this._rebuild();
+        });
         text.connect('activate', () => {
-            if (this._service.addNote(this._entry.text))
-                this._entry.text = '';
+            if (this._noteMode && this._service.addNote(this._entry.text))
+                this._setNoteMode(false);
         });
         text.connect('key-press-event', (_actor, event) => {
             if (event.get_key_symbol() === Clutter.KEY_Escape) {
-                this.stopTyping();
+                if (this._noteMode)
+                    this._setNoteMode(false);
+                else if (this._entry.text)
+                    this._entry.text = '';
+                else
+                    this.stopTyping();
                 return Clutter.EVENT_STOP;
             }
             return Clutter.EVENT_PROPAGATE;
         });
         text.connect('key-focus-in', () => this._startTyping());
-        this._noteCard.add_child(this._entry);
-        this._noteCard.add_child(new St.Label({text: 'Enter saves it', style_class: 'osmin-clip-when'}));
+        this._bar.add_child(this._entry);
+        this._addNote = new St.Button({label: '+ Note', style_class: 'osmin-clip-add', can_focus: true});
+        this._addNote.connect('clicked', () => this._setNoteMode(!this._noteMode));
+        this._bar.add_child(this._addNote);
+        this._clear = new St.Button({label: 'Clear', style_class: 'osmin-clip-add', can_focus: true});
+        this._clear.connect('clicked', () => this._service.clear());
+        this._bar.add_child(this._clear);
+    }
+
+    _setNoteMode(on) {
+        this._noteMode = on;
+        this._entry.text = '';
+        this._entry.hint_text = on ? 'Write a note, Enter saves it' : 'Search…';
+        if (!on)
+            this._rebuild();
+        if (on)
+            this._addNote.add_style_pseudo_class('checked');
+        else
+            this._addNote.remove_style_pseudo_class('checked');
+        this._rebuild();
+        this._startTyping();
+        this._entry.grab_key_focus();
     }
 
     _startTyping() {
@@ -206,17 +235,20 @@ export class ClipboardView extends St.BoxLayout {
     }
 
     _rebuild() {
-        // Keep the entry (and what is typed in it) alive across rebuilds.
-        if (this._noteCard.get_parent() === this._row)
-            this._row.remove_child(this._noteCard);
-        this._row.destroy_all_children();
-        this._row.add_child(this._noteCard);
-
-        const items = this._service.items;
-        this._caption.text = items.length === 0 ? 'CLIPBOARD' : `CLIPBOARD · ${items.length}`;
+        const all = this._service.items;
+        const query = this._noteMode ? '' : this._entry.text.trim().toLowerCase();
+        const items = all
+            .filter(item => !query || item.text.toLowerCase().includes(query))
+            .sort((a, b) => Number(!!b.saved) - Number(!!a.saved));
+        if (!this._noteMode)
+            this._entry.hint_text = all.length === 0 ? 'Search…' : `Search ${all.length} items…`;
         this._clear.visible = this._service.hasUnsaved;
+        this._empty.text = all.length === 0 ? 'Copied text shows up here' : 'Nothing found';
+        this._empty.visible = items.length === 0;
+        this._scroll.visible = items.length > 0;
+        this._list.destroy_all_children();
         for (const item of items) {
-            this._row.add_child(new ClipCard({
+            this._list.add_child(new ClipRow({
                 item,
                 onPaste: i => this._onPaste(i),
                 onCopy: i => this._service.copy(i.id),
@@ -224,27 +256,5 @@ export class ClipboardView extends St.BoxLayout {
                 onRemove: i => this._service.remove(i.id),
             }));
         }
-    }
-
-    _onScroll(event) {
-        const adjustment = this._scroll.hadjustment;
-        if (adjustment.upper <= adjustment.page_size)
-            return Clutter.EVENT_PROPAGATE;
-        switch (event.get_scroll_direction()) {
-        case Clutter.ScrollDirection.UP:
-        case Clutter.ScrollDirection.LEFT:
-            adjustment.value -= 90;
-            return Clutter.EVENT_STOP;
-        case Clutter.ScrollDirection.DOWN:
-        case Clutter.ScrollDirection.RIGHT:
-            adjustment.value += 90;
-            return Clutter.EVENT_STOP;
-        case Clutter.ScrollDirection.SMOOTH: {
-            const [dx, dy] = event.get_scroll_delta();
-            adjustment.value += (Math.abs(dx) > Math.abs(dy) ? dx : dy) * 40;
-            return Clutter.EVENT_STOP;
-        }
-        }
-        return Clutter.EVENT_PROPAGATE;
     }
 }
