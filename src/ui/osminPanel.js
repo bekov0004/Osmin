@@ -161,6 +161,11 @@ export class OsminPanel extends St.BoxLayout {
         return this._mode === PanelMode.CLIPBOARD || this._mode === PanelMode.NOTIFICATIONS || this._mode === PanelMode.LOCALSEND;
     }
 
+    /** The scrolling lists of the section on screen: [{scroll, list}] (none for the widgets' pages). */
+    get scrollTargets() {
+        return this._mode === PanelMode.OSMIN ? [] : (this._viewFor(this._mode).scrollTargets ?? []);
+    }
+
     /** Makes the body (and the list in it) `extra` px taller than the widgets' row (0 = back to normal). */
     setExtraHeight(extra) {
         if (this._baseBodyHeight)

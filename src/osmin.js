@@ -30,6 +30,7 @@ import {
 } from './utils/constants.js';
 import {EventType, Priority} from './utils/events.js';
 import {getScaleFactor, scaled} from './utils/scale.js';
+import {listOverflow} from './ui/overflow.js';
 import {SignalTracker} from './utils/signals.js';
 import {Timers} from './utils/timers.js';
 
@@ -48,7 +49,8 @@ const COLLAPSED = new Set([State.CLOSED, State.HOVER]);
 const PANEL_STATES = new Set([State.OPEN, State.DROP]);
 
 // Touchpad scroll units (a short swipe is a few of them) to pixels of extra height.
-const PULL_PX_PER_UNIT = 40;
+const PULL_GAP_MS = 250;      // a pause that starts a new two-finger swipe
+const PULL_THRESHOLD = 1.2;   // touchpad scroll units of a deliberate swipe that resizes the panel
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -104,8 +106,10 @@ export class Osmin {
         this._grab = null;
         this._onTextInputEnd = null;
         this._scrollAccumulator = 0;
-        this._extraHeight = 0;       // px a list was pulled taller (Clipboard / Alerts)
-        this._maxExtra = 0;
+        this._expanded = false;      // a list (Clipboard / Alerts / LocalSend) grown to fit its items
+        this._extraHeight = 0;       // px it is taller than normal, now
+        this._baseOpenHeight = 0;
+        this._swipe = null;
         this._approach = false;
         this._stageMotionId = 0;
     }
@@ -163,6 +167,7 @@ export class Osmin {
                 type: EventType.CUSTOM, icon, title, description, duration: 4000,
             }),
         });
+        this._clipboardView.onContentChanged = this._notificationsView.onContentChanged = () => this._onListChanged();
         this._localSendView = new LocalSendView({
             session: this._localSend,
             getTrayUris: () => this._services.files.items.map(item => item.uri),
@@ -171,6 +176,7 @@ export class Osmin {
                 set: on => this._settings.gsettings?.set_boolean('localsend-receive', on),
             },
         });
+        this._localSendView.onContentChanged = () => this._onListChanged();
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
@@ -431,6 +437,7 @@ export class Osmin {
             notifications: this._notificationsView,
             // A list pulled taller is only for its own tab: the others go back to the normal height.
             onModeChanged: () => {
+                this._expanded = false;
                 if (this._state === State.OPEN && this._actor)
                     this._applyGeometry({duration: 200});
             },
@@ -942,8 +949,11 @@ export class Osmin {
     }
 
     /**
-     * Two fingers down on the Clipboard / Alerts list pull the panel taller, two fingers up push it
-     * back; only when it cannot move further does the list itself scroll. Follows the fingers.
+     * Two fingers down on the Clipboard / Alerts / LocalSend list grow the panel to fit its items
+     * (at most 40% of the screen), two fingers up bring it back. A list that can still scroll in
+     * the swipe's direction just scrolls: the panel only resizes when the list has reached its end
+     * (or has nothing to scroll). The decision is made once per swipe, so the tail of a swipe that
+     * scrolled to the end does not resize it.
      * @returns {boolean} whether the swipe was used for this
      */
     _onPullScroll(event) {
@@ -954,18 +964,72 @@ export class Osmin {
         const [dx, dy] = event.get_scroll_delta();
         if (Math.abs(dy) <= Math.abs(dx) || dy === 0)
             return false;
+        const now = GLib.get_monotonic_time() / 1000;
+        if (!this._swipe || now - this._swipe.last > PULL_GAP_MS)
+            this._swipe = {mode: this._pullMode(event, dy), sum: 0, fired: false, last: now};
+        const swipe = this._swipe;
+        swipe.last = now;
+        if (swipe.mode === 'scroll')
+            return false;
+        this._timers.clear('leave');
+        if (swipe.fired)
+            return true;
+        swipe.sum += Math.abs(dy);
+        if (swipe.sum >= PULL_THRESHOLD) {
+            swipe.fired = true;
+            this._expanded = swipe.mode === 'expand';
+            this._applyGeometry({duration: 220, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        }
+        return true;
+    }
+
+    /** What a new swipe does: 'scroll' (the list's own), 'expand' or 'collapse' the panel. */
+    _pullMode(event, dy) {
         // With natural scrolling the content follows the fingers, so "fingers down" is a negative delta.
         const natural = this._touchpad?.get_boolean('natural-scroll') ?? true;
-        const down = natural ? dy < 0 : dy > 0;
-        if (this._maxExtra === 0 && down)
-            return false;
-        const next = clamp(this._extraHeight + Math.abs(dy) * PULL_PX_PER_UNIT * (down ? 1 : -1), 0, this._maxExtra);
-        if (next === this._extraHeight)
-            return false;
-        this._extraHeight = next;
-        this._timers.clear('leave');
-        this._applyGeometry({duration: 70, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
-        return true;
+        const fingersDown = natural ? dy < 0 : dy > 0;
+        const towardTop = dy < 0;
+        const [x, y] = event.get_coords();
+        const target = this._panelView.scrollTargets.find(({scroll}) => {
+            const [sx, sy] = scroll.get_transformed_position();
+            return x >= sx && x <= sx + scroll.width && y >= sy && y <= sy + scroll.height;
+        }) ?? this._panelView.scrollTargets[0];
+        if (target) {
+            const adjustment = target.scroll.vadjustment;
+            const room = adjustment.upper - adjustment.page_size;
+            // Still room to scroll that way: the swipe belongs to the list.
+            if (room > 1 && (towardTop ? adjustment.value > 1 : adjustment.value < room - 1))
+                return 'scroll';
+        }
+        if (fingersDown && !this._expanded && this._fitExtra() > 0)
+            return 'expand';
+        if (!fingersDown && this._expanded)
+            return 'collapse';
+        return 'scroll';
+    }
+
+    /** How much taller than normal the open list must be to show all its items, within 40% of the screen. */
+    _fitExtra() {
+        return this._fitExtraFrom(this._extraHeight);
+    }
+
+    /** `applied`: the extra height the lists on screen have now. */
+    _fitExtraFrom(applied) {
+        const monitor = this._geometry().monitor;
+        const cap = Math.max(0, Math.round(monitor.height * Layout.EXPANDED_MAX_HEIGHT_RATIO) - this._baseOpenHeight);
+        let overflow = null;
+        for (const {scroll, list} of this._panelView.scrollTargets) {
+            const value = listOverflow(scroll, list);
+            if (value !== null)
+                overflow = Math.max(overflow ?? -Infinity, value);
+        }
+        return overflow === null ? cap : clamp(overflow + applied, 0, cap);
+    }
+
+    /** The items of an open list changed: a grown panel follows the new count. */
+    _onListChanged() {
+        if (this._state === State.OPEN && this._expanded && this._panelView.growable)
+            this._applyGeometry({duration: 150, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
     /**
@@ -1120,8 +1184,10 @@ export class Osmin {
         if (state !== State.HOVER)
             this._timers.clear('dwell');
         this._approach = false;
-        if (state !== State.OPEN && state !== State.DROP)
+        if (state !== State.OPEN && state !== State.DROP) {
+            this._expanded = false;
             this._extraHeight = 0;
+        }
 
         if (previous !== State.CARD && state !== State.CARD)
             this._resumeOpen = false;
@@ -1211,13 +1277,13 @@ export class Osmin {
         const width = Math.round(layout.widthCss * scale);
         const normalCap = Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO);
         if (!this._panelView.growable)
-            this._extraHeight = 0;
-        // A list pulled taller with two fingers: how far it may go depends on how tall it is anyway.
+            this._expanded = false;
+        // A list grown to fit its items (the size is measured with the panel at its normal height).
         this._panelView.setExtraHeight(0);
         const base = Math.min(this._panelView.getHeightForWidth(width), normalCap);
-        this._maxExtra = this._panelView.growable
-            ? Math.max(0, Math.round(geo.monitor.height * Layout.EXPANDED_MAX_HEIGHT_RATIO) - base) : 0;
-        this._extraHeight = Math.min(this._extraHeight, this._maxExtra);
+        const previous = this._extraHeight;
+        this._baseOpenHeight = base;
+        this._extraHeight = this._expanded ? this._fitExtraFrom(previous) : 0;
         if (this._extraHeight <= 0)
             return {width, height: base};
         this._panelView.setExtraHeight(this._extraHeight);

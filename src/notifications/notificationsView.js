@@ -138,6 +138,16 @@ export class NotificationsView extends St.BoxLayout {
     }
 
     _rebuild() {
+        this._rebuildNow();
+        this.onContentChanged?.();
+    }
+
+    /** The scrolling lists of this view (the panel can ask how much they overflow). */
+    get scrollTargets() {
+        return [{scroll: this._scroll, list: this._list}];
+    }
+
+    _rebuildNow() {
         const items = this._service.items;
         this._caption.text = items.length === 0 ? 'NOTIFICATIONS' : `NOTIFICATIONS · ${items.length}`;
         this._dnd.label = this._service.dnd ? 'Do Not Disturb: on' : 'Do Not Disturb: off';

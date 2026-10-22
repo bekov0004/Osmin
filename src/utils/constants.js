@@ -20,7 +20,7 @@ export const Layout = Object.freeze({
     HOVER_GROW: 14,
     SCREEN_MARGIN: 24,
     OPEN_MAX_HEIGHT_RATIO: 0.5,
-    EXPANDED_MAX_HEIGHT_RATIO: 0.62, // a list pulled taller with two fingers
+    EXPANDED_MAX_HEIGHT_RATIO: 0.40, // the most a list may grow to fit its items (a two-finger swipe down)
     // The fillet where the expanded capsule meets the top bar.
     EAR_RADIUS: 26,
     EAR_RADIUS_CLOSED: 12,

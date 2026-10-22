@@ -40,6 +40,7 @@ export class LocalSendView extends St.BoxLayout {
         super({style_class: 'osmin-lsv', x_expand: true, y_expand: true});
         this._session = session;
         this._getTrayUris = getTrayUris;
+        this._targets = [];
         this._receiving = receiving;
 
         this._left = new St.BoxLayout({vertical: true, style_class: 'osmin-lsv-col', x_expand: true, y_expand: true});
@@ -57,6 +58,16 @@ export class LocalSendView extends St.BoxLayout {
     }
 
     _render() {
+        this._renderNow();
+        this.onContentChanged?.();
+    }
+
+    get scrollTargets() {
+        return this._targets;
+    }
+
+    _renderNow() {
+        this._targets = [];
         this._left.destroy_all_children();
         this._right.destroy_all_children();
         this._buildFiles();
@@ -132,6 +143,7 @@ export class LocalSendView extends St.BoxLayout {
         });
         scroll.add_child(rows);
         this._left.add_child(scroll);
+        this._targets.push({scroll, list: rows});
     }
 
     // --- devices / transfer -----------------------------------------------------
@@ -193,6 +205,7 @@ export class LocalSendView extends St.BoxLayout {
             y_expand: true,
         });
         scroll.add_child(list);
+        this._targets.push({scroll, list});
         return scroll;
     }
 

@@ -250,6 +250,16 @@ export class ClipboardView extends St.BoxLayout {
     }
 
     _rebuild() {
+        this._rebuildNow();
+        this.onContentChanged?.();
+    }
+
+    /** The scrolling lists of this view (the panel can ask how much they overflow). */
+    get scrollTargets() {
+        return [{scroll: this._scroll, list: this._list}];
+    }
+
+    _rebuildNow() {
         const all = this._service.items;
         const query = this._noteMode ? '' : this._entry.text.trim().toLowerCase();
         const items = all
