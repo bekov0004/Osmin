@@ -235,6 +235,24 @@ export class Osmin {
             this.open({pinned: true});
     }
 
+    /**
+     * Opens the panel on a section ('osmin', 'tray', 'clipboard' or 'notifications'); when that
+     * section is already shown, closes it (a shortcut pressed twice).
+     */
+    openSection(section) {
+        if (this._state === State.OPEN) {
+            if (this._panelView.mode === section)
+                this._settle();
+            else
+                this._panelView.setMode(section);
+            this._pinned = true;
+            this._timers.clear('leave');
+            return;
+        }
+        this._openPage = section === 'osmin' ? null : section;
+        this.open({pinned: true});
+    }
+
     /** The widgets the user enabled, in the order they chose. */
     _createWidgets() {
         const byId = new Map(WIDGET_CLASSES.map(WidgetClass => [WidgetClass.id, WidgetClass]));

@@ -251,8 +251,9 @@ export class OsminPanel extends St.BoxLayout {
 
     /** Shows what the widget with this id has to offer (a page or the tray). */
     showWidget(id) {
-        if (id === 'tray' || id === 'clipboard') {
-            this.setMode(id === 'tray' ? PanelMode.TRAY : PanelMode.CLIPBOARD, {animate: false});
+        const section = {tray: PanelMode.TRAY, clipboard: PanelMode.CLIPBOARD, notifications: PanelMode.NOTIFICATIONS}[id];
+        if (section) {
+            this.setMode(section, {animate: false});
             return;
         }
         const index = this._pages.findIndex(page => page.widgets.some(w => w.constructor.id === id));

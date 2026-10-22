@@ -1,3 +1,5 @@
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {Osmin} from './osmin.js';
@@ -16,6 +18,13 @@ import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
 import {targetMonitors} from './utils/monitors.js';
 import {SignalTracker} from './utils/signals.js';
+
+const SHORTCUTS = [
+    ['shortcut-osmin', 'osmin'],
+    ['shortcut-tray', 'tray'],
+    ['shortcut-clipboard', 'clipboard'],
+    ['shortcut-alerts', 'notifications'],
+];
 
 /**
  * Everything Osmin shares between its capsules: the services (music, timer, files, ...), the event
@@ -42,6 +51,7 @@ export class OsminHost {
         this._syncing = false;
         this._leaderIndex = -1;
         this._barTaken = false;
+        this._shortcutKeys = [];
     }
 
     /** The capsules, the leader first. */
@@ -74,6 +84,7 @@ export class OsminHost {
         this._syncCapsules();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
+        this._addShortcuts();
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._syncCapsules({rebuild: true}));
 
         const services = this._services;
@@ -89,6 +100,7 @@ export class OsminHost {
 
     destroy() {
         this._settings?.disconnectObject(this);
+        this._removeShortcuts();
         this._signals.disconnectAll();
         for (const osmin of [...this._capsules.values()].reverse())
             osmin.destroy();
@@ -118,8 +130,34 @@ export class OsminHost {
 
     /** The shortcut (Super+V): the capsule on the monitor the pointer is on, otherwise the first one. */
     toggle() {
-        const index = global.display.get_current_monitor();
-        (this._capsules.get(index) ?? this._capsules.values().next().value)?.toggle();
+        this._capsuleAtPointer()?.toggle();
+    }
+
+    /** The keys that open the panel on a section; they are set in the preferences. */
+    _addShortcuts() {
+        const gsettings = this._settings.gsettings;
+        if (!gsettings)
+            return;
+        for (const [key, section] of SHORTCUTS) {
+            Main.wm.addKeybinding(key, gsettings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW, () => this.openSection(section));
+            this._shortcutKeys.push(key);
+        }
+    }
+
+    _removeShortcuts() {
+        for (const key of this._shortcutKeys)
+            Main.wm.removeKeybinding(key);
+        this._shortcutKeys = [];
+    }
+
+    /** The capsule on the monitor the pointer is on (otherwise the first one). */
+    _capsuleAtPointer() {
+        return this._capsules.get(global.display.get_current_monitor()) ?? this._capsules.values().next().value;
+    }
+
+    openSection(section) {
+        this._capsuleAtPointer()?.openSection(section);
     }
 
     _onSettingChanged(key) {

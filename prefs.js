@@ -398,11 +398,72 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Higher is faster.'));
 
         this._rule(form);
+        for (const [key, title] of [
+            ['shortcut-osmin', _('Osmin')], ['shortcut-tray', _('Tray')],
+            ['shortcut-clipboard', _('Clipboard')], ['shortcut-alerts', _('Alerts')],
+        ]) {
+            const line = new Gtk.Box({spacing: 10});
+            line.append(new Gtk.Label({label: title, xalign: 0, width_chars: 10}));
+            line.append(this._shortcutButton(settings, key));
+            this._row(form, key === 'shortcut-osmin' ? _('Shortcuts') : '', line,
+                key === 'shortcut-alerts' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
+        }
+
+        this._rule(form);
         this._row(form, _('Show on'), this._monitorsEditor(settings),
             _('The monitors that get a capsule. "Primary" follows the monitor GNOME calls primary; the top bar is only there.'));
 
         this._resetRow(form, settings, settings.settings_schema.list_keys(), _('Reset all settings'));
         return body;
+    }
+
+    /** A button that records a key combination into an `as` setting (empty = none). */
+    _shortcutButton(settings, key) {
+        const button = new Gtk.Button({halign: Gtk.Align.START, width_request: 160});
+        let recording = false;
+        const show = () => {
+            const [accel] = settings.get_strv(key);
+            button.label = recording ? _('Press keys…')
+                : accel ? Gtk.accelerator_get_label(...Gtk.accelerator_parse(accel).slice(1)) : _('Not set');
+        };
+        const stop = () => {
+            recording = false;
+            show();
+        };
+        button.connect('clicked', () => {
+            recording = true;
+            show();
+            button.grab_focus();
+        });
+        const keys = new Gtk.EventControllerKey();
+        keys.connect('key-pressed', (_c, keyval, _keycode, state) => {
+            if (!recording)
+                return false;
+            const mods = state & Gtk.accelerator_get_default_mod_mask();
+            if (keyval === Gdk.KEY_Escape && mods === 0) {
+                stop();
+                return true;
+            }
+            if (keyval === Gdk.KEY_BackSpace && mods === 0) {
+                settings.set_strv(key, []);
+                stop();
+                return true;
+            }
+            // A bare modifier (or a key that cannot make a shortcut) keeps waiting.
+            if (mods === 0 || !Gtk.accelerator_valid(keyval, mods))
+                return true;
+            settings.set_strv(key, [Gtk.accelerator_name(keyval, mods)]);
+            stop();
+            return true;
+        });
+        button.add_controller(keys);
+        const focus = new Gtk.EventControllerFocus();
+        focus.connect('leave', stop);
+        button.add_controller(focus);
+        const changedId = settings.connect(`changed::${key}`, show);
+        button.connect('destroy', () => settings.disconnect(changedId));
+        show();
+        return button;
     }
 
     /** One switch per connected monitor (and one for "the primary one"); the choice is a list of connector names. */

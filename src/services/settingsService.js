@@ -11,6 +11,10 @@ export const DEFAULTS = Object.freeze({
     'auto-collapse': true,
     'activities-in-collapsed': true,
     'monitors': ['primary'],
+    'shortcut-osmin': [],
+    'shortcut-tray': [],
+    'shortcut-clipboard': [],
+    'shortcut-alerts': [],
     'enabled-widgets': [...DEFAULT_WIDGETS],
     'widget-cells': Object.fromEntries(WIDGET_INFO.map(w => [w.id, w.cells])),
     'width-mode': 'auto',
@@ -59,6 +63,11 @@ export class SettingsService extends Signals.EventEmitter {
         super();
         this._settings = gsettings;
         this._id = gsettings?.connect('changed', (_s, key) => this.emit('changed', key)) ?? 0;
+    }
+
+    /** The underlying Gio.Settings (null without a compiled schema). */
+    get gsettings() {
+        return this._settings;
     }
 
     get available() {

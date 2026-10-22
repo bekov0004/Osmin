@@ -48,6 +48,30 @@
       <description>Show a running timer, music or an upcoming meeting instead of the time while collapsed.</description>
     </key>
 
+    <key name="shortcut-osmin" type="as">
+      <default>[]</default>
+      <summary>Shortcut: open the Osmin section</summary>
+      <description>Opens the panel on the Osmin section (or closes it if that section is already shown). Empty means no shortcut.</description>
+    </key>
+
+    <key name="shortcut-tray" type="as">
+      <default>[]</default>
+      <summary>Shortcut: open the Tray section</summary>
+      <description>Opens the panel on the Tray section (or closes it if that section is already shown). Empty means no shortcut.</description>
+    </key>
+
+    <key name="shortcut-clipboard" type="as">
+      <default>[]</default>
+      <summary>Shortcut: open the Clipboard section</summary>
+      <description>Opens the panel on the Clipboard section (or closes it if that section is already shown). Empty means no shortcut.</description>
+    </key>
+
+    <key name="shortcut-alerts" type="as">
+      <default>[]</default>
+      <summary>Shortcut: open the Alerts section</summary>
+      <description>Opens the panel on the Alerts section (or closes it if that section is already shown). Empty means no shortcut.</description>
+    </key>
+
     <key name="monitors" type="as">
       <default>['primary']</default>
       <summary>Monitors with a capsule</summary>
