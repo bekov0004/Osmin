@@ -5,6 +5,7 @@ import {CameraState} from '../../services/cameraService.js';
 import {createButton} from '../../ui/button.js';
 import {LiveActivity} from '../../ui/liveActivity.js';
 import {VerticalSlider} from '../../ui/verticalSlider.js';
+import {PullGesture} from '../../ui/pullGesture.js';
 import {scaled} from '../../utils/scale.js';
 
 const SIDE = 252; // css px
@@ -124,10 +125,20 @@ export class MirrorActivity extends LiveActivity {
         this._camera.connectObject('state-changed', update, root);
         update();
 
+        // Two fingers up over the card shrink it back.
+        const pull = new PullGesture(direction => {
+            if (direction === 'up')
+                this._onDismiss();
+        });
+        root.reactive = true;
+        root.connect('scroll-event', (_actor, event) =>
+            pull.handle(event) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE);
+
         this.shown = true;
         this._camera.start();
         root.connect('destroy', () => {
             gone = true;
+            pull.destroy();
             this._camera.disconnectObject(root);
             this.shown = false;
             this._camera.stop();

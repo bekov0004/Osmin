@@ -7,6 +7,7 @@ import {createButton} from '../../ui/button.js';
 import {OsminWidget} from '../widget.js';
 import {MirrorActivity} from './mirrorActivity.js';
 import {SquareLayout} from './squareLayout.js';
+import {PullGesture} from '../../ui/pullGesture.js';
 
 /**
  * Mirror: a round webcam preview, like looking in a small mirror. The camera
@@ -58,6 +59,13 @@ export class MirrorWidget extends OsminWidget {
             this._toggle();
             return Clutter.EVENT_STOP;
         });
+        // Two fingers down over the preview enlarge it, like the button.
+        this._pull = new PullGesture(direction => {
+            if (direction === 'down')
+                this._enlargeNow();
+        });
+        this._stage.connect('scroll-event', (_actor, event) =>
+            this._pull.handle(event) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE);
         this._stage.connect('notify::hover', () => {
             this._updateControls();
             this._enlarge.ease({opacity: this._stage.hover ? 255 : 0, duration: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
@@ -127,7 +135,7 @@ export class MirrorWidget extends OsminWidget {
         this._enlarge = createButton({
             iconName: 'view-fullscreen-symbolic',
             styleClass: 'osmin-mirror-control',
-            onClick: () => this._ui.showCard(this._big, {persistent: true, priority: Priority.HIGH}),
+            onClick: () => this._enlargeNow(),
         });
         this._enlarge.set({x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START});
         this._enlarge.opacity = 0;
@@ -149,6 +157,10 @@ export class MirrorWidget extends OsminWidget {
             this._camera.stop();
     }
 
+    _enlargeNow() {
+        this._ui.showCard(this._big, {persistent: true, priority: Priority.HIGH});
+    }
+
     _shrink() {
         this._ui.hideCard(this._big);
     }
@@ -158,6 +170,7 @@ export class MirrorWidget extends OsminWidget {
         if (!this._big.shown)
             this._camera.stop();
         this._big.destroy();
+        this._pull?.destroy();
         if (this._effect) {
             this._video?.remove_effect(this._effect);
             this._effect = null;
