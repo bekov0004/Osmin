@@ -13,6 +13,8 @@ const PROBE_TIMEOUT_S = 2;
 // Network interfaces that are never a place where phones live.
 const VIRTUAL_INTERFACE = /^(lo|docker|br-|veth|virbr|tun|tap|vmnet|zt)/;
 
+const CERT_DIR = `${GLib.get_user_data_dir()}/osmin`;
+
 const decode = bytes => new TextDecoder().decode(bytes.get_data());
 
 /**
@@ -31,6 +33,46 @@ export class LocalSendService extends Signals.EventEmitter {
         this._cancellable = new Gio.Cancellable();
         this._fingerprint = Array.from({length: 32}, () => Math.floor(Math.random() * 16).toString(16)).join('');
         this._scanning = null;
+        this._certificate = undefined; // undefined: not loaded yet; null: could not be made
+    }
+
+    /**
+     * Newer LocalSend versions ask the sender for a TLS certificate, so Osmin has its own
+     * (made once with the openssl tool, kept in ~/.local/share/osmin, and used for nothing else).
+     */
+    async _loadCertificate() {
+        if (this._certificate !== undefined)
+            return this._certificate;
+        const certPath = `${CERT_DIR}/localsend-cert.pem`;
+        const keyPath = `${CERT_DIR}/localsend-key.pem`;
+        try {
+            if (!GLib.file_test(certPath, GLib.FileTest.EXISTS) || !GLib.file_test(keyPath, GLib.FileTest.EXISTS)) {
+                GLib.mkdir_with_parents(CERT_DIR, 0o700);
+                const process = Gio.Subprocess.new(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                    '-keyout', keyPath, '-out', certPath, '-days', '36500', '-subj', '/CN=Osmin'],
+                Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
+                await process.wait_check_async(null);
+                GLib.chmod(keyPath, 0o600);
+            }
+            this._certificate = Gio.TlsCertificate.new_from_files(certPath, keyPath);
+            const der = this._certificate.certificate?.toArray?.() ?? this._certificate.certificate;
+            this._fingerprint = GLib.compute_checksum_for_data(GLib.ChecksumType.SHA256, der);
+        } catch (e) {
+            console.warn(`[osmin] LocalSend: no client certificate (${e.message}); some devices will not answer`); this._lastCertError = e.message;
+            this._certificate = null;
+        }
+        return this._certificate;
+    }
+
+    /** Lets a message answer a device's request for a client certificate. */
+    _presentCertificate(message) {
+        message.connect('accept-certificate', () => true);
+        message.connect('request-certificate', () => {
+            if (!this._certificate)
+                return false;
+            message.set_tls_client_certificate(this._certificate);
+            return true;
+        });
     }
 
     get _me() {
@@ -55,6 +97,9 @@ export class LocalSendService extends Signals.EventEmitter {
         this.cancelScan();
         const cancellable = new Gio.Cancellable();
         this._scanning = cancellable;
+        await this._loadCertificate();
+        if (cancellable.is_cancelled())
+            return;
         const session = new Soup.Session({timeout: PROBE_TIMEOUT_S, idle_timeout: PROBE_TIMEOUT_S, max_conns: 128, max_conns_per_host: 2});
         try {
             const addresses = hosts ?? await this._subnetAddresses(cancellable);
@@ -106,7 +151,7 @@ export class LocalSendService extends Signals.EventEmitter {
         for (const protocol of ['https', 'http']) {
             try {
                 const message = Soup.Message.new('GET', `${protocol}://${ip}:${port}${API}/info`);
-                message.connect('accept-certificate', () => true);
+                this._presentCertificate(message);
                 const bytes = await session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, cancellable);
                 if (message.status_code !== 200)
                     return null;
@@ -167,11 +212,12 @@ export class LocalSendService extends Signals.EventEmitter {
             throw new Error('Nothing to send (folders are not supported yet)');
         const total = entries.reduce((sum, e) => sum + e.size, 0);
 
+        await this._loadCertificate();
         const session = new Soup.Session({timeout: 0, idle_timeout: 0});
         const base = `${device.protocol}://${device.ip}:${device.port}${API}`;
         const request = async (path, jsonBody, contentType = 'application/json', stream = null, size = 0, onWrote = null) => {
             const message = Soup.Message.new('POST', `${base}${path}`);
-            message.connect('accept-certificate', () => true);
+            this._presentCertificate(message);
             if (stream) {
                 message.set_request_body(contentType, stream, size);
                 message.connect('wrote-body-data', (_m, chunk) => onWrote?.(chunk));
@@ -220,7 +266,7 @@ export class LocalSendService extends Signals.EventEmitter {
         } catch (e) {
             if (sessionId && !(e.message ?? '').includes('declined')) {
                 const cancel = Soup.Message.new('POST', `${base}/cancel?sessionId=${encodeURIComponent(sessionId)}`);
-                cancel.connect('accept-certificate', () => true);
+                this._presentCertificate(cancel);
                 session.send_and_read_async(cancel, GLib.PRIORITY_DEFAULT, null).catch(() => {});
             }
             if (cancellable.is_cancelled())
