@@ -6,10 +6,10 @@ import {createButton} from '../../ui/button.js';
 import {LiveActivity} from '../../ui/liveActivity.js';
 import {scaled} from '../../utils/scale.js';
 
-const CIRCLE = 200; // css px
+const SIDE = 220; // css px
 
 /**
- * The enlarged mirror: a card as wide as the music card, but taller, with a big round
+ * The enlarged mirror: a card as wide as the music card, but taller, with a big square
  * preview. It is shown (persistent) from the Mirror widget's enlarge button and
  * goes away with its close button; the camera runs only while it is on screen.
  * It is never "ongoing": it has no compact face.
@@ -28,7 +28,7 @@ export class MirrorActivity extends LiveActivity {
     }
 
     get peekSize() {
-        return {width: 330, height: CIRCLE + 56};
+        return {width: 330, height: SIDE + 56};
     }
 
     createCompactParts() {
@@ -40,15 +40,15 @@ export class MirrorActivity extends LiveActivity {
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
-            height: scaled(CIRCLE + 22),
+            height: scaled(SIDE + 22),
         });
         const stage = new St.Widget({
-            style_class: 'osmin-mirror-stage',
+            style_class: 'osmin-mirror-stage osmin-mirror-stage-square',
             layout_manager: new Clutter.BinLayout(),
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.END,
-            width: scaled(CIRCLE),
-            height: scaled(CIRCLE),
+            width: scaled(SIDE),
+            height: scaled(SIDE),
         });
         const video = new St.Widget({
             x_expand: true,
@@ -59,10 +59,10 @@ export class MirrorActivity extends LiveActivity {
         video.set_pivot_point(0.5, 0.5);
         video.scale_x = this._flipped ? -1 : 1;
         let gone = false;
-        import('./circleEffect.js').then(({CircleEffect}) => {
+        import('./roundedEffect.js').then(({RoundedEffect}) => {
             if (!gone)
-                video.add_effect(new CircleEffect());
-        }).catch(e => console.warn(`[osmin] round mirror unavailable: ${e.message}`));
+                video.add_effect(new RoundedEffect());
+        }).catch(e => console.warn(`[osmin] rounded mirror unavailable: ${e.message}`));
         stage.add_child(video);
 
         const message = new St.Label({

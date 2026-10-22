@@ -393,6 +393,10 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.osmin-mirror-stage-square {
+    border-radius: 20px;
+}
+
 .osmin-mirror-stage:hover {
     background-color: rgba(255, 255, 255, 0.11);
 }
