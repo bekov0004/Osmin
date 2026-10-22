@@ -4,9 +4,11 @@ import St from 'gi://St';
 import {CameraState} from '../../services/cameraService.js';
 import {createButton} from '../../ui/button.js';
 import {LiveActivity} from '../../ui/liveActivity.js';
+import {VerticalSlider} from '../../ui/verticalSlider.js';
 import {scaled} from '../../utils/scale.js';
 
-const SIDE = 220; // css px
+const SIDE = 252; // css px
+const MAX_ZOOM = 3;
 
 /**
  * The enlarged mirror: a card as wide as the music card, but taller, with a big square
@@ -20,6 +22,7 @@ export class MirrorActivity extends LiveActivity {
         this._camera = camera;
         this._onDismiss = onDismiss;
         this._flipped = true;
+        this._zoom = 1;
         this.shown = false;
     }
 
@@ -50,6 +53,13 @@ export class MirrorActivity extends LiveActivity {
             width: scaled(SIDE),
             height: scaled(SIDE),
         });
+        // The picture is scaled inside a holder that clips it: the rounded corners stay where they are.
+        const holder = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            clip_to_allocation: true,
+            x_expand: true,
+            y_expand: true,
+        });
         const video = new St.Widget({
             x_expand: true,
             y_expand: true,
@@ -57,13 +67,18 @@ export class MirrorActivity extends LiveActivity {
             content: this._camera.content,
         });
         video.set_pivot_point(0.5, 0.5);
-        video.scale_x = this._flipped ? -1 : 1;
+        const apply = () => {
+            video.scale_x = (this._flipped ? -1 : 1) * this._zoom;
+            video.scale_y = this._zoom;
+        };
+        apply();
         let gone = false;
         import('./roundedEffect.js').then(({RoundedEffect}) => {
             if (!gone)
-                video.add_effect(new RoundedEffect());
+                holder.add_effect(new RoundedEffect());
         }).catch(e => console.warn(`[osmin] rounded mirror unavailable: ${e.message}`));
-        stage.add_child(video);
+        holder.add_child(video);
+        stage.add_child(holder);
 
         const message = new St.Label({
             style_class: 'osmin-mirror-message',
@@ -82,12 +97,27 @@ export class MirrorActivity extends LiveActivity {
         root.add_child(side('view-restore-symbolic', Clutter.ActorAlign.START, () => this._onDismiss()));
         root.add_child(side('object-flip-horizontal-symbolic', Clutter.ActorAlign.END, () => {
             this._flipped = !this._flipped;
-            video.scale_x = this._flipped ? -1 : 1;
+            apply();
         }));
+
+        // Zoom: drag up to come closer, down to go back.
+        const zoom = new VerticalSlider({
+            min: 1,
+            max: MAX_ZOOM,
+            value: this._zoom,
+            onChange: value => {
+                this._zoom = value;
+                apply();
+            },
+        });
+        zoom.set({x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER});
+        zoom.set_size(scaled(14), scaled(110));
+        zoom.style = `margin-right: ${scaled(14)}px;`;
+        root.add_child(zoom);
 
         const update = () => {
             const state = this._camera.state;
-            video.visible = state === CameraState.ON;
+            holder.visible = state === CameraState.ON;
             message.visible = state !== CameraState.ON;
             message.text = state === CameraState.ERROR ? (this._camera.error || 'No camera') : 'Starting…';
         };

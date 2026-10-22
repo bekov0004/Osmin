@@ -1208,3 +1208,28 @@
     color: white;
     background-color: rgba(255, 255, 255, 0.18);
 }
+
+/* Vertical slider (the enlarged mirror's zoom) */
+.osmin-vslider {
+    width: 14px;
+    background-color: transparent;
+}
+
+.osmin-vslider-track {
+    width: 3px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.osmin-vslider-fill {
+    width: 3px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-vslider-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background-color: white;
+}
