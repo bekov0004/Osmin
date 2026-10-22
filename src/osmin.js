@@ -119,6 +119,9 @@ export class Osmin {
         this._clock = new ClockService(now => this._onTick(now));
         this._cards = new CardManager(this);
         this._unsubscribe = this._events.subscribe(event => {
+            // Some cards belong to one capsule (the one whose button was pressed).
+            if (event.data?.target && event.data.target !== this)
+                return;
             this._cards.show(event);
             if (!PANEL_STATES.has(this._state) && event.type !== EventType.ACTIVITY)
                 this._closedView.setActivity(true);
@@ -278,6 +281,8 @@ export class Osmin {
                     beginTextInput: onEnd => this._beginTextInput(onEnd),
                     endTextInput: () => this._endTextInput(),
                     closeCapsule: () => this._settle(),
+                    showCard: (activity, options) => this._services.activities.peek(activity, {...options, force: true, target: this}),
+                    hideCard: activity => this._cards.hide(`activity:${activity.id}`),
                 },
             }));
     }

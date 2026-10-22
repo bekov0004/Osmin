@@ -1,9 +1,11 @@
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
+import {Priority} from '../../utils/events.js';
 import {CameraState} from '../../services/cameraService.js';
 import {createButton} from '../../ui/button.js';
 import {OsminWidget} from '../widget.js';
+import {MirrorActivity} from './mirrorActivity.js';
 import {SquareLayout} from './squareLayout.js';
 
 /**
@@ -19,6 +21,8 @@ export class MirrorWidget extends OsminWidget {
     constructor(context) {
         super(context);
         this._camera = context.services.camera;
+        this._ui = context.ui;
+        this._big = new MirrorActivity({camera: this._camera, onDismiss: () => this._shrink()});
         this._flipped = true; // a mirror: left and right swapped
         this._effect = null;
     }
@@ -49,12 +53,15 @@ export class MirrorWidget extends OsminWidget {
             // A press on the flip button belongs to the button.
             const [x, y] = event.get_coords();
             const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
-            if (target && this._controls.contains(target))
+            if (target && (this._controls.contains(target) || this._enlarge.contains(target)))
                 return Clutter.EVENT_PROPAGATE;
             this._toggle();
             return Clutter.EVENT_STOP;
         });
-        this._stage.connect('notify::hover', () => this._updateControls());
+        this._stage.connect('notify::hover', () => {
+            this._updateControls();
+            this._enlarge.ease({opacity: this._stage.hover ? 255 : 0, duration: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        });
 
         this._video = new St.Widget({
             style_class: 'osmin-mirror-video',
@@ -115,6 +122,16 @@ export class MirrorWidget extends OsminWidget {
             },
         }));
         this._stage.add_child(this._controls);
+
+        // The enlarge button: the capsule becomes a taller card with a big preview.
+        this._enlarge = createButton({
+            iconName: 'view-fullscreen-symbolic',
+            styleClass: 'osmin-mirror-control',
+            onClick: () => this._ui.showCard(this._big, {persistent: true, priority: Priority.HIGH}),
+        });
+        this._enlarge.set({x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START});
+        this._enlarge.opacity = 0;
+        this._stage.add_child(this._enlarge);
         root.add_child(holder);
 
         this._camera.connectObject('state-changed', () => this._update(), this);
@@ -127,12 +144,20 @@ export class MirrorWidget extends OsminWidget {
     }
 
     onPageHidden() {
-        this._camera.stop();
+        // The enlarged card is on screen: it owns the camera now.
+        if (!this._big.shown)
+            this._camera.stop();
+    }
+
+    _shrink() {
+        this._ui.hideCard(this._big);
     }
 
     destroy() {
         this._camera.disconnectObject(this);
-        this._camera.stop();
+        if (!this._big.shown)
+            this._camera.stop();
+        this._big.destroy();
         if (this._effect) {
             this._video?.remove_effect(this._effect);
             this._effect = null;

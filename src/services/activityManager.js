@@ -92,10 +92,11 @@ export class ActivityManager extends Signals.EventEmitter {
 
     /**
      * @param {LiveActivity} activity
-     * @param {{duration?: number, priority?: string, persistent?: boolean, force?: boolean}} [options]
-     *   `force` shows the peek even while the panel is open (alarms).
+     * @param {{duration?: number, priority?: string, persistent?: boolean, force?: boolean, target?: object}} [options]
+     *   `force` shows the peek even while the panel is open (alarms); `target`: the one capsule
+     *   that shows it (all of them by default).
      */
-    peek(activity, {duration = 4000, priority = Priority.NORMAL, persistent = false, force = false} = {}) {
+    peek(activity, {duration = 4000, priority = Priority.NORMAL, persistent = false, force = false, target = null} = {}) {
         if (!force && this._hosts.some(host => host.isOpen()))
             return;
         this._events.emit({
@@ -105,7 +106,7 @@ export class ActivityManager extends Signals.EventEmitter {
             priority,
             duration,
             persistent,
-            data: {activity},
+            data: {activity, target},
         });
     }
 
