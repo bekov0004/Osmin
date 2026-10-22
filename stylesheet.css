@@ -1388,3 +1388,11 @@
 .osmin-ls-summary {
     spacing: 6px;
 }
+
+.osmin-ls-buttons {
+    spacing: 10px;
+}
+
+.osmin-button.osmin-ls-accept {
+    background-color: #4d8dff;
+}

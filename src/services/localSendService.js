@@ -44,7 +44,7 @@ export class LocalSendService extends Signals.EventEmitter {
      * Newer LocalSend versions ask the sender for a TLS certificate, so Osmin has its own
      * (made once with the openssl tool, kept in ~/.local/share/osmin, and used for nothing else).
      */
-    async _loadCertificate() {
+    async loadCertificate() {
         if (this._certificate !== undefined)
             return this._certificate;
         const certPath = `${CERT_DIR}/localsend-cert.pem`;
@@ -99,7 +99,8 @@ export class LocalSendService extends Signals.EventEmitter {
             this.emit('basket-changed');
     }
 
-    get _me() {
+    /** Who this device is, as other devices see it. */
+    get identity() {
         return {
             alias: GLib.get_host_name(),
             version: PROTOCOL_VERSION,
@@ -107,9 +108,25 @@ export class LocalSendService extends Signals.EventEmitter {
             deviceType: 'desktop',
             fingerprint: this._fingerprint,
             port: PORT,
-            protocol: 'http',
-            download: false,
         };
+    }
+
+    get _me() {
+        return {...this.identity, protocol: 'http', download: false};
+    }
+
+    /** Introduces this device to another one (POST /register); the answer is not needed. */
+    async register(device, info) {
+        try {
+            const session = new Soup.Session({timeout: PROBE_TIMEOUT_S});
+            const message = Soup.Message.new('POST', `${device.protocol}://${device.ip}:${device.port}${API}/register`);
+            this._presentCertificate(message);
+            message.set_request_body_from_bytes('application/json', new GLib.Bytes(new TextEncoder().encode(JSON.stringify(info))));
+            await session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null);
+            session.abort();
+        } catch (e) {
+            // the device went away
+        }
     }
 
     /**
@@ -121,7 +138,7 @@ export class LocalSendService extends Signals.EventEmitter {
         this.cancelScan();
         const cancellable = new Gio.Cancellable();
         this._scanning = cancellable;
-        await this._loadCertificate();
+        await this.loadCertificate();
         if (cancellable.is_cancelled())
             return;
         const session = new Soup.Session({timeout: PROBE_TIMEOUT_S, idle_timeout: PROBE_TIMEOUT_S, max_conns: 128, max_conns_per_host: 2});
@@ -236,7 +253,7 @@ export class LocalSendService extends Signals.EventEmitter {
             throw new Error('Nothing to send (folders are not supported yet)');
         const total = entries.reduce((sum, e) => sum + e.size, 0);
 
-        await this._loadCertificate();
+        await this.loadCertificate();
         const session = new Soup.Session({timeout: 0, idle_timeout: 0});
         const base = `${device.protocol}://${device.ip}:${device.port}${API}`;
         const request = async (path, jsonBody, contentType = 'application/json', stream = null, size = 0, onWrote = null) => {

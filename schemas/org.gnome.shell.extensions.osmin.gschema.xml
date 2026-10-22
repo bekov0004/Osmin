@@ -48,6 +48,12 @@
       <description>Show a running timer, music or an upcoming meeting instead of the time while collapsed.</description>
     </key>
 
+    <key name="localsend-receive" type="b">
+      <default>false</default>
+      <summary>Receive files with LocalSend</summary>
+      <description>Makes this computer visible to LocalSend devices on the network (it listens on port 53317). Every transfer has to be accepted in a card; files are saved in the Downloads folder. Off by default.</description>
+    </key>
+
     <key name="free-super-v" type="b">
       <default>false</default>
       <summary>Free Super+V from GNOME</summary>

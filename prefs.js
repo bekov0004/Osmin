@@ -409,6 +409,8 @@ export default class OsminPreferences extends ExtensionPreferences {
                 key === 'shortcut-alerts' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
         }
 
+        this._toggleRow(form, settings, 'localsend-receive', _('LocalSend'), _('Receive files'),
+            _('Makes this computer visible to LocalSend devices on your network (port 53317). Every transfer must be accepted in a card first; files are saved in Downloads. Close the LocalSend app first: only one can listen.'));
         this._toggleRow(form, settings, 'free-super-v', '', _('Free Super+V from GNOME'),
             _('GNOME opens its notification list on Super+V, so you cannot record it. This takes that binding away while Osmin is enabled and gives it back when Osmin is disabled. Turn it on first, then record Super+V.'));
 

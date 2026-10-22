@@ -8,6 +8,7 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {CameraState} from './services/cameraService.js';
 import {LocalSendActivity} from './localsend/localSendActivity.js';
+import {LocalSendReceiveActivity} from './localsend/localSendReceiveActivity.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
@@ -90,6 +91,7 @@ export class Osmin {
         this._pinned = false;
         this._dragUris = null;
         this._localSend = null;
+        this._incoming = null;
         this._dragArmed = null;
         this._compactActivity = null;
         this._hoverCard = false;     // the card on screen was brought by hovering the collapsed capsule
@@ -204,6 +206,8 @@ export class Osmin {
         this._services?.activities.detach(this._activityHost);
         this._localSend?.destroy();
         this._localSend = null;
+        this._incoming?.destroy();
+        this._incoming = null;
         this._cards?.destroy();
         this._clock?.destroy();
         this._widgets?.forEach(widget => widget.destroy());
@@ -699,6 +703,21 @@ export class Osmin {
             this._cards.clear();
             this._timers.set('localsend', 200, show);
         }
+    }
+
+    /** Someone wants to send files: a card asks, then shows the transfer. */
+    showIncoming(transfer) {
+        this._incoming?.destroy();
+        const activity = new LocalSendReceiveActivity({
+            transfer,
+            onDismiss: () => this._cards.hide(`activity:${activity.id}`),
+            showInFolder: uri => this._services.files.showInFolder(uri),
+            notify: (title, description, icon) => this._events.emit({
+                type: EventType.CUSTOM, icon, title, description, duration: 4000,
+            }),
+        });
+        this._incoming = activity;
+        this._services.activities.peek(activity, {persistent: true, priority: Priority.CRITICAL, force: true, target: this});
     }
 
     // --- clipboard -------------------------------------------------------------

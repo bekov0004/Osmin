@@ -7,6 +7,7 @@ import {Osmin} from './osmin.js';
 import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
+import {LocalSendServer} from './services/localSendServer.js';
 import {LocalSendService} from './services/localSendService.js';
 import {CameraService} from './services/cameraService.js';
 import {ClipboardService} from './services/clipboardService.js';
@@ -18,6 +19,7 @@ import {NotificationsService} from './services/notificationsService.js';
 import {PanelService} from './services/panelService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
+import {EventType} from './utils/events.js';
 import {targetMonitors} from './utils/monitors.js';
 import {SignalTracker} from './utils/signals.js';
 
@@ -89,6 +91,7 @@ export class OsminHost {
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
         this._syncSuperV();
+        this._syncReceiving();
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._syncCapsules({rebuild: true}));
 
         const services = this._services;
@@ -106,6 +109,8 @@ export class OsminHost {
         this._settings?.disconnectObject(this);
         this._removeShortcuts();
         this._restoreMessageTrayBinding();
+        this._server?.destroy();
+        this._server = null;
         this._signals.disconnectAll();
         for (const osmin of [...this._capsules.values()].reverse())
             osmin.destroy();
@@ -172,6 +177,27 @@ export class OsminHost {
         shell.set_strv('toggle-message-tray', original.filter(binding => binding.toLowerCase() !== '<super>v'));
     }
 
+    /** Starts or stops receiving files with LocalSend, as the setting says. */
+    async _syncReceiving() {
+        if (!this._settings.get('localsend-receive')) {
+            this._server?.stop();
+            return;
+        }
+        if (!this._server) {
+            this._server = new LocalSendServer(this._services.localSend);
+            this._server.connectObject('incoming', (_s, transfer) =>
+                this._capsuleAtPointer()?.showIncoming(transfer), this);
+        }
+        const problem = await this._server.start();
+        if (problem) {
+            console.warn(`[osmin] LocalSend: not receiving: ${problem}`);
+            this._events.emit({
+                type: EventType.CUSTOM, icon: 'dialog-warning-symbolic',
+                title: 'LocalSend is not receiving', description: problem, duration: 6000,
+            });
+        }
+    }
+
     _restoreMessageTrayBinding() {
         const gsettings = this._settings?.gsettings;
         const saved = gsettings?.get_strv('saved-message-tray-binding') ?? [];
@@ -201,6 +227,8 @@ export class OsminHost {
             this._syncCapsules();
         else if (key === 'free-super-v')
             this._syncSuperV();
+        else if (key === 'localsend-receive')
+            this._syncReceiving();
         else if (key === 'panel-color' || key === 'panel-opacity')
             this._applyBarLook();
     }

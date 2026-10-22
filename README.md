@@ -47,7 +47,11 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   LocalSend app is not needed): a card lists the devices running LocalSend on your network, you pick one,
   and it shows the transfer; the other device asks its user to accept. Files are collected first: drop
   more on the target (the card stays) or use the send button on a file / "Send all" in the tray, remove
-  the ones you do not want, then pick the device. Sending only; folders are skipped. **Drag a file out of the tray**
+  the ones you do not want, then pick the device. Folders are skipped.
+  **Receiving** is off by default: Settings → General → LocalSend → *Receive files* makes the computer
+  visible to LocalSend devices (it listens on port 53317 with its own certificate, so close the LocalSend
+  app first). Every transfer asks in a card (Accept / Decline, 60 s then it is declined); accepted files are
+  streamed to the Downloads folder under a free name (`name (1).ext`), never over an existing file. **Drag a file out of the tray**
   into any other app or folder.
 - **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
 - **Copied files** – a file copied in the file manager appears in Clipboard as its name with the file icon (not as a path); clicking it pastes the file itself (a file manager gets its own file type, browsers and chats a uri list, terminals and editors the path).
@@ -181,7 +185,7 @@ src/
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
 - Quick Apps are not implemented. There is
-  no AirDrop; the second drop target sends files to LocalSend devices instead (sending only, no receiving).
+  no AirDrop; the second drop target sends files to LocalSend devices instead (and receives them when you turn it on).
 - A shell extension cannot start a drag into another application itself. Dragging a file out of the
   tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
   pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.
