@@ -1233,3 +1233,33 @@
     border-radius: 7px;
     background-color: white;
 }
+
+/* Enlarged calendar */
+.osmin-cal-big {
+    padding: 14px 16px 12px 16px;
+    spacing: 2px;
+}
+
+.osmin-cal-big-weekday {
+    margin-top: 4px;
+    font-size: 10px;
+}
+
+.osmin-cal-big-day {
+    padding: 2px 0;
+    border-radius: 9px;
+}
+
+.osmin-cal-big-other .osmin-cal-number {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.osmin-cal-big-sep {
+    height: 1px;
+    margin: 4px 0;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.osmin-cal-big-scroll {
+    min-height: 54px;
+}

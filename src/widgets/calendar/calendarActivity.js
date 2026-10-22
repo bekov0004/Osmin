@@ -1,8 +1,18 @@
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
+import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {LiveActivity, createCompactParts} from '../../ui/liveActivity.js';
+
+/** The start time of an event as text ("All day" for all-day events). */
+export function eventTimeText(event) {
+    if (event.allDay)
+        return 'All day';
+    return formatTime(GLib.DateTime.new_from_unix_local(Math.floor(event.start.getTime() / 1000)),
+        {timeOnly: true});
+}
 
 /** A meeting about to start: ongoing from 10 minutes before until shortly after it starts. */
 export class CalendarActivity extends LiveActivity {

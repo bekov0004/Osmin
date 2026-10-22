@@ -2,12 +2,14 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
-import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 
 import {endOfDay, startOfDay} from '../../services/calendarService.js';
 import {Priority} from '../../utils/events.js';
 import {OsminWidget} from '../widget.js';
-import {CalendarActivity} from './calendarActivity.js';
+import {CalendarActivity, eventTimeText} from './calendarActivity.js';
+import {CalendarBigActivity} from './calendarBigActivity.js';
+import {PullGesture} from '../../ui/pullGesture.js';
+import {createButton} from '../../ui/button.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 const DAYS_SHOWN = 7;
@@ -37,6 +39,16 @@ export class CalendarWidget extends OsminWidget {
         this._now = new Date();
         this._selected = startOfDay(this._now); // the day whose events are shown
         this._center = this._selected;          // the middle of the strip
+        this._ui = context.ui;
+        this._big = new CalendarBigActivity({
+            calendar: this._calendar,
+            getDay: () => this._selected,
+            onDismiss: () => this._ui.hideCard(this._big),
+        });
+    }
+
+    _enlargeNow() {
+        this._ui.showCard(this._big, {persistent: true, priority: Priority.HIGH});
     }
 
     /** Publishes the Live Activity for the next meeting (from 10 minutes before it starts). */
@@ -90,6 +102,8 @@ export class CalendarWidget extends OsminWidget {
             x_expand: true,
             y_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,
+            track_hover: true,
         });
 
         const header = new St.BoxLayout({style_class: 'osmin-cal-header'});
@@ -110,6 +124,23 @@ export class CalendarWidget extends OsminWidget {
             button.connect('clicked', () => this.shift(delta));
             header.add_child(button);
         }
+        // The enlarge button shows on hover; a two-finger swipe down does the same.
+        const enlarge = createButton({
+            iconName: 'view-fullscreen-symbolic',
+            styleClass: 'osmin-mirror-control',
+            onClick: () => this._enlargeNow(),
+        });
+        enlarge.y_align = Clutter.ActorAlign.CENTER;
+        enlarge.opacity = 0;
+        header.add_child(enlarge);
+        root.connect('notify::hover', () =>
+            enlarge.ease({opacity: root.hover ? 255 : 0, duration: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD}));
+        this._pull = new PullGesture(direction => {
+            if (direction === 'down')
+                this._enlargeNow();
+        });
+        root.connect('scroll-event', (_actor, event) =>
+            this._pull.handle(event) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE);
         root.add_child(header);
 
         this._strip = new St.BoxLayout({style_class: 'osmin-cal-strip', x_expand: true});
@@ -134,6 +165,8 @@ export class CalendarWidget extends OsminWidget {
             this._activities.end('calendar');
         }
         this._activity?.destroy();
+        this._big.destroy();
+        this._pull?.destroy();
         super.destroy();
     }
 
@@ -254,7 +287,7 @@ export class CalendarWidget extends OsminWidget {
         for (const event of events.slice(0, 2)) {
             const row = new St.BoxLayout({style_class: 'osmin-cal-event'});
             row.add_child(new St.Label({
-                text: this._timeText(event),
+                text: eventTimeText(event),
                 style_class: 'osmin-cal-event-time',
                 y_align: Clutter.ActorAlign.CENTER,
             }));
@@ -268,12 +301,5 @@ export class CalendarWidget extends OsminWidget {
             row.add_child(title);
             this._agenda.add_child(row);
         }
-    }
-
-    _timeText(event) {
-        if (event.allDay)
-            return 'All day';
-        return formatTime(GLib.DateTime.new_from_unix_local(Math.floor(event.start.getTime() / 1000)),
-            {timeOnly: true});
     }
 }
