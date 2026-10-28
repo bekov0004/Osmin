@@ -64,6 +64,12 @@ export function formatRate(bytesPerSecond) {
 }
 
 export function formatBytes(bytes) {
+    if (bytes < 1024)
+        return `${Math.max(0, Math.round(bytes))} B`;
+    if (bytes < 1024 ** 2)
+        return `${Math.round(bytes / 1024)} KB`;
+    if (bytes < 1024 ** 3)
+        return `${(bytes / 1024 ** 2).toFixed(bytes < 100 * 1024 ** 2 ? 1 : 0)} MB`;
     const gb = bytes / 1024 ** 3;
     return gb >= 100 ? `${Math.round(gb)} GB` : `${gb.toFixed(1)} GB`;
 }

@@ -141,6 +141,7 @@ const WIDGET_ICONS = {
     focus: 'preferences-system-time-symbolic',
     system: 'utilities-system-monitor-symbolic',
     sound: 'audio-speakers-symbolic',
+    downloads: 'folder-download-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
@@ -1026,6 +1027,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             ['activity-timer', _('Timer'), _('Countdown'), 'alarm-symbolic'],
             ['activity-calendar', _('Calendar'), _('Next meeting'), 'x-office-calendar-symbolic'],
             ['activity-files', _('Tray'), _('Added files'), 'folder-download-symbolic'],
+            ['activity-downloads', _('Downloads'), _('Files arriving'), 'folder-download-symbolic'],
         ];
         const rebuild = () => {
             let child;
@@ -1086,7 +1088,7 @@ export default class OsminPreferences extends ExtensionPreferences {
 
         this._resetRow(form, settings, ['activities-in-collapsed', 'album-corner-radius', 'media-effect',
             'colored-effects', 'activity-media',
-            'activity-timer', 'activity-calendar', 'activity-files',
+            'activity-timer', 'activity-calendar', 'activity-files', 'activity-downloads',
             'peek-media-seconds', 'peek-files-seconds', 'peek-calendar-seconds']);
         return body;
     }

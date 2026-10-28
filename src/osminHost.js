@@ -8,6 +8,7 @@ import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
 import {OsminBackend} from './client/moduleClient.js';
+import {DownloadsService} from './services/downloadsService.js';
 import {FocusService} from './services/focusService.js';
 import {LocalSendServer} from './services/localSendServer.js';
 import {LocalSendService} from './services/localSendService.js';
@@ -85,6 +86,7 @@ export class OsminHost {
             timer: new TimerService(this._backend.timer),
             focus: new FocusService(this._backend.focus),
             system: new SystemService(this._backend.system),
+            downloads: new DownloadsService(this._backend.downloads),
             todo: new TodoService(this._backend.todo),
             notes: new NotesService(this._backend.notes),
             notifications: new NotificationsService(),
@@ -136,6 +138,7 @@ export class OsminHost {
             services.timer.destroy();
             services.focus.destroy();
             services.system.destroy();
+            services.downloads.destroy();
             services.todo.destroy();
             services.notes.destroy();
             services.camera.destroy();

@@ -1700,3 +1700,33 @@
     color: rgba(255, 255, 255, 0.45);
     font-size: 11px;
 }
+
+/* Downloads */
+.osmin-download {
+    spacing: 2px;
+}
+
+.osmin-download-main {
+    border-radius: 8px;
+    padding: 3px 6px;
+}
+
+.osmin-download-main:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-download-icon {
+    icon-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-right: 6px;
+}
+
+.osmin-download-name {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 11px;
+}
+
+.osmin-download-size {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 10px;
+}
