@@ -4,6 +4,7 @@ import {MediaWidget} from './media/mediaWidget.js';
 import {NotesWidget} from './notes/notesWidget.js';
 import {MirrorWidget} from './mirror/mirrorWidget.js';
 import {ShortcutsWidget} from './shortcuts/shortcutsWidget.js';
+import {CompanionWidget} from './companion/companionWidget.js';
 import {AgentsWidget} from './agents/agentsWidget.js';
 import {WindowsWidget} from './windows/windowsWidget.js';
 import {InputWidget} from './input/inputWidget.js';
@@ -31,4 +32,5 @@ export const WIDGET_CLASSES = [
     InputWidget,
     WindowsWidget,
     AgentsWidget,
+    CompanionWidget,
 ];

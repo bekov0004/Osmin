@@ -8,6 +8,15 @@ import St from 'gi://St';
 import {calculate, convert, formatNumber, matchScore} from './engine.js';
 
 const MAX_APPS = 5;
+
+/** {date}, {time} and {datetime} in a snippet's text. */
+function expandSnippet(text) {
+    const now = new Date();
+    const two = n => String(n).padStart(2, '0');
+    const date = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+    const time = `${two(now.getHours())}:${two(now.getMinutes())}`;
+    return text.replaceAll('{datetime}', `${date} ${time}`).replaceAll('{date}', date).replaceAll('{time}', time);
+}
 const MAX_CLIPS = 3;
 
 /**
@@ -24,7 +33,7 @@ export class CommandView extends St.BoxLayout {
      * @param {{clipboard: ClipboardService, ui: {beginTextInput, endTextInput}, onDone: () => void,
      *          onPaste: (item) => void}} params
      */
-    constructor({clipboard, ui, onDone, onPaste, processes = null, service = null}) {
+    constructor({clipboard, ui, onDone, onPaste, onPasteText = null, processes = null, service = null, snippets = null}) {
         super({vertical: true, style_class: 'osmin-tray osmin-clipboard', x_expand: true, y_expand: true});
         this._clipboardService = clipboard;
         this._ui = ui;
@@ -32,6 +41,8 @@ export class CommandView extends St.BoxLayout {
         this._onPaste = onPaste;
         this._processes = processes;
         this._service = service;
+        this._snippetsModule = snippets;
+        this._onPasteText = onPasteText;
         this._searchId = 0;
         this._typing = false;
         this._results = [];
@@ -129,6 +140,13 @@ export class CommandView extends St.BoxLayout {
             return;
         }
         this._searchId++;
+        const snippetRows = this._snippetRows(query);
+        if (snippetRows) {
+            this._results = snippetRows;
+            this._selected = 0;
+            this._render();
+            return;
+        }
         if (query) {
             const sum = calculate(query);
             if (sum !== null) {
@@ -157,6 +175,41 @@ export class CommandView extends St.BoxLayout {
         this._results = results;
         this._selected = 0;
         this._render();
+    }
+
+    /**
+     * ";trigger" lists the snippets that start with it (Enter pastes the text where you were);
+     * "snip add ;trigger = text" adds one, "snip rm ;trigger" removes one, "snippets" lists them all.
+     * Variables in a text: {date} {time} {datetime}.
+     * @returns {object[]|null} rows, or null when the query is not about snippets
+     */
+    _snippetRows(query) {
+        if (!this._snippetsModule)
+            return null;
+        const add = query.match(/^snip(?:pet)?\s+add\s+(\S+)\s*=\s*([\s\S]+)$/i);
+        if (add) {
+            return [{icon: 'list-add-symbolic', title: `Add snippet ${add[1]}`, subtitle: add[2].slice(0, 60),
+                run: () => this._snippetsModule.call('add', {trigger: add[1], text: add[2]}).catch(e => console.warn(`[osmin] ${e.message}`))}];
+        }
+        const remove = query.match(/^snip(?:pet)?\s+(?:rm|remove|delete)\s+(\S+)$/i);
+        if (remove) {
+            return [{icon: 'user-trash-symbolic', title: `Remove snippet ${remove[1]}`, subtitle: 'Press Enter',
+                run: () => this._snippetsModule.call('remove', {trigger: remove[1]}).catch(e => console.warn(`[osmin] ${e.message}`))}];
+        }
+        const all = /^snip(?:pet)?s?$/i.test(query);
+        if (!all && !query.startsWith(';'))
+            return null;
+        const list = this._snippetsModule.state.snippets ?? [];
+        const rows = list.filter(s => all || s.trigger.toLowerCase().startsWith(query.toLowerCase())).slice(0, 8).map(s => ({
+            icon: 'insert-text-symbolic',
+            title: s.trigger,
+            subtitle: s.text.replace(/\s+/g, ' ').slice(0, 70),
+            run: () => this._onPasteText?.(expandSnippet(s.text)),
+        }));
+        if (rows.length === 0) {
+            rows.push({icon: 'dialog-information-symbolic', title: 'No snippet like that', subtitle: 'Add one: snip add ;mail = me@example.com', run: () => {}});
+        }
+        return rows;
     }
 
     /** "kill <name>" lists your processes of that name, "ports" the ports they listen on; Enter twice stops one. */

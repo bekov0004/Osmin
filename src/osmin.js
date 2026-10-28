@@ -179,6 +179,8 @@ export class Osmin {
             onPaste: item => this._pasteClipboardItem(item),
             processes: this._services.backend?.processes ?? null,
             service: this._services.backend?.service ?? null,
+            snippets: this._services.backend?.snippets ?? null,
+            onPasteText: text => this._pasteText(text),
         });
         this._localSend = new LocalSendSession({
             service: this._services.localSend,
@@ -760,6 +762,15 @@ export class Osmin {
     }
 
     // --- clipboard -------------------------------------------------------------
+
+    /** A text (a snippet) goes to the clipboard and into the app you were in. */
+    _pasteText(text) {
+        St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, text);
+        this._endTextInput();
+        this._timers.clear('dwell');
+        this._setState(State.CLOSED);
+        this._services.clipboard.sendPaste();
+    }
 
     /** A card was clicked: put it on the clipboard and, by default, paste it where you were. */
     _pasteClipboardItem(item) {

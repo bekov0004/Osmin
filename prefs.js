@@ -159,6 +159,7 @@ const WIDGET_ICONS = {
     input: 'input-mouse-symbolic',
     windows: 'focus-windows-symbolic',
     agents: 'system-run-symbolic',
+    companion: 'face-smile-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',

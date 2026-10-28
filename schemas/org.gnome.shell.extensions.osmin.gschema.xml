@@ -109,7 +109,7 @@
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'agents': 4}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'agents': 4, 'companion': 2}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>
