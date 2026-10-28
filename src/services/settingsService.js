@@ -18,6 +18,7 @@ export const DEFAULTS = Object.freeze({
     'shortcut-tray': [],
     'shortcut-clipboard': [],
     'shortcut-alerts': [],
+    'shortcut-command': [],
     'enabled-widgets': [...DEFAULT_WIDGETS],
     'widget-cells': Object.fromEntries(WIDGET_INFO.map(w => [w.id, w.cells])),
     'width-mode': 'auto',

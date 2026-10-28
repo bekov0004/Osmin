@@ -405,13 +405,13 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._rule(form);
         for (const [key, title] of [
             ['shortcut-osmin', _('Osmin')], ['shortcut-tray', _('Tray')],
-            ['shortcut-clipboard', _('Clipboard')], ['shortcut-alerts', _('Alerts')],
+            ['shortcut-clipboard', _('Clipboard')], ['shortcut-alerts', _('Alerts')], ['shortcut-command', _('Search')],
         ]) {
             const line = new Gtk.Box({spacing: 10});
             line.append(new Gtk.Label({label: title, xalign: 0, width_chars: 10}));
             line.append(this._shortcutButton(settings, key));
             this._row(form, key === 'shortcut-osmin' ? _('Shortcuts') : '', line,
-                key === 'shortcut-alerts' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
+                key === 'shortcut-command' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
         }
 
         this._toggleRow(form, settings, 'localsend-receive', _('LocalSend'), _('Receive files'),

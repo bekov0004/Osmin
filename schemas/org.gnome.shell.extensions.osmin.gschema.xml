@@ -84,6 +84,12 @@
       <description>Opens the panel on the Clipboard section (or closes it if that section is already shown). Empty means no shortcut.</description>
     </key>
 
+    <key name="shortcut-command" type="as">
+      <default>[]</default>
+      <summary>Shortcut: open the command bar</summary>
+      <description>Opens the panel on the Search tab (apps, calculator, unit converter, clipboard). Empty means no shortcut.</description>
+    </key>
+
     <key name="shortcut-alerts" type="as">
       <default>[]</default>
       <summary>Shortcut: open the Alerts section</summary>

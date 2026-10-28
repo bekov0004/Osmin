@@ -35,6 +35,7 @@ const SHORTCUTS = [
     ['shortcut-tray', 'tray'],
     ['shortcut-clipboard', 'clipboard'],
     ['shortcut-alerts', 'notifications'],
+    ['shortcut-command', 'command'],
 ];
 
 /**

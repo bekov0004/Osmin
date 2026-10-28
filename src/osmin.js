@@ -15,6 +15,7 @@ import {ClockService} from './services/clockService.js';
 import {DragService} from './services/dragService.js';
 import {NotificationsView} from './notifications/notificationsView.js';
 import {ClipboardView} from './clipboard/clipboardView.js';
+import {CommandView} from './commandbar/commandView.js';
 import {DragOutService} from './tray/dragOut.js';
 import {TrayController} from './tray/trayController.js';
 import {ClosedView} from './ui/closedView.js';
@@ -168,6 +169,15 @@ export class Osmin {
             },
         });
         this._notificationsView = new NotificationsView({service: this._services.notifications});
+        this._commandView = new CommandView({
+            clipboard: this._services.clipboard,
+            ui: {
+                beginTextInput: onEnd => this._beginTextInput(onEnd),
+                endTextInput: () => this._endTextInput(),
+            },
+            onDone: () => this._settle(),
+            onPaste: item => this._pasteClipboardItem(item),
+        });
         this._localSend = new LocalSendSession({
             service: this._services.localSend,
             isVisible: () => this._state === State.OPEN && this._panelView?.mode === PanelMode.LOCALSEND,
@@ -253,6 +263,8 @@ export class Osmin {
         this._clipboardView = null;
         this._notificationsView?.destroy();
         this._notificationsView = null;
+        this._commandView?.destroy();
+        this._commandView = null;
         this._dragOut?.destroy();
         this._dragOut = null;
         this._drag?.destroy();
@@ -299,7 +311,7 @@ export class Osmin {
     }
 
     /**
-     * Opens the panel on a section ('osmin', 'tray', 'localsend', 'clipboard' or 'notifications'); when that
+     * Opens the panel on a section ('osmin', 'tray', 'localsend', 'clipboard', 'notifications' or 'command'); when that
      * section is already shown, closes it (a shortcut pressed twice).
      */
     openSection(section) {
@@ -443,6 +455,7 @@ export class Osmin {
             localsend: this._localSendView,
             clipboard: this._clipboardView,
             notifications: this._notificationsView,
+            command: this._commandView,
             // A list pulled taller is only for its own tab: the others go back to the normal height.
             onModeChanged: () => {
                 this._expanded = false;
