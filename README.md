@@ -47,13 +47,26 @@ what is going on) and an **expanded** container that hangs from the top edge of 
     plain writes), with size and speed in the capsule and a card when it is done.
   - **Input** – switches for mouse / touchpad natural scrolling, mouse acceleration, tap to click,
     focus follows mouse and key repeat (GNOME's own settings, one press each way).
+  - **Windows** – live previews of every open window (click to bring it forward, ✕ closes it) and
+    buttons that snap the window you were working in to the left / right / top / bottom half, maximize,
+    centre, send it to the next monitor, or put it back where it was.
+  - **AI Agents** – Claude Code and Codex: working now (and in which project), the tokens of the last
+    5 hours and the last week, and a card when a task of more than a minute finishes. Read from the
+    agents' own session logs on this computer (only times and token counts; prompts are not looked at).
+  - **Companion** – a small friend: its eyes follow the pointer, it sways to the music, is surprised by
+    cards and falls asleep when nothing happens.
   - **Music lyrics** (optional, off by default) – the line being sung replaces the album line under the title;
     the song is looked up on lrclib.net (artist, title, album and length are sent there).
 - **Search tab (command bar)** – one field: launch an application, calculate (`12*(3+4)`, `2^10`,
   `sqrt(16)`), convert units (`5 km to mi`, `100 f in c`), find something you copied, search the web
   (DuckDuckGo), `kill <name>` lists your processes and `ports` the ports they listen on (stopping asks
-  twice; only your own processes), `scratchpad` opens the Scratchpad window of the Osmin app (notes of
+  twice; only your own processes), `clean` shows the biggest folders of `~/.cache` and empties one
+  (asks twice; the programs make their cache again), `;trigger` pastes a text snippet (`snip add ;mail = me@example.com`,
+  `snip rm ;mail`, `snippets`; `{date}`, `{time}` work inside), `scratchpad` opens the Scratchpad window of the Osmin app (notes of
   any length, saved as you type, export to Markdown). A shortcut can open it (settings → General).
+- **Settings** (⚙ or `gnome-extensions prefs`) – a sidebar with a search field; the first page, *All
+  features*, lists every feature of Osmin by category with a switch and a line of description (widgets are
+  added to / removed from the capsule, the rest are settings); the other pages hold the details.
 - **Small extras** – copied links can lose their tracking parameters (utm_*, fbclid ...; settings →
   Clipboard); a card shows the keyboard layout when you switch it; the panel is never narrower than its tabs.
 - **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
@@ -245,11 +258,11 @@ service/                   the Osmin service and app: main.js, module.js, window
 
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
-- Not done on purpose or because Linux / GNOME cannot do it without root or a different system: AI
-  agent monitoring, a window manager (app switcher, dock previews, snapping), text expanders, key
-  debouncing, scroll smoothing, fan control, OCR / QR from the screen (needs extra programs), the
-  macOS-only tools (Homebrew, DMG installer, Spaces order), "Watch" any part of a window, and a
-  desktop companion. There is no AirDrop; the second drop target sends files to LocalSend devices instead (and receives them when you turn it on).
+- Not done: OCR / QR from the screen (needs extra programs), "Watch" any part of a window, an equalizer
+  that follows the real sound, a global text expander (Wayland does not let a shell extension see what you
+  type in other apps; snippets are in the Search tab instead), key debouncing and scroll smoothing, fan
+  control and external-monitor brightness (need root or hardware interfaces), the macOS-only tools
+  (Homebrew, DMG installer, Spaces order). There is no AirDrop; the second drop target sends files to LocalSend devices instead (and receives them when you turn it on).
 - A shell extension cannot start a drag into another application itself. Dragging a file out of the
   tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
   pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.

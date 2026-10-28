@@ -180,6 +180,7 @@ export class Osmin {
             processes: this._services.backend?.processes ?? null,
             service: this._services.backend?.service ?? null,
             snippets: this._services.backend?.snippets ?? null,
+            cleaner: this._services.backend?.cleaner ?? null,
             onPasteText: text => this._pasteText(text),
         });
         this._localSend = new LocalSendSession({

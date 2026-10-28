@@ -186,6 +186,7 @@ export class OsminBackend {
         this.processes = new ModuleClient('Processes');
         this.agents = new ModuleClient('Agents');
         this.snippets = new ModuleClient('Snippets');
+        this.cleaner = new ModuleClient('Cleaner');
     }
 
     start() {
@@ -207,6 +208,7 @@ export class OsminBackend {
         this.processes.start();
         this.agents.start();
         this.snippets.start();
+        this.cleaner.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -237,6 +239,7 @@ export class OsminBackend {
         this.processes.destroy();
         this.agents.destroy();
         this.snippets.destroy();
+        this.cleaner.destroy();
         this.service.destroy();
     }
 }

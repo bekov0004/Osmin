@@ -33,7 +33,7 @@ export class CommandView extends St.BoxLayout {
      * @param {{clipboard: ClipboardService, ui: {beginTextInput, endTextInput}, onDone: () => void,
      *          onPaste: (item) => void}} params
      */
-    constructor({clipboard, ui, onDone, onPaste, onPasteText = null, processes = null, service = null, snippets = null}) {
+    constructor({clipboard, ui, onDone, onPaste, onPasteText = null, processes = null, service = null, snippets = null, cleaner = null}) {
         super({vertical: true, style_class: 'osmin-tray osmin-clipboard', x_expand: true, y_expand: true});
         this._clipboardService = clipboard;
         this._ui = ui;
@@ -42,6 +42,7 @@ export class CommandView extends St.BoxLayout {
         this._processes = processes;
         this._service = service;
         this._snippetsModule = snippets;
+        this._cleaner = cleaner;
         this._onPasteText = onPasteText;
         this._searchId = 0;
         this._typing = false;
@@ -135,6 +136,10 @@ export class CommandView extends St.BoxLayout {
         const query = this._entry.text.trim();
         const results = [];
         const stop = query.match(/^(?:kill|stop|quit)\s+(.+)$/i);
+        if (this._cleaner && /^(clean|cleaner|cache)$/i.test(query)) {
+            this._searchCache();
+            return;
+        }
         if (stop || /^ports?$/i.test(query)) {
             this._searchProcesses(stop ? stop[1] : null);
             return;
@@ -224,6 +229,31 @@ export class CommandView extends St.BoxLayout {
                 const {processes} = await this._processes.call('list', {query: name});
                 results = processes.map(entry => this._stopRow(entry.pid, entry.name, `process ${entry.pid} · ${Math.round(entry.memory / 1048576)} MB`));
             }
+        } catch (e) {
+            results = [{icon: 'dialog-warning-symbolic', title: e.message, subtitle: '', run: () => {}}];
+        }
+        if (id !== this._searchId)
+            return;
+        this._results = results;
+        this._selected = 0;
+        this._render();
+    }
+
+    /** "clean": the biggest folders of ~/.cache; Enter, then Enter again, empties one (the program makes it again). */
+    async _searchCache() {
+        const id = ++this._searchId;
+        let results;
+        try {
+            const {folders} = await this._cleaner.call('scan');
+            results = folders.map(folder => ({
+                icon: 'user-trash-symbolic',
+                title: folder.name,
+                subtitle: `${Math.round(folder.size / 1048576)} MB · Enter, then Enter again to empty it`,
+                confirm: true,
+                run: () => this._cleaner.call('clean', {path: folder.path}).catch(e => console.warn(`[osmin] cleaner: ${e.message}`)),
+            }));
+            if (results.length === 0)
+                results = [{icon: 'emblem-ok-symbolic', title: 'The cache is already small', subtitle: '', run: () => {}}];
         } catch (e) {
             results = [{icon: 'dialog-warning-symbolic', title: e.message, subtitle: '', run: () => {}}];
         }
