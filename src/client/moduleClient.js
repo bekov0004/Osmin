@@ -4,6 +4,7 @@ import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
 export const BUS_NAME = 'io.github.bekov0004.Osmin';
 const RETRY_S = 5;
+const CONNECT_WAIT_S = 8;
 
 const MODULE_XML = `<node>
   <interface name="io.github.bekov0004.Osmin.Module">
@@ -124,8 +125,8 @@ export class ModuleClient extends Signals.EventEmitter {
      * @returns {Promise<object>} the result; rejects with an Error whose message says what went wrong
      */
     async call(method, args = {}) {
-        if (!this._proxy)
-            throw new Error('The Osmin service is not running');
+        if (!this._connected)
+            await this._whenConnected();
         try {
             const [result] = await this._proxy.CallAsync(method, JSON.stringify(args));
             return JSON.parse(result);
@@ -133,6 +134,23 @@ export class ModuleClient extends Signals.EventEmitter {
             // A remote error reads "GDBus.Error:io.github...Error: message".
             throw new Error(String(e.message).replace(/^GDBus\.Error:[^:]+:\s*/, ''));
         }
+    }
+
+    /** The service may still be starting: wait for it a little before giving up. */
+    _whenConnected() {
+        return new Promise((resolve, reject) => {
+            let timer = 0;
+            const id = this.connect('connected', () => {
+                this.disconnect(id);
+                GLib.source_remove(timer);
+                resolve();
+            });
+            timer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, CONNECT_WAIT_S, () => {
+                this.disconnect(id);
+                reject(new Error('The Osmin service is not running'));
+                return GLib.SOURCE_REMOVE;
+            });
+        });
     }
 
     destroy() {
@@ -150,11 +168,15 @@ export class OsminBackend {
     constructor() {
         this.service = new ModuleClient('Service');
         this.localSend = new ModuleClient('LocalSend');
+        this.todo = new ModuleClient('Todo');
+        this.notes = new ModuleClient('Notes');
     }
 
     start() {
         this.service.start();
         this.localSend.start();
+        this.todo.start();
+        this.notes.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -169,6 +191,8 @@ export class OsminBackend {
 
     destroy() {
         this.localSend.destroy();
+        this.todo.destroy();
+        this.notes.destroy();
         this.service.destroy();
     }
 }

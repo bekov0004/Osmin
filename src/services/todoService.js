@@ -1,89 +1,60 @@
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
-import {JsonStore} from '../utils/jsonStore.js';
-
 const MAX_ITEMS = 200;
 const MAX_LENGTH = 200;
 
 /**
- * A local to-do list saved in ~/.local/share/osmin/todo.json. No account,
- * no sync. Signal: 'changed'.
+ * The to-do list as the widget sees it: a mirror of the Osmin service's list (service/todo) with
+ * the same calls. Signal: 'changed'.
  */
 export class TodoService extends Signals.EventEmitter {
-    constructor() {
+    /** @param {ModuleClient} module */
+    constructor(module) {
         super();
-        this._store = new JsonStore('todo.json');
-        this._items = [];
-        this._nextId = 1;
+        this._module = module;
+        module.connect('state-changed', () => this.emit('changed'));
     }
 
     /** [{id, text, done}] in the order they were added */
     get items() {
-        return this._items;
+        return this._module.state.items ?? [];
     }
 
     get remaining() {
-        return this._items.filter(item => !item.done).length;
+        return this.items.filter(item => !item.done).length;
     }
 
     get hasDone() {
-        return this._items.some(item => item.done);
+        return this.items.some(item => item.done);
     }
 
-    load() {
-        const data = this._store.load();
-        if (Array.isArray(data?.items)) {
-            this._items = data.items
-                .filter(item => item && typeof item.text === 'string')
-                .map(item => ({id: Number(item.id) || 0, text: item.text, done: item.done === true}))
-                .slice(0, MAX_ITEMS);
-            this._nextId = 1 + Math.max(0, ...this._items.map(item => item.id));
-            // Make sure ids are unique even if the file was edited by hand.
-            const seen = new Set();
-            for (const item of this._items) {
-                if (item.id <= 0 || seen.has(item.id))
-                    item.id = this._nextId++;
-                seen.add(item.id);
-            }
-        }
-        this.emit('changed');
-    }
+    /** The list arrives from the service by itself. */
+    load() {}
 
-    /** @returns {boolean} whether a task was added */
+    /** @returns {boolean} whether a task is going to be added */
     add(text) {
         const trimmed = text.trim().slice(0, MAX_LENGTH);
-        if (!trimmed || this._items.length >= MAX_ITEMS)
+        if (!trimmed || this.items.length >= MAX_ITEMS)
             return false;
-        this._items.push({id: this._nextId++, text: trimmed, done: false});
-        this._changed();
+        this._call('add', {text: trimmed});
         return true;
     }
 
     toggle(id) {
-        const item = this._items.find(i => i.id === id);
-        if (!item)
-            return;
-        item.done = !item.done;
-        this._changed();
+        this._call('toggle', {id});
     }
 
     remove(id) {
-        const index = this._items.findIndex(i => i.id === id);
-        if (index < 0)
-            return;
-        this._items.splice(index, 1);
-        this._changed();
+        this._call('remove', {id});
     }
 
     clearDone() {
-        this._items = this._items.filter(item => !item.done);
-        this._changed();
+        this._call('clearDone');
     }
 
     destroy() {}
 
-    _changed() {
-        this._store.save({version: 1, items: this._items});
-        this.emit('changed');
+    _call(method, args = {}) {
+        this._module.call(method, args).catch(e => console.warn(`[osmin] to-do: ${e.message}`));
     }
 }
