@@ -80,7 +80,7 @@ export class OsminHost {
             files: new FileService({persist: () => this._settings.get('tray-keep-files')}),
             calendar: new CalendarService(),
             activities: new ActivityManager(this._events),
-            timer: new TimerService(),
+            timer: new TimerService(this._backend.timer),
             todo: new TodoService(this._backend.todo),
             notes: new NotesService(this._backend.notes),
             notifications: new NotificationsService(),

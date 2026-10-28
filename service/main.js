@@ -7,6 +7,7 @@ import System from 'system';
 import {Module} from './module.js';
 import {LocalSendModule} from './localsend/module.js';
 import {NotesModule} from './notes/module.js';
+import {TimerModule} from './timer/module.js';
 import {TodoModule} from './todo/module.js';
 
 export const APPLICATION_ID = 'io.github.bekov0004.Osmin';
@@ -46,7 +47,7 @@ class ServiceModule extends Module {
 const OsminService = GObject.registerClass(class OsminService extends Gio.Application {
     constructor() {
         super({application_id: APPLICATION_ID, flags: Gio.ApplicationFlags.IS_SERVICE});
-        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule()];
+        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule()];
         this._clients = new Map(); // unique bus name -> watch id
         this._idleId = 0;
     }

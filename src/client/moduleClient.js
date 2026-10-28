@@ -170,6 +170,7 @@ export class OsminBackend {
         this.localSend = new ModuleClient('LocalSend');
         this.todo = new ModuleClient('Todo');
         this.notes = new ModuleClient('Notes');
+        this.timer = new ModuleClient('Timer');
     }
 
     start() {
@@ -177,6 +178,7 @@ export class OsminBackend {
         this.localSend.start();
         this.todo.start();
         this.notes.start();
+        this.timer.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -193,6 +195,7 @@ export class OsminBackend {
         this.localSend.destroy();
         this.todo.destroy();
         this.notes.destroy();
+        this.timer.destroy();
         this.service.destroy();
     }
 }
