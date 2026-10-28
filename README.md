@@ -32,7 +32,30 @@ what is going on) and an **expanded** container that hangs from the top edge of 
     close the capsule; a green dot in the header shows it is on. Nothing is recorded.
   - **Shortcuts** – quick launchers for apps you pick in the settings (a *Detected / In use* editor),
     one or two columns of two rows. Off by default.
-  - **Timer**, **To-do** and **Notes** – optional widgets (off by default; enable them in the settings).
+  - **Quick Toggles** – keep awake (30 min / 1 h / 2 h / until turned off, done by the service),
+    dark mode, night light, lock the screen, empty the trash (asks twice), screenshot, screen
+    recording (GNOME's own tool), a colour picker (the pixel's HEX is copied, RGB / HSL shown),
+    a cleaning mode (black screen, keyboard and pointer locked; hold Esc 3 s, ends by itself after
+    a minute), eject USB drives, and a brightness slider for the built-in screen.
+  - **Focus** – a Pomodoro timer (focus, short break, a long break every 4th round; the phases follow
+    each other by themselves) and a stopwatch with laps; both run in the service and show in the capsule.
+  - **System** – processor, memory, temperature, network, disk and battery with little bars. The
+    service also raises alerts (a processor busy for 30 s, heat, memory or disk nearly full, a low
+    battery, also of keyboards and mice) as cards; they can be turned off in the settings.
+  - **Sound** – volume, output switch, microphone mute and the volume of each application.
+  - **Downloads** – what arrives in the Downloads folder (browser `.part` / `.crdownload` files and
+    plain writes), with size and speed in the capsule and a card when it is done.
+  - **Input** – switches for mouse / touchpad natural scrolling, mouse acceleration, tap to click,
+    focus follows mouse and key repeat (GNOME's own settings, one press each way).
+  - **Music lyrics** (optional, off by default) – the line being sung replaces the album line under the title;
+    the song is looked up on lrclib.net (artist, title, album and length are sent there).
+- **Search tab (command bar)** – one field: launch an application, calculate (`12*(3+4)`, `2^10`,
+  `sqrt(16)`), convert units (`5 km to mi`, `100 f in c`), find something you copied, search the web
+  (DuckDuckGo), `kill <name>` lists your processes and `ports` the ports they listen on (stopping asks
+  twice; only your own processes), `scratchpad` opens the Scratchpad window of the Osmin app (notes of
+  any length, saved as you type, export to Markdown). A shortcut can open it (settings → General).
+- **Small extras** – copied links can lose their tracking parameters (utm_*, fbclid ...; settings →
+  Clipboard); a card shows the keyboard layout when you switch it; the panel is never narrower than its tabs.
 - **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
 - **Monitors** – choose which monitors get a capsule (settings → General → Show on); the services and Live Activities are shared, each monitor has its own capsule and panel.
 - **Shortcuts** – a key for each section (Osmin, Tray, Clipboard, Alerts) opens the panel on it; pressing it again closes the panel. Set them in settings → General; none are set by default. GNOME itself uses Super+V (its notification list); the switch "Free Super+V from GNOME" takes that binding away while Osmin is enabled and restores it on disable, so Super+V can be recorded for Clipboard.
@@ -206,10 +229,14 @@ src/
     mediaService.js  artworkService.js        MPRIS, cover art cache
     calendarService.js                        org.gnome.Shell.CalendarServer
     fileService.js  dragService.js            file tray, drag detection
-    timerService.js  todoService.js  cameraService.js
+    timerService.js  todoService.js  cameraService.js  (mirrors of the service's modules, see above)
+    focusService.js  systemService.js  downloadsService.js  lyricsService.js
   ui/                      closedView, osminPanel (header, tabs, pages), osminLayout, ear, cards, liveActivity, button
   tray/                    trayView, trayController, fileItem, filesActivity
-  widgets/                 media/ calendar/ mirror/ timer/ todo/  + widget.js, registry.js
+  widgets/                 media/ calendar/ mirror/ timer/ todo/ notes/ tools/ focus/ system/ sound/ downloads/ input/  + widget.js, registry.js
+  commandbar/              the Search tab (engine.js: calculator and converter; commandView.js)
+  client/moduleClient.js   the extension's end of the D-Bus modules of the service
+service/                   the Osmin service and app: main.js, module.js, window.js, scratchpad.js, <module>/module.js
   debug/testEvents.js      sample events for development
   utils/                   constants, events, animation, scale, signals, timers, jsonStore, widgetInfo
 ```
@@ -218,12 +245,14 @@ src/
 
 - While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
   menu) are not reachable; notification banners still appear as usual.
-- Quick Apps are not implemented. There is
-  no AirDrop; the second drop target sends files to LocalSend devices instead (and receives them when you turn it on).
+- Not done on purpose or because Linux / GNOME cannot do it without root or a different system: AI
+  agent monitoring, a window manager (app switcher, dock previews, snapping), text expanders, key
+  debouncing, scroll smoothing, fan control, OCR / QR from the screen (needs extra programs), the
+  macOS-only tools (Homebrew, DMG installer, Spaces order), "Watch" any part of a window, and a
+  desktop companion. There is no AirDrop; the second drop target sends files to LocalSend devices instead (and receives them when you turn it on).
 - A shell extension cannot start a drag into another application itself. Dragging a file out of the
   tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
   pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.
 - The Mirror was verified with a test video source; the PipeWire / V4L2 path needs a camera
   your user may access (a seated desktop user normally can).
 - Dragging files over the capsule while a card is showing is ignored until the card is gone.
-- Osmin lives on the primary monitor (where the top bar is).
