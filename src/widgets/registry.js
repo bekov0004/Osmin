@@ -4,6 +4,7 @@ import {MediaWidget} from './media/mediaWidget.js';
 import {NotesWidget} from './notes/notesWidget.js';
 import {MirrorWidget} from './mirror/mirrorWidget.js';
 import {ShortcutsWidget} from './shortcuts/shortcutsWidget.js';
+import {WindowsWidget} from './windows/windowsWidget.js';
 import {InputWidget} from './input/inputWidget.js';
 import {DownloadsWidget} from './downloads/downloadsWidget.js';
 import {SoundWidget} from './sound/soundWidget.js';
@@ -27,4 +28,5 @@ export const WIDGET_CLASSES = [
     SoundWidget,
     DownloadsWidget,
     InputWidget,
+    WindowsWidget,
 ];

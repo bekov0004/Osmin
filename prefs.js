@@ -143,6 +143,7 @@ const WIDGET_ICONS = {
     sound: 'audio-speakers-symbolic',
     downloads: 'folder-download-symbolic',
     input: 'input-mouse-symbolic',
+    windows: 'focus-windows-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
