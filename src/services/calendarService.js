@@ -1,9 +1,4 @@
-import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
-import {loadInterfaceXML} from 'resource:///org/gnome/shell/misc/fileUtils.js';
-
-const IFACE = Gio.DBusInterfaceInfo.new_for_xml(loadInterfaceXML('org.gnome.Shell.CalendarServer'));
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -11,83 +6,62 @@ export const startOfDay = date => new Date(date.getFullYear(), date.getMonth(), 
 export const endOfDay = date => new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 
 /**
- * Calendar events of the system calendars (GNOME Online Accounts, Evolution
- * data server, ...), read from the same session service the GNOME calendar
- * uses: org.gnome.Shell.CalendarServer. Nothing is stored or sent anywhere.
+ * Calendar events of the system calendars, as the widgets see them. The Osmin service
+ * (service/calendar) reads them from the GNOME calendar service; this mirrors the events of the
+ * window the widgets asked for. Nothing is stored or sent anywhere.
  *
- * The service tracks one time window; setRange() picks it. Signal: 'changed'.
+ * Every user registers its own range under a name (setRange) and the union is requested.
+ * Signal: 'changed'.
  */
 export class CalendarService extends Signals.EventEmitter {
-    constructor() {
+    /** @param {ModuleClient} module */
+    constructor(module) {
         super();
-        this._proxy = null;
-        this._signalIds = [];
-        this._notifyIds = [];
-        this._events = new Map();
+        this._module = module;
         this._ranges = new Map();
-        this._begin = null;
-        this._end = null;
-        this._cancellable = new Gio.Cancellable();
+        this._events = [];
+        module.connect('state-changed', () => this._onState());
+        // A service that was restarted knows no ranges.
+        module.connect('connected', () => this._sendRanges());
     }
 
     get hasCalendars() {
-        return this._proxy?.g_name_owner ? !!this._proxy.HasCalendars : false;
+        return !!this._module.state.hasCalendars;
     }
 
-    async start() {
-        this._proxy = new Gio.DBusProxy({
-            g_connection: Gio.DBus.session,
-            g_interface_name: IFACE.name,
-            g_interface_info: IFACE,
-            g_name: 'org.gnome.Shell.CalendarServer',
-            g_object_path: '/org/gnome/Shell/CalendarServer',
-        });
-        try {
-            await this._proxy.init_async(GLib.PRIORITY_DEFAULT, this._cancellable);
-        } catch (e) {
-            // A timeout is fine: the service may appear later.
-            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                return;
-            if (!e.matches(Gio.DBusError, Gio.DBusError.TIMED_OUT)) {
-                console.warn(`[osmin] calendar service unavailable: ${e.message}`);
-                return;
-            }
-        }
-        const proxy = this._proxy;
-        if (!proxy)
-            return; // destroyed while connecting
-        this._signalIds.push(
-            proxy.connectSignal('EventsAddedOrUpdated', (_p, _sender, args) => this._onAdded(args[0] ?? [])),
-            proxy.connectSignal('EventsRemoved', (_p, _sender, args) => this._onRemoved(args[0] ?? [])),
-            proxy.connectSignal('ClientDisappeared', (_p, _sender, args) => this._removeMatching(`${args[0] ?? ''}\n`)));
-        this._notifyIds.push(
-            proxy.connect('notify::g-name-owner', () => {
-                this._events.clear();
-                this._requestRange(true);
-                this.emit('changed');
-            }),
-            proxy.connect('g-properties-changed', () => this.emit('changed')));
-        this._requestRange(true);
-    }
+    /** The events arrive from the service by itself. */
+    async start() {}
 
-    /**
-     * Asks the service for the events between two dates (Date objects). The
-     * service tracks one window, so every user of this service registers its
-     * own range under a name and the union is requested.
-     */
     setRange(owner, begin, end) {
         this._ranges.set(owner, [begin, end]);
-        this._updateWindow();
+        this._module.call('setRange', {owner, begin: begin.getTime(), end: end.getTime()})
+            .catch(e => console.warn(`[osmin] calendar: ${e.message}`));
     }
 
     clearRange(owner) {
         this._ranges.delete(owner);
-        this._updateWindow();
+        this._module.call('clearRange', {owner}).catch(() => {});
+    }
+
+    _sendRanges() {
+        for (const [owner, [begin, end]] of this._ranges)
+            this._module.call('setRange', {owner, begin: begin.getTime(), end: end.getTime()}).catch(() => {});
+    }
+
+    _onState() {
+        this._events = (this._module.state.events ?? []).map(e => ({
+            id: e.id,
+            summary: e.summary,
+            start: new Date(e.start),
+            end: new Date(e.end),
+            allDay: e.allDay,
+        }));
+        this.emit('changed');
     }
 
     /** Events overlapping [begin, end), sorted by start. */
     getEvents(begin, end) {
-        return [...this._events.values()]
+        return this._events
             .filter(e => e.end > begin && e.start < end || (e.start >= begin && e.start < end))
             .sort((a, b) => a.start - b.start);
     }
@@ -104,79 +78,6 @@ export class CalendarService extends Signals.EventEmitter {
     }
 
     destroy() {
-        this._cancellable.cancel();
-        if (this._proxy) {
-            for (const id of this._signalIds)
-                this._proxy.disconnectSignal(id);
-            for (const id of this._notifyIds)
-                this._proxy.disconnect(id);
-        }
-        this._signalIds = [];
-        this._notifyIds = [];
-        this._proxy = null;
-        this._events.clear();
-    }
-
-    _updateWindow() {
-        const ranges = [...this._ranges.values()];
-        if (ranges.length === 0)
-            return;
-        const begin = new Date(Math.min(...ranges.map(r => r[0].getTime())));
-        const end = new Date(Math.max(...ranges.map(r => r[1].getTime())));
-        if (this._begin?.getTime() === begin.getTime() && this._end?.getTime() === end.getTime())
-            return;
-        this._begin = begin;
-        this._end = end;
-        this._requestRange(true);
-    }
-
-    _requestRange(force) {
-        if (!this._proxy?.g_name_owner || !this._begin || !this._end)
-            return;
-        this._proxy.SetTimeRangeAsync(this._begin.getTime() / 1000, this._end.getTime() / 1000,
-            force, Gio.DBusCallFlags.NONE).catch(e => console.warn(`[osmin] calendar range failed: ${e.message}`));
-    }
-
-    _onAdded(appointments) {
-        const handled = new Set();
-        for (const [id, summary, startTime, endTime] of appointments) {
-            // A recurring event: drop its previous instances first.
-            if (!id.endsWith('\n')) {
-                const parent = id.substring(0, id.lastIndexOf('\n') + 1);
-                if (!handled.has(parent)) {
-                    handled.add(parent);
-                    this._removeMatching(parent, {emit: false});
-                }
-            }
-            const start = new Date(startTime * 1000);
-            const end = new Date(endTime * 1000);
-            this._events.set(id, {id, summary, start, end, allDay: this._isAllDay(start, end)});
-        }
-        if (appointments.length > 0)
-            this.emit('changed');
-    }
-
-    _onRemoved(ids) {
-        let changed = false;
-        for (const id of ids)
-            changed = this._removeMatching(id, {emit: false}) || changed;
-        if (changed)
-            this.emit('changed');
-    }
-
-    _removeMatching(prefix, {emit = true} = {}) {
-        let changed = false;
-        for (const id of [...this._events.keys()]) {
-            if (id.startsWith(prefix))
-                changed = this._events.delete(id) || changed;
-        }
-        if (changed && emit)
-            this.emit('changed');
-        return changed;
-    }
-
-    _isAllDay(start, end) {
-        const midnight = d => d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
-        return midnight(start) && midnight(end) && end - start >= DAY_MS - 3600 * 1000;
+        this._events = [];
     }
 }

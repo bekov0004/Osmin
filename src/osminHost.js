@@ -78,7 +78,7 @@ export class OsminHost {
             media: new MediaService(),
             artwork: new ArtworkService(),
             files: new FileService({persist: () => this._settings.get('tray-keep-files')}),
-            calendar: new CalendarService(),
+            calendar: new CalendarService(this._backend.calendar),
             activities: new ActivityManager(this._events),
             timer: new TimerService(this._backend.timer),
             todo: new TodoService(this._backend.todo),
