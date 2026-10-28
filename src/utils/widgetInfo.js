@@ -11,6 +11,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'system', title: 'System', subtitle: 'Processor, memory, temperature, network, disk and battery, with alerts', cells: 4, minCells: 4},
     {id: 'sound', title: 'Sound', subtitle: 'Volume, output, microphone mute and the volume of each application', cells: 4, minCells: 4},
     {id: 'downloads', title: 'Downloads', subtitle: 'Files arriving in the Downloads folder, with progress in the capsule', cells: 4, minCells: 3},
+    {id: 'input', title: 'Input', subtitle: 'Mouse and keyboard switches: scrolling, acceleration, tap to click, focus follows mouse', cells: 4, minCells: 4},
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},
     {id: 'todo', title: 'To-do', subtitle: 'A simple local task list', cells: 4, minCells: 3},
     {id: 'notes', title: 'Notes', subtitle: 'Quick notes you can copy later', cells: 4, minCells: 3},

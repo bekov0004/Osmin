@@ -63,6 +63,7 @@ export class ToolsWidget extends OsminWidget {
             ['record', 'media-record-symbolic', 'Record', () => this._screenshot(1)],
             ['color', 'color-select-symbolic', 'Color', () => this._pickColor()],
             ['clean', 'edit-clear-all-symbolic', 'Clean', () => this._cleaningMode()],
+            ['eject', 'media-eject-symbolic', 'Eject', () => this._ejectAll()],
         ];
         const perRow = 5;
         let row = null;
@@ -184,6 +185,40 @@ export class ToolsWidget extends OsminWidget {
 
     _toggleNight() {
         this._color?.set_boolean('night-light-enabled', !this._color.get_boolean('night-light-enabled'));
+    }
+
+    /** The removable drives that can be taken out (USB sticks, cards ...). */
+    _ejectables() {
+        return Gio.VolumeMonitor.get().get_mounts().filter(mount => {
+            const path = mount.get_root()?.get_path() ?? '';
+            return !mount.is_shadowed() && (mount.can_eject() || mount.can_unmount()) &&
+                (path.startsWith('/media/') || path.startsWith('/run/media/'));
+        });
+    }
+
+    _ejectAll() {
+        const mounts = this._ejectables();
+        if (mounts.length === 0) {
+            this._say('media-eject-symbolic', 'Nothing to eject', 'No USB drives or cards are connected');
+            return;
+        }
+        for (const mount of mounts) {
+            const done = (object, result, eject) => {
+                try {
+                    if (eject)
+                        mount.eject_with_operation_finish(result);
+                    else
+                        mount.unmount_with_operation_finish(result);
+                    this._say('media-eject-symbolic', `${mount.get_name()} can be removed`, '');
+                } catch (e) {
+                    this._say('dialog-warning-symbolic', `Could not eject ${mount.get_name()}`, e.message);
+                }
+            };
+            if (mount.can_eject())
+                mount.eject_with_operation(Gio.MountUnmountFlags.NONE, null, null, (o, r) => done(o, r, true));
+            else
+                mount.unmount_with_operation(Gio.MountUnmountFlags.NONE, null, null, (o, r) => done(o, r, false));
+        }
     }
 
     _lock() {

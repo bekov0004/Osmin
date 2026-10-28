@@ -142,6 +142,7 @@ const WIDGET_ICONS = {
     system: 'utilities-system-monitor-symbolic',
     sound: 'audio-speakers-symbolic',
     downloads: 'folder-download-symbolic',
+    input: 'input-mouse-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
