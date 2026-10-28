@@ -84,17 +84,31 @@ what is going on) and an **expanded** container that hangs from the top edge of 
 Osmin is two parts that talk over D-Bus (`io.github.bekov0004.Osmin`):
 
 - the **extension** (`extension.js`, `src/`) is the face: the capsule, panels, cards, gestures, and
-  everything that must live inside the shell (the clipboard capture, notifications, key bindings,
-  the monitors, dragging);
-- the **service** (`service/`, a plain `gjs` process) does the work that waits or talks to the
-  network: LocalSend (finding devices, sending, receiving) and more over time. It runs in a process
-  of its own, so a slow or broken job can never freeze the desktop, and it can be restarted without
-  logging out. It is started by D-Bus activation the first time the extension asks, and ends by
-  itself when the extension is gone.
+  everything that has to live inside the shell: capturing the clipboard, notifications, key
+  bindings, the monitors, dragging, the camera preview, the music (MPRIS) players, the settings;
+- the **service** (`service/`, a plain `gjs` process, also the *Osmin* app in the app grid) does the
+  work that waits, reads files or talks to the network:
 
-Each feature of the service is a *module* (`service/module.js`): it owns a JSON state and answers
-calls; the extension's `src/client/moduleClient.js` mirrors the state. Without the service the
-extension still runs; only the features that live in the service are unavailable.
+  | module | what it does |
+  |---|---|
+  | LocalSend | finding devices, sending, receiving (the HTTPS server, the certificate) |
+  | Files | the file tray: the list, thumbnails, watching the files, saving |
+  | Calendar | reading the system calendars |
+  | Timer | the clock, the saved state, the moment it runs out |
+  | Todo, Notes | the lists and where they are saved |
+  | Artwork | downloading album covers, finding their colour |
+  | Clipboard | where the clipboard history is kept on disk |
+
+The service runs in a process of its own, so a slow or broken job can never freeze the desktop, and
+it can be restarted without logging out. It is started by D-Bus activation the first time the
+extension asks, and ends by itself when the extension is gone. What it says goes to
+`~/.cache/osmin/service.log`. Opening *Osmin* from the app grid shows a small window with its status.
+
+Each feature of the service is a *module* (`service/module.js`): it owns a JSON state, answers calls
+(`rpc_<method>`) and sends events; the extension's `src/client/moduleClient.js` mirrors the state
+and the services in `src/services/` give the widgets the same API as before. Without the service the
+extension still runs; only the features that live in the service are unavailable (calls wait a few
+seconds for it to start, then report that it is not running).
 
 ## Install
 

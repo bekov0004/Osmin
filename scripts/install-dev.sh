@@ -23,10 +23,25 @@ SERVICE_DEST="$DATA/osmin-service"
 rm -rf "$SERVICE_DEST"
 mkdir -p "$SERVICE_DEST" "$DATA/dbus-1/services"
 cp -r "$SRC/service/." "$SERVICE_DEST/"
+# What the service says goes to ~/.cache/osmin/service.log (it has no terminal of its own).
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/osmin"
+mkdir -p "$CACHE"
+[[ -f "$CACHE/service.log" && $(stat -c %s "$CACHE/service.log") -gt 204800 ]] && : > "$CACHE/service.log"
 cat > "$DATA/dbus-1/services/io.github.bekov0004.Osmin.service" <<UNIT
 [D-BUS Service]
 Name=io.github.bekov0004.Osmin
+Exec=/bin/sh -c "exec $(command -v gjs) -m $SERVICE_DEST/main.js 2>>$CACHE/service.log"
+UNIT
+mkdir -p "$DATA/applications"
+cat > "$DATA/applications/io.github.bekov0004.Osmin.desktop" <<UNIT
+[Desktop Entry]
+Type=Application
+Name=Osmin
+Comment=Status of the Osmin service (the capsule is a GNOME Shell extension)
+Icon=view-grid-symbolic
 Exec=$(command -v gjs) -m $SERVICE_DEST/main.js
+DBusActivatable=true
+Categories=Utility;
 UNIT
 echo "Installed the service to $SERVICE_DEST"
 
