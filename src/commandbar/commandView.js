@@ -24,13 +24,14 @@ export class CommandView extends St.BoxLayout {
      * @param {{clipboard: ClipboardService, ui: {beginTextInput, endTextInput}, onDone: () => void,
      *          onPaste: (item) => void}} params
      */
-    constructor({clipboard, ui, onDone, onPaste, processes = null}) {
+    constructor({clipboard, ui, onDone, onPaste, processes = null, service = null}) {
         super({vertical: true, style_class: 'osmin-tray osmin-clipboard', x_expand: true, y_expand: true});
         this._clipboardService = clipboard;
         this._ui = ui;
         this._onDone = onDone;
         this._onPaste = onPaste;
         this._processes = processes;
+        this._service = service;
         this._searchId = 0;
         this._typing = false;
         this._results = [];
@@ -136,6 +137,14 @@ export class CommandView extends St.BoxLayout {
             const converted = convert(query);
             if (converted)
                 results.push({icon: 'applications-science-symbolic', title: converted.text, subtitle: 'Press Enter to copy the result', run: () => this._copy(formatNumber(Math.round(converted.value * 1e6) / 1e6))});
+            if (/^(scratch|scratchpad|notes?)$/i.test(query) && this._service) {
+                results.push({
+                    icon: 'document-edit-symbolic',
+                    title: 'Open the Scratchpad',
+                    subtitle: 'Notes of any length, saved as you type',
+                    run: () => this._service.call('openScratchpad').catch(e => console.warn(`[osmin] ${e.message}`)),
+                });
+            }
             results.push(...this._apps(query));
             results.push(...this._clips(query));
             results.push({

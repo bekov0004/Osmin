@@ -8,7 +8,7 @@ import Gtk from 'gi://Gtk?version=4.0';
  * to the app itself. The capsule and its settings are in the GNOME Shell extension; this window
  * only helps to see that everything is running.
  */
-export function createWindow(application, modules, {restart}) {
+export function createWindow(application, modules, {restart, openScratchpad}) {
     // The service is a plain Gio.Application (no Gtk.Application): start GTK by hand, and say which
     // desktop file the window belongs to.
     GLib.set_prgname('io.github.bekov0004.Osmin');
@@ -70,6 +70,10 @@ export function createWindow(application, modules, {restart}) {
         }
     });
     actions.add(settings);
+    const scratch = new Adw.ActionRow({title: 'Scratchpad', subtitle: 'Notes of any length, saved as you type', activatable: true});
+    scratch.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
+    scratch.connect('activated', () => openScratchpad());
+    actions.add(scratch);
     const again = new Adw.ActionRow({title: 'Restart the service', subtitle: 'It starts again by itself when the extension needs it', activatable: true});
     again.connect('activated', () => restart());
     actions.add(again);

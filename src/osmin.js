@@ -178,6 +178,7 @@ export class Osmin {
             onDone: () => this._settle(),
             onPaste: item => this._pasteClipboardItem(item),
             processes: this._services.backend?.processes ?? null,
+            service: this._services.backend?.service ?? null,
         });
         this._localSend = new LocalSendSession({
             service: this._services.localSend,

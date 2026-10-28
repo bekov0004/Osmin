@@ -40,6 +40,11 @@ class ServiceModule extends Module {
         return {version: VERSION};
     }
 
+    async rpc_openScratchpad() {
+        this._app.openScratchpad();
+        return {};
+    }
+
     async rpc_quit() {
         GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
             this._app.quit();
@@ -92,6 +97,22 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         super.vfunc_shutdown();
     }
 
+    /** The Scratchpad window (notes of any length, saved as you type). */
+    openScratchpad() {
+        if (this._scratchpad) {
+            this._scratchpad.present();
+            return;
+        }
+        import('./scratchpad.js').then(({createScratchpad}) => {
+            this._scratchpad = createScratchpad();
+            this._scratchpad.connect('close-request', () => {
+                this._scratchpad = null;
+                return false;
+            });
+            this._scratchpad.present();
+        }).catch(e => console.warn(`[osmin-service] cannot open the scratchpad: ${e.message}`));
+    }
+
     /** Opened from the app grid: the window of the app. */
     vfunc_activate() {
         if (this._window) {
@@ -104,6 +125,7 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
                     // The extension starts the service again at its next call.
                     this.quit();
                 },
+                openScratchpad: () => this.openScratchpad(),
             });
             this._window.connect('close-request', () => {
                 this._window = null;
