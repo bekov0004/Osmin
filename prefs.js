@@ -139,6 +139,7 @@ const WIDGET_ICONS = {
     shortcuts: 'view-app-grid-symbolic',
     tools: 'applications-utilities-symbolic',
     focus: 'preferences-system-time-symbolic',
+    system: 'utilities-system-monitor-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
@@ -901,6 +902,8 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._rule(form);
         this._toggleRow(form, settings, 'show-dividers', _('Widgets'), _('Dividers'),
             _('Thin lines between widgets.'));
+        this._toggleRow(form, settings, 'system-alerts', '', _('System alerts'),
+            _('Cards for a busy processor, heat, a full disk or memory and low batteries (also of keyboards and mice).'));
 
         this._resetRow(form, settings, ALL_APPEARANCE_KEYS);
         return body;

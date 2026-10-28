@@ -19,6 +19,7 @@ import {MediaService} from './services/mediaService.js';
 import {NotesService} from './services/notesService.js';
 import {NotificationsService} from './services/notificationsService.js';
 import {PanelService} from './services/panelService.js';
+import {SystemService} from './services/systemService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
 import {EventType} from './utils/events.js';
@@ -83,6 +84,7 @@ export class OsminHost {
             activities: new ActivityManager(this._events),
             timer: new TimerService(this._backend.timer),
             focus: new FocusService(this._backend.focus),
+            system: new SystemService(this._backend.system),
             todo: new TodoService(this._backend.todo),
             notes: new NotesService(this._backend.notes),
             notifications: new NotificationsService(),
@@ -133,6 +135,7 @@ export class OsminHost {
             services.activities.destroy();
             services.timer.destroy();
             services.focus.destroy();
+            services.system.destroy();
             services.todo.destroy();
             services.notes.destroy();
             services.camera.destroy();

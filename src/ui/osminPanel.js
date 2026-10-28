@@ -45,6 +45,8 @@ export class OsminPanel extends St.BoxLayout {
         this._mode = PanelMode.OSMIN;
         this._headerHidden = false;
         this._modeBeforeDrop = null;
+        this._opened = false;
+        this._shown = new Set();
         this._scale = 1;
 
         this._buildHeader(onOpenSettings);
@@ -154,6 +156,7 @@ export class OsminPanel extends St.BoxLayout {
             });
         });
         this._updateDots();
+        this._syncShown();
     }
 
     /** Modes whose list can be pulled taller (a two-finger swipe down). */
@@ -196,13 +199,28 @@ export class OsminPanel extends St.BoxLayout {
 
     /** The capsule finished opening or closing; tells the visible widgets. */
     setOpen(open) {
-        const widgets = this._mode === PanelMode.OSMIN
-            ? this._pages[this._pageIndex]?.widgets ?? [] : [];
-        for (const widget of widgets) {
-            if (open)
-                widget.onPageShown();
-            else
+        this._opened = open;
+        this._syncShown();
+    }
+
+    /**
+     * Tells the widgets of the page on screen that they are shown, and the others that they are not.
+     * The panel may be told it is open before its pages exist (the first opening), so this runs
+     * again once the layout has built them.
+     */
+    _syncShown() {
+        const want = new Set(this._opened && this._mode === PanelMode.OSMIN ? this._pages[this._pageIndex]?.widgets ?? [] : []);
+        for (const widget of [...this._shown]) {
+            if (!want.has(widget)) {
+                this._shown.delete(widget);
                 widget.onPageHidden();
+            }
+        }
+        for (const widget of want) {
+            if (!this._shown.has(widget)) {
+                this._shown.add(widget);
+                widget.onPageShown();
+            }
         }
     }
 
@@ -316,10 +334,7 @@ export class OsminPanel extends St.BoxLayout {
         const direction = index > this._pageIndex ? 1 : -1;
         this._pageIndex = index;
 
-        if (this._mode === PanelMode.OSMIN) {
-            from.widgets.forEach(w => w.onPageHidden());
-            to.widgets.forEach(w => w.onPageShown());
-        }
+        this._syncShown();
         this._updateDots();
 
         const shift = px(26, this._scale) * direction * (animate ? 1 : 0);

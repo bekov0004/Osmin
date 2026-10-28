@@ -103,7 +103,7 @@
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>
@@ -279,6 +279,12 @@
       <default>true</default>
       <summary>Music activity</summary>
       <description>Show the music that is playing as a live activity.</description>
+    </key>
+
+    <key name="system-alerts" type="b">
+      <default>true</default>
+      <summary>System alerts</summary>
+      <description>Show a card when the processor is busy for long, the computer is hot, memory or the disk is nearly full, or a battery is low.</description>
     </key>
 
     <key name="activity-timer" type="b">

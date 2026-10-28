@@ -45,6 +45,7 @@ export const DEFAULTS = Object.freeze({
     'media-effect': 'bars',
     'colored-effects': true,
     'activity-media': true,
+    'system-alerts': true,
     'activity-timer': true,
     'activity-calendar': true,
     'activity-files': true,

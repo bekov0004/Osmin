@@ -180,6 +180,7 @@ export class OsminBackend {
         this.power = new ModuleClient('Power');
         this.tools = new ModuleClient('Tools');
         this.focus = new ModuleClient('Focus');
+        this.system = new ModuleClient('System');
     }
 
     start() {
@@ -195,6 +196,7 @@ export class OsminBackend {
         this.power.start();
         this.tools.start();
         this.focus.start();
+        this.system.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -219,6 +221,7 @@ export class OsminBackend {
         this.power.destroy();
         this.tools.destroy();
         this.focus.destroy();
+        this.system.destroy();
         this.service.destroy();
     }
 }

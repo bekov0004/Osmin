@@ -1577,3 +1577,44 @@
     background-color: rgba(77, 141, 255, 0.35);
     color: white;
 }
+
+/* System */
+.osmin-system {
+    spacing: 6px;
+}
+
+.osmin-system-row {
+    spacing: 12px;
+}
+
+.osmin-system-cell {
+    spacing: 2px;
+}
+
+.osmin-system-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-system-value {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.osmin-system-bar {
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.osmin-system-fill {
+    height: 4px;
+    border-radius: 2px;
+    background-color: #4d8dff;
+}
+
+.osmin-system-fill:warn {
+    background-color: #ff6b6b;
+}
