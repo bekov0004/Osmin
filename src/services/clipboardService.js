@@ -5,6 +5,8 @@ import Meta from 'gi://Meta';
 import St from 'gi://St';
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
+import {cleanUrl} from '../utils/cleanUrl.js';
+
 
 const MAX_LENGTH = 20000;
 const MAX_SAVED = 100;
@@ -47,12 +49,13 @@ export class ClipboardService extends Signals.EventEmitter {
      * @param {ModuleClient} module the Osmin service keeps the history on disk
      * @param {{keepHistory: () => boolean, maxItems: () => number}} options
      */
-    constructor(module, {keepHistory = () => false, maxItems = () => 30} = {}) {
+    constructor(module, {keepHistory = () => false, maxItems = () => 30, cleanUrls = () => false} = {}) {
         super();
         this._module = module;
         this._loaded = false; // nothing is saved before the saved items were read (it would erase them)
         this._keepHistory = keepHistory;
         this._maxItems = maxItems;
+        this._cleanUrls = cleanUrls;
         this._items = [];
         this._nextId = 1;
         this._clipboard = St.Clipboard.get_default();
@@ -118,8 +121,13 @@ export class ClipboardService extends Signals.EventEmitter {
             return;
         const type = [FILES_TYPE, URI_LIST_TYPE].find(t => mimetypes.includes(t));
         const readText = () => this._clipboard.get_text(St.ClipboardType.CLIPBOARD, (_clipboard, text) => {
-            if (typeof text === 'string')
-                this.add(text);
+            if (typeof text !== 'string')
+                return;
+            // A copied link loses its tracking parameters (utm_*, fbclid ...) when that is turned on.
+            const cleaned = this._cleanUrls() ? cleanUrl(text) : text;
+            if (cleaned !== text)
+                this._clipboard.set_text(St.ClipboardType.CLIPBOARD, cleaned);
+            this.add(cleaned);
         });
         if (!type) {
             readText();

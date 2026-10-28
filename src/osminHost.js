@@ -1,7 +1,9 @@
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Keyboard from 'resource:///org/gnome/shell/ui/status/keyboard.js';
 
 import {Osmin} from './osmin.js';
 import {ActivityManager} from './services/activityManager.js';
@@ -23,7 +25,7 @@ import {PanelService} from './services/panelService.js';
 import {SystemService} from './services/systemService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
-import {EventType} from './utils/events.js';
+import {EventType, Priority} from './utils/events.js';
 import {targetMonitors} from './utils/monitors.js';
 import {SignalTracker} from './utils/signals.js';
 
@@ -94,6 +96,7 @@ export class OsminHost {
             localSend: new LocalSendService(this._backend.localSend),
             clipboard: new ClipboardService(this._backend.clipboard, {
                 keepHistory: () => this._settings.get('clipboard-keep-history'),
+                cleanUrls: () => this._settings.get('clipboard-clean-urls'),
                 maxItems: () => this._settings.get('clipboard-max-items'),
             }),
         };
@@ -103,6 +106,7 @@ export class OsminHost {
         this._addShortcuts();
         this._syncSuperV();
         this._syncReceiving();
+        this._watchInputSource();
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._syncCapsules({rebuild: true}));
 
         const services = this._services;
@@ -123,6 +127,8 @@ export class OsminHost {
         this._server?.destroy();
         this._server = null;
         this._backend?.localSend.disconnectObject(this);
+        this._inputSources?.disconnectObject(this);
+        this._inputSources = null;
         this._signals.disconnectAll();
         for (const osmin of [...this._capsules.values()].reverse())
             osmin.destroy();
@@ -192,6 +198,32 @@ export class OsminHost {
         const original = saved.length > 0 ? saved : shell.get_strv('toggle-message-tray');
         gsettings.set_strv('saved-message-tray-binding', original);
         shell.set_strv('toggle-message-tray', original.filter(binding => binding.toLowerCase() !== '<super>v'));
+    }
+
+    /** A card with the name of the keyboard layout when it is switched (it can be turned off). */
+    _watchInputSource() {
+        try {
+            this._inputSources = Keyboard.getInputSourceManager();
+        } catch (e) {
+            return;
+        }
+        const startedAt = GLib.get_monotonic_time();
+        this._inputSources.connectObject('current-source-changed', () => {
+            // Not at start-up: only when the user switches.
+            if (GLib.get_monotonic_time() - startedAt < 3 * 1000000 || !this._settings.get('show-input-source'))
+                return;
+            const source = this._inputSources.currentSource;
+            if (!source)
+                return;
+            this._events.emit({
+                type: EventType.CUSTOM,
+                icon: 'input-keyboard-symbolic',
+                title: source.displayName ?? source.shortName ?? 'Keyboard',
+                description: 'Keyboard layout',
+                priority: Priority.LOW,
+                duration: 1500,
+            });
+        }, this);
     }
 
     /** Starts or stops receiving files with LocalSend, as the setting says. */

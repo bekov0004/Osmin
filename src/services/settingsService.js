@@ -36,6 +36,8 @@ export const DEFAULTS = Object.freeze({
     'shortcut-columns': 1,
     'collapsed-width-adjust': 0,
     'clipboard-keep-history': false,
+    'clipboard-clean-urls': false,
+    'show-input-source': true,
     'clipboard-max-items': 30,
     'clipboard-click-pastes': true,
     'panel-color': '#000000',

@@ -1005,6 +1005,8 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._toggleRow(form, settings, 'clipboard-click-pastes', _('Clipboard'), _('A click pastes'),
             _('Clicking an item puts it in the app you were using (Ctrl+V). Off: it is only copied.'));
         this._rule(form);
+        this._toggleRow(form, settings, 'clipboard-clean-urls', _('Links'), _('Remove tracking from copied links'),
+            _('utm_*, fbclid, gclid and similar parameters are cut from a link when you copy it.'));
         this._toggleRow(form, settings, 'clipboard-keep-history', _('History'), _('Keep history after a restart'),
             _('Off: only pinned items and your notes are saved on disk, so copied passwords are not.'));
         this._row(form, _('History size'), this._slider(settings, 'clipboard-max-items', [5, 100, 5]),
@@ -1012,7 +1014,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._row(form, '', new Gtk.Box(),
             _('Only text is recorded. Items copied from password managers are skipped.'));
 
-        this._resetRow(form, settings, ['clipboard-click-pastes', 'clipboard-keep-history', 'clipboard-max-items']);
+        this._resetRow(form, settings, ['clipboard-click-pastes', 'clipboard-keep-history', 'clipboard-max-items', 'clipboard-clean-urls']);
         return body;
     }
 

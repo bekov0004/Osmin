@@ -214,6 +214,18 @@
       <description>Makes the collapsed capsule wider or narrower, in pixels.</description>
     </key>
 
+    <key name="clipboard-clean-urls" type="b">
+      <default>false</default>
+      <summary>Clean copied links</summary>
+      <description>When you copy a link, remove its tracking parameters (utm_*, fbclid, gclid ...) from what is on the clipboard.</description>
+    </key>
+
+    <key name="show-input-source" type="b">
+      <default>true</default>
+      <summary>Show keyboard layout changes</summary>
+      <description>Show a card with the name of the layout when you switch the keyboard layout.</description>
+    </key>
+
     <key name="clipboard-keep-history" type="b">
       <default>false</default>
       <summary>Keep the clipboard history</summary>

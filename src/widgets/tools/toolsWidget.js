@@ -4,6 +4,7 @@ import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {HorizontalSlider} from '../../ui/horizontalSlider.js';
 import {startCleaningMode} from '../../tools/cleaningMode.js';
 import {pickColor} from '../../tools/colorPicker.js';
 import {EventType} from '../../utils/events.js';
@@ -73,11 +74,47 @@ export class ToolsWidget extends OsminWidget {
             row.add_child(this._createTile(id, icon, label, action));
         });
 
+        this._createBrightness(root);
         this._interface.connectObject('changed::color-scheme', () => this._update(), this);
         this._color?.connectObject('changed::night-light-enabled', () => this._update(), this);
         this._power?.connectObject('state-changed', () => this._update(), this);
         this._update();
         return root;
+    }
+
+    /** A brightness slider for the built-in screen, through GNOME's power settings service. */
+    _createBrightness(root) {
+        const row = new St.BoxLayout({style_class: 'osmin-tools-row osmin-tools-brightness', x_expand: true, visible: false});
+        row.add_child(new St.Icon({icon_name: 'display-brightness-symbolic', style_class: 'osmin-tool-icon', y_align: Clutter.ActorAlign.CENTER}));
+        this._brightness = new HorizontalSlider({min: 0, max: 100, value: 50, onChange: value => this._setBrightness(Math.round(value))});
+        this._brightness.y_align = Clutter.ActorAlign.CENTER;
+        row.add_child(this._brightness);
+        root.add_child(row);
+        this._brightnessRow = row;
+        this._cancellable = new Gio.Cancellable();
+        Gio.DBusProxy.new_for_bus(Gio.BusType.SESSION, Gio.DBusProxyFlags.NONE, null, 'org.gnome.SettingsDaemon.Power',
+            '/org/gnome/SettingsDaemon/Power', 'org.gnome.SettingsDaemon.Power.Screen', this._cancellable, (_o, result) => {
+                try {
+                    this._screen = Gio.DBusProxy.new_for_bus_finish(result);
+                } catch (e) {
+                    return; // no power settings service: no slider
+                }
+                this._screen.connectObject('g-properties-changed', () => this._syncBrightness(), this);
+                this._syncBrightness();
+            });
+    }
+
+    _syncBrightness() {
+        const value = this._screen?.get_cached_property('Brightness')?.get_int32() ?? -1;
+        this._brightnessRow.visible = value >= 0;
+        if (value >= 0)
+            this._brightness.value = value;
+    }
+
+    _setBrightness(percent) {
+        this._screen?.get_connection().call(this._screen.get_name(), this._screen.get_object_path(), 'org.freedesktop.DBus.Properties', 'Set',
+            new GLib.Variant('(ssv)', ['org.gnome.SettingsDaemon.Power.Screen', 'Brightness', new GLib.Variant('i', percent)]),
+            null, Gio.DBusCallFlags.NONE, -1, null, null);
     }
 
     _createTile(id, iconName, label, action) {
@@ -219,6 +256,8 @@ export class ToolsWidget extends OsminWidget {
         this._interface?.disconnectObject(this);
         this._color?.disconnectObject(this);
         this._power?.disconnectObject(this);
+        this._cancellable?.cancel();
+        this._screen?.disconnectObject(this);
         this._cleaning?.end();
         if (this._trashArmed)
             GLib.source_remove(this._trashArmed);
