@@ -125,7 +125,9 @@ export class ModuleClient extends Signals.EventEmitter {
      * @returns {Promise<object>} the result; rejects with an Error whose message says what went wrong
      */
     async call(method, args = {}) {
-        if (!this._connected)
+        // Without a proxy yet: wait for the first connection. With one, the call itself starts a
+        // service that went away (D-Bus activation).
+        if (!this._proxy)
             await this._whenConnected();
         try {
             const [result] = await this._proxy.CallAsync(method, JSON.stringify(args));
