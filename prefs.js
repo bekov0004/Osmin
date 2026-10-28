@@ -61,6 +61,20 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-prefs .dim, .osmin-prefs label.dim { color: ${p.TEXT_SECONDARY}; font-size: 12px; }
 .osmin-prefs separator { background-color: ${p.BORDER}; min-height: 1px; min-width: 1px; }
 
+.osmin-sidebar { background-color: ${p.TOOLBAR}; border-right: 1px solid ${p.BORDER}; padding: 10px 8px; }
+.osmin-sidebar entry { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: 1px solid ${p.BORDER};
+    border-radius: 9px; box-shadow: none; min-height: 30px; margin-bottom: 8px; }
+.osmin-sidebar list { background: none; }
+.osmin-sidebar row { background: none; border-radius: 9px; padding: 7px 10px; margin: 1px 0; color: ${p.TEXT}; }
+.osmin-sidebar row:hover { background-color: ${p.HOVER}; }
+.osmin-sidebar row:selected { background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
+.osmin-sidebar .caption-heading { color: ${p.TEXT_SECONDARY}; font-size: 10px; font-weight: 800;
+    letter-spacing: 1px; margin: 12px 10px 4px 10px; }
+.osmin-feature-group { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: ${p.TEXT_SECONDARY};
+    margin-top: 14px; margin-bottom: 2px; }
+.osmin-feature { background-color: ${p.SURFACE}; border-radius: 12px; padding: 10px 14px; margin: 2px 0; }
+.osmin-feature:hover { background-color: ${p.CARD}; }
+.osmin-feature .title { font-weight: 600; }
 .osmin-toolbar { background-color: ${p.TOOLBAR}; border-bottom: 1px solid ${p.BORDER};
     padding: 8px 10px 8px 10px; }
 .osmin-tab { background: none; box-shadow: none; border: none; border-radius: 9px;
@@ -152,7 +166,7 @@ const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'b
 export default class OsminPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window.set_default_size(780, 780);
+        window.set_default_size(960, 800);
         window.title = _('Osmin');
         window.search_enabled = false;
 
@@ -179,39 +193,175 @@ export default class OsminPreferences extends ExtensionPreferences {
         const stack = new Gtk.Stack({
             transition_type: Gtk.StackTransitionType.CROSSFADE,
             transition_duration: 140,
+            hexpand: true,
             vexpand: true,
-            hhomogeneous: true,
-            vhomogeneous: false,
         });
-        const toolbar = new Gtk.Box({
-            css_classes: ['osmin-toolbar'],
-            spacing: 4,
-            halign: Gtk.Align.FILL,
-            homogeneous: false,
-        });
-        const inner = new Gtk.Box({halign: Gtk.Align.CENTER, spacing: 4});
-        toolbar.append(inner);
-        let first = null;
-        for (const [name, title, icon, content] of pages) {
-            stack.add_named(content, name);
-            const tab = new Gtk.ToggleButton({css_classes: ['osmin-tab'], group: first});
-            first ??= tab;
-            const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 3});
-            box.append(new Gtk.Image({icon_name: icon, pixel_size: 24}));
-            box.append(new Gtk.Label({label: title}));
-            tab.set_child(box);
-            tab.connect('toggled', () => {
-                if (tab.active)
-                    stack.set_visible_child_name(name);
-            });
-            inner.append(tab);
-        }
-        first.active = true;
-        toolbar.halign = Gtk.Align.FILL;
-        inner.hexpand = true;
+        const featuresPage = this._featuresPage(settings);
+        const sections = [
+            [_('Features'), [['features', _('All features'), 'view-list-symbolic', featuresPage]]],
+            [_('Capsule'), [
+                ['osmin', _('Widgets'), 'view-grid-symbolic', pages.find(p => p[0] === 'osmin')[3]],
+                ['appearance', _('Appearance'), 'applications-graphics-symbolic', pages.find(p => p[0] === 'appearance')[3]],
+                ['gestures', _('Gestures'), 'input-touchpad-symbolic', pages.find(p => p[0] === 'gestures')[3]],
+                ['activities', _('Live Activities'), 'media-playback-start-symbolic', pages.find(p => p[0] === 'activities')[3]],
+            ]],
+            [_('Tabs'), [
+                ['tray', _('Tray'), 'folder-download-symbolic', pages.find(p => p[0] === 'tray')[3]],
+                ['clipboard', _('Clipboard'), 'edit-paste-symbolic', pages.find(p => p[0] === 'clipboard')[3]],
+            ]],
+            [_('Osmin'), [
+                ['general', _('General'), 'preferences-system-symbolic', pages.find(p => p[0] === 'general')[3]],
+                ['about', _('About'), 'help-about-symbolic', pages.find(p => p[0] === 'about')[3]],
+            ]],
+        ];
 
-        root.append(toolbar);
-        root.append(stack);
+        const sidebar = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-sidebar'], width_request: 210});
+        const search = new Gtk.SearchEntry({placeholder_text: _('Search features'), hexpand: true});
+        sidebar.append(search);
+        const list = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.SINGLE, vexpand: true});
+        const rowsByName = new Map();
+        for (const [heading, entries] of sections) {
+            list.append(new Gtk.ListBoxRow({
+                selectable: false,
+                activatable: false,
+                child: new Gtk.Label({label: heading.toUpperCase(), css_classes: ['caption-heading'], xalign: 0}),
+            }));
+            for (const [name, title, icon, content] of entries) {
+                const scroller = new Gtk.ScrolledWindow({child: content, hscrollbar_policy: Gtk.PolicyType.NEVER, vexpand: true, hexpand: true});
+                stack.add_named(scroller, name);
+                const row = new Gtk.ListBoxRow();
+                row._page = name;
+                const box = new Gtk.Box({spacing: 10});
+                box.append(new Gtk.Image({icon_name: icon, pixel_size: 18}));
+                box.append(new Gtk.Label({label: title, xalign: 0}));
+                row.set_child(box);
+                list.append(row);
+                rowsByName.set(name, row);
+            }
+        }
+        list.connect('row-selected', (_list, row) => {
+            if (row?._page)
+                stack.set_visible_child_name(row._page);
+        });
+        sidebar.append(list);
+        list.select_row(rowsByName.get('features'));
+
+        // Typing in the search field shows the features page, filtered.
+        search.connect('search-changed', () => {
+            list.select_row(rowsByName.get('features'));
+            featuresPage._filter(search.text);
+        });
+
+        const layout = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, height_request: 700});
+        layout.append(sidebar);
+        layout.append(stack);
+        root.append(layout);
+    }
+
+    // --- features ------------------------------------------------------------
+
+    /**
+     * Every feature of Osmin in one list, grouped, each with a switch and a line that says what it
+     * does. A widget switch adds it to / removes it from the capsule; the others are settings.
+     * The returned box has _filter(text) for the search field.
+     */
+    _featuresPage(settings) {
+        const body = this._body();
+        const rows = [];
+        const widgetRows = WIDGET_INFO.map(w => ({
+            group: _('Widgets in the capsule'),
+            title: w.title,
+            subtitle: w.subtitle,
+            icon: WIDGET_ICONS[w.id] ?? 'applications-symbolic',
+            widget: w.id,
+        }));
+        const key = (group, title, subtitle, icon, setting) => ({group, title, subtitle, icon, key: setting});
+        const features = [
+            ...widgetRows,
+            key(_('Live Activities'), _('Music'), _('The playing track in the collapsed capsule'), 'folder-music-symbolic', 'activity-media'),
+            key(_('Live Activities'), _('Timer'), _('A running countdown or focus session in the capsule'), 'alarm-symbolic', 'activity-timer'),
+            key(_('Live Activities'), _('Calendar'), _('The next meeting, from 10 minutes before it'), 'x-office-calendar-symbolic', 'activity-calendar'),
+            key(_('Live Activities'), _('Tray'), _('A card when files are added to the tray'), 'folder-download-symbolic', 'activity-files'),
+            key(_('Live Activities'), _('Downloads'), _('Files arriving in the Downloads folder'), 'folder-download-symbolic', 'activity-downloads'),
+            key(_('Cards and alerts'), _('System alerts'), _('A busy processor, heat, a full disk or memory, a low battery'), 'dialog-warning-symbolic', 'system-alerts'),
+            key(_('Cards and alerts'), _('Keyboard layout'), _('A card with the layout name when you switch it'), 'input-keyboard-symbolic', 'show-input-source'),
+            key(_('Music'), _('Lyrics'), _('The line being sung under the title (the song is looked up on lrclib.net)'), 'audio-x-generic-symbolic', 'show-lyrics'),
+            key(_('Music'), _('Colored effects'), _('The effect takes the color of the album art'), 'applications-graphics-symbolic', 'colored-effects'),
+            key(_('Clipboard'), _('Click pastes'), _('A click on an item pastes it into the app you were in'), 'edit-paste-symbolic', 'clipboard-click-pastes'),
+            key(_('Clipboard'), _('Keep history'), _('Save everything you copied after a restart (pinned items and notes are always saved)'), 'document-save-symbolic', 'clipboard-keep-history'),
+            key(_('Clipboard'), _('Clean links'), _('Remove tracking parameters (utm_*, fbclid ...) from copied links'), 'insert-link-symbolic', 'clipboard-clean-urls'),
+            key(_('Files and sharing'), _('Keep the tray'), _('The files on the tray stay after a restart'), 'folder-download-symbolic', 'tray-keep-files'),
+            key(_('Files and sharing'), _('Receive files with LocalSend'), _('This computer becomes visible to LocalSend devices (port 53317); every transfer asks first'), 'network-wireless-symbolic', 'localsend-receive'),
+            key(_('Behaviour'), _('Open on hover'), _('The capsule opens when the pointer rests on it'), 'input-mouse-symbolic', 'open-on-hover'),
+            key(_('Behaviour'), _('Collapse when the pointer leaves'), _('The open panel closes by itself'), 'view-restore-symbolic', 'auto-collapse'),
+            key(_('Behaviour'), _('Swipe down to open'), _('A two-finger swipe down on the capsule opens it'), 'input-touchpad-symbolic', 'gestures-swipe-open'),
+            key(_('Behaviour'), _('Swipe up to close'), _('A two-finger swipe up closes the panel'), 'input-touchpad-symbolic', 'gestures-swipe-close'),
+            key(_('Behaviour'), _('Swipe to change tracks'), _('A sideways swipe on the capsule skips songs'), 'media-skip-forward-symbolic', 'gestures-media-swipe'),
+            key(_('System'), _('Free Super+V from GNOME'), _('Lets you use Super+V for the Clipboard shortcut'), 'preferences-desktop-keyboard-shortcuts-symbolic', 'free-super-v'),
+        ];
+
+        const grouped = new Map();
+        for (const feature of features) {
+            if (!grouped.has(feature.group))
+                grouped.set(feature.group, []);
+            grouped.get(feature.group).push(feature);
+        }
+        for (const [group, items] of grouped) {
+            const heading = new Gtk.Label({label: group.toUpperCase(), css_classes: ['osmin-feature-group'], xalign: 0});
+            body.append(heading);
+            const entries = [];
+            for (const feature of items) {
+                const row = new Gtk.Box({css_classes: ['osmin-feature'], spacing: 12});
+                const icon = this._icon(feature.icon);
+                icon.hexpand = false;
+                icon.halign = Gtk.Align.START;
+                icon.set_size_request(34, 34);
+                row.append(icon);
+                const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER});
+                texts.append(new Gtk.Label({label: feature.title, css_classes: ['title'], xalign: 0}));
+                texts.append(this._dim(feature.subtitle));
+                texts.halign = Gtk.Align.FILL;
+                row.append(texts);
+                const toggle = new Gtk.Switch({valign: Gtk.Align.CENTER});
+                if (feature.widget) {
+                    const sync = () => {
+                        const on = settings.get_strv('enabled-widgets').includes(feature.widget);
+                        if (toggle.active !== on)
+                            toggle.active = on;
+                    };
+                    sync();
+                    toggle.connect('notify::active', () => {
+                        const list = settings.get_strv('enabled-widgets');
+                        const has = list.includes(feature.widget);
+                        if (toggle.active && !has)
+                            settings.set_strv('enabled-widgets', [...list, feature.widget]);
+                        else if (!toggle.active && has)
+                            settings.set_strv('enabled-widgets', list.filter(id => id !== feature.widget));
+                    });
+                    settings.connect('changed::enabled-widgets', sync);
+                } else {
+                    settings.bind(feature.key, toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
+                }
+                row.append(toggle);
+                body.append(row);
+                entries.push({row, text: `${feature.title} ${feature.subtitle} ${group}`.toLowerCase()});
+            }
+            rows.push({heading, entries});
+        }
+        // The search field of the sidebar: only the matching features stay, and only their headings.
+        body._filter = text => {
+            const q = text.trim().toLowerCase();
+            for (const {heading, entries} of rows) {
+                let any = false;
+                for (const {row, text: haystack} of entries) {
+                    const match = q === '' || haystack.includes(q);
+                    row.visible = match;
+                    any = any || match;
+                }
+                heading.visible = any;
+            }
+        };
+        return body;
     }
 
     // --- theme --------------------------------------------------------------
