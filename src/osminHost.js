@@ -10,6 +10,7 @@ import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
 import {OsminBackend} from './client/moduleClient.js';
+import {AgentsService} from './services/agentsService.js';
 import {DownloadsService} from './services/downloadsService.js';
 import {FocusService} from './services/focusService.js';
 import {LyricsService} from './services/lyricsService.js';
@@ -91,6 +92,7 @@ export class OsminHost {
             focus: new FocusService(this._backend.focus),
             system: new SystemService(this._backend.system),
             downloads: new DownloadsService(this._backend.downloads),
+            agents: new AgentsService(this._backend.agents),
             lyrics: new LyricsService(this._backend.lyrics),
             todo: new TodoService(this._backend.todo),
             notes: new NotesService(this._backend.notes),
@@ -148,6 +150,7 @@ export class OsminHost {
             services.focus.destroy();
             services.system.destroy();
             services.downloads.destroy();
+            services.agents.destroy();
             services.lyrics.destroy();
             services.todo.destroy();
             services.notes.destroy();

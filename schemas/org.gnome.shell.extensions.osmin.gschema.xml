@@ -109,7 +109,7 @@
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'agents': 4}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>
@@ -303,6 +303,12 @@
       <default>true</default>
       <summary>Music activity</summary>
       <description>Show the music that is playing as a live activity.</description>
+    </key>
+
+    <key name="agents-alerts" type="b">
+      <default>true</default>
+      <summary>AI agents finished</summary>
+      <description>Show a card when an AI coding agent (Claude Code, Codex) finishes a task that took more than a minute.</description>
     </key>
 
     <key name="system-alerts" type="b">

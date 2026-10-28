@@ -50,6 +50,7 @@ export const DEFAULTS = Object.freeze({
     'colored-effects': true,
     'activity-media': true,
     'system-alerts': true,
+    'agents-alerts': true,
     'activity-downloads': true,
     'activity-timer': true,
     'activity-calendar': true,

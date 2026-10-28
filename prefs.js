@@ -158,6 +158,7 @@ const WIDGET_ICONS = {
     downloads: 'folder-download-symbolic',
     input: 'input-mouse-symbolic',
     windows: 'focus-windows-symbolic',
+    agents: 'system-run-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
@@ -284,6 +285,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             key(_('Live Activities'), _('Tray'), _('A card when files are added to the tray'), 'folder-download-symbolic', 'activity-files'),
             key(_('Live Activities'), _('Downloads'), _('Files arriving in the Downloads folder'), 'folder-download-symbolic', 'activity-downloads'),
             key(_('Cards and alerts'), _('System alerts'), _('A busy processor, heat, a full disk or memory, a low battery'), 'dialog-warning-symbolic', 'system-alerts'),
+            key(_('Cards and alerts'), _('AI agents finished'), _('A card when Claude Code or Codex finishes a long task'), 'emblem-ok-symbolic', 'agents-alerts'),
             key(_('Cards and alerts'), _('Keyboard layout'), _('A card with the layout name when you switch it'), 'input-keyboard-symbolic', 'show-input-source'),
             key(_('Music'), _('Lyrics'), _('The line being sung under the title (the song is looked up on lrclib.net)'), 'audio-x-generic-symbolic', 'show-lyrics'),
             key(_('Music'), _('Colored effects'), _('The effect takes the color of the album art'), 'applications-graphics-symbolic', 'colored-effects'),

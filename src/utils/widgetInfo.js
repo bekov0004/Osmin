@@ -13,6 +13,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'downloads', title: 'Downloads', subtitle: 'Files arriving in the Downloads folder, with progress in the capsule', cells: 4, minCells: 3},
     {id: 'input', title: 'Input', subtitle: 'Mouse and keyboard switches: scrolling, acceleration, tap to click, focus follows mouse', cells: 4, minCells: 4},
     {id: 'windows', title: 'Windows', subtitle: 'Live previews of the open windows, and snap, centre, maximize, move to the next monitor', cells: 5, minCells: 4},
+    {id: 'agents', title: 'AI Agents', subtitle: 'Claude Code and Codex: working now, tokens of the last 5 hours and week, a card when a task is done', cells: 4, minCells: 4},
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},
     {id: 'todo', title: 'To-do', subtitle: 'A simple local task list', cells: 4, minCells: 3},
     {id: 'notes', title: 'Notes', subtitle: 'Quick notes you can copy later', cells: 4, minCells: 3},
