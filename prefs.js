@@ -140,6 +140,7 @@ const WIDGET_ICONS = {
     tools: 'applications-utilities-symbolic',
     focus: 'preferences-system-time-symbolic',
     system: 'utilities-system-monitor-symbolic',
+    sound: 'audio-speakers-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',

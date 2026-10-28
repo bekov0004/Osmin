@@ -1618,3 +1618,85 @@
 .osmin-system-fill:warn {
     background-color: #ff6b6b;
 }
+
+/* Horizontal slider */
+.osmin-hslider {
+    height: 16px;
+    min-width: 40px;
+}
+
+.osmin-hslider-track {
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.osmin-hslider-fill {
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.85);
+}
+
+.osmin-hslider-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    background-color: white;
+}
+
+/* Sound */
+.osmin-sound {
+    spacing: 4px;
+}
+
+.osmin-sound-row {
+    spacing: 6px;
+}
+
+.osmin-button.osmin-sound-output {
+    border-radius: 12px;
+    padding: 3px 10px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-sound-output .osmin-button-label {
+    font-size: 11px;
+}
+
+.osmin-button.osmin-sound-mic,
+.osmin-button.osmin-sound-mute {
+    width: 26px;
+    height: 24px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-button.osmin-sound-mic:checked {
+    background-color: rgba(255, 107, 107, 0.5);
+}
+
+.osmin-sound-percent {
+    min-width: 34px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 10px;
+}
+
+.osmin-sound-app {
+    spacing: 6px;
+}
+
+.osmin-sound-app-icon {
+    icon-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.osmin-sound-app-name {
+    width: 70px;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 10px;
+}
+
+.osmin-sound-note {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 11px;
+}
