@@ -1,4 +1,5 @@
 import {CalendarWidget} from './calendar/calendarWidget.js';
+import {FocusWidget} from './focus/focusWidget.js';
 import {MediaWidget} from './media/mediaWidget.js';
 import {NotesWidget} from './notes/notesWidget.js';
 import {MirrorWidget} from './mirror/mirrorWidget.js';
@@ -17,4 +18,5 @@ export const WIDGET_CLASSES = [
     NotesWidget,
     ShortcutsWidget,
     ToolsWidget,
+    FocusWidget,
 ];

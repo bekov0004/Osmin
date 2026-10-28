@@ -179,6 +179,7 @@ export class OsminBackend {
         this.clipboard = new ModuleClient('Clipboard');
         this.power = new ModuleClient('Power');
         this.tools = new ModuleClient('Tools');
+        this.focus = new ModuleClient('Focus');
     }
 
     start() {
@@ -193,6 +194,7 @@ export class OsminBackend {
         this.clipboard.start();
         this.power.start();
         this.tools.start();
+        this.focus.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -216,6 +218,7 @@ export class OsminBackend {
         this.clipboard.destroy();
         this.power.destroy();
         this.tools.destroy();
+        this.focus.destroy();
         this.service.destroy();
     }
 }

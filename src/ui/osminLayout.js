@@ -1,6 +1,6 @@
 import {BASE_CELL_CSS, WIDGET_INFO} from '../utils/widgetInfo.js';
 
-const MIN_TOTAL_CSS = 320;     // never narrower than this
+const MIN_TOTAL_CSS = 560;     // never narrower than this: the five tabs and the settings button must fit
 const MAX_SHARE = 0.72;        // never wider than this share of the monitor
 const SCREEN_MARGIN_CSS = 24;
 

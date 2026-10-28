@@ -1558,3 +1558,22 @@
     font-size: 9px;
     font-weight: 600;
 }
+
+/* Focus */
+.osmin-focus {
+    spacing: 3px;
+}
+
+.osmin-focus-time {
+    font-size: 24px;
+}
+
+.osmin-focus-caption {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+}
+
+.osmin-button.osmin-timer-chip:checked {
+    background-color: rgba(77, 141, 255, 0.35);
+    color: white;
+}

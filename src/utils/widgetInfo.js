@@ -7,6 +7,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'calendar', title: 'Calendar', subtitle: 'The days around today and the events', cells: 4, minCells: 3},
     {id: 'mirror', title: 'Mirror', subtitle: 'A webcam preview, only while open', cells: 3, minCells: 2},
     {id: 'timer', title: 'Timer', subtitle: 'A countdown that shows in the capsule', cells: 3, minCells: 3},
+    {id: 'focus', title: 'Focus', subtitle: 'A Pomodoro focus timer and a stopwatch with laps', cells: 3, minCells: 3},
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},
     {id: 'todo', title: 'To-do', subtitle: 'A simple local task list', cells: 4, minCells: 3},
     {id: 'notes', title: 'Notes', subtitle: 'Quick notes you can copy later', cells: 4, minCells: 3},

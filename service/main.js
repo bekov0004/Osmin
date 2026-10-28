@@ -10,6 +10,7 @@ import {CalendarModule} from './calendar/module.js';
 import {ClipboardModule} from './clipboard/module.js';
 import {FilesModule} from './files/module.js';
 import {LocalSendModule} from './localsend/module.js';
+import {FocusModule} from './focus/module.js';
 import {PowerModule} from './power/module.js';
 import {ToolsModule} from './tools/module.js';
 import {NotesModule} from './notes/module.js';
@@ -53,7 +54,7 @@ class ServiceModule extends Module {
 const OsminService = GObject.registerClass(class OsminService extends Gio.Application {
     constructor() {
         super({application_id: APPLICATION_ID, flags: Gio.ApplicationFlags.IS_SERVICE});
-        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule(), new CalendarModule(), new FilesModule(), new ArtworkModule(), new ClipboardModule(), new PowerModule(), new ToolsModule()];
+        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule(), new CalendarModule(), new FilesModule(), new ArtworkModule(), new ClipboardModule(), new PowerModule(), new ToolsModule(), new FocusModule()];
         this._clients = new Map(); // unique bus name -> watch id
         this._idleId = 0;
     }
