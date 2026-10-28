@@ -183,6 +183,7 @@ export class OsminBackend {
         this.system = new ModuleClient('System');
         this.downloads = new ModuleClient('Downloads');
         this.lyrics = new ModuleClient('Lyrics');
+        this.processes = new ModuleClient('Processes');
     }
 
     start() {
@@ -201,6 +202,7 @@ export class OsminBackend {
         this.system.start();
         this.downloads.start();
         this.lyrics.start();
+        this.processes.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -228,6 +230,7 @@ export class OsminBackend {
         this.system.destroy();
         this.downloads.destroy();
         this.lyrics.destroy();
+        this.processes.destroy();
         this.service.destroy();
     }
 }

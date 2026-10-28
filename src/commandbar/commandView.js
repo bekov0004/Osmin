@@ -24,12 +24,14 @@ export class CommandView extends St.BoxLayout {
      * @param {{clipboard: ClipboardService, ui: {beginTextInput, endTextInput}, onDone: () => void,
      *          onPaste: (item) => void}} params
      */
-    constructor({clipboard, ui, onDone, onPaste}) {
+    constructor({clipboard, ui, onDone, onPaste, processes = null}) {
         super({vertical: true, style_class: 'osmin-tray osmin-clipboard', x_expand: true, y_expand: true});
         this._clipboardService = clipboard;
         this._ui = ui;
         this._onDone = onDone;
         this._onPaste = onPaste;
+        this._processes = processes;
+        this._searchId = 0;
         this._typing = false;
         this._results = [];
         this._selected = 0;
@@ -120,6 +122,12 @@ export class CommandView extends St.BoxLayout {
     _search() {
         const query = this._entry.text.trim();
         const results = [];
+        const stop = query.match(/^(?:kill|stop|quit)\s+(.+)$/i);
+        if (stop || /^ports?$/i.test(query)) {
+            this._searchProcesses(stop ? stop[1] : null);
+            return;
+        }
+        this._searchId++;
         if (query) {
             const sum = calculate(query);
             if (sum !== null) {
@@ -140,6 +148,38 @@ export class CommandView extends St.BoxLayout {
         this._results = results;
         this._selected = 0;
         this._render();
+    }
+
+    /** "kill <name>" lists your processes of that name, "ports" the ports they listen on; Enter twice stops one. */
+    async _searchProcesses(name) {
+        const id = ++this._searchId;
+        let results = [];
+        try {
+            if (name === null) {
+                const {ports} = await this._processes.call('ports');
+                results = ports.map(entry => this._stopRow(entry.pid, `Port ${entry.port} · ${entry.name}`, `${entry.protocol} · process ${entry.pid}`));
+            } else {
+                const {processes} = await this._processes.call('list', {query: name});
+                results = processes.map(entry => this._stopRow(entry.pid, entry.name, `process ${entry.pid} · ${Math.round(entry.memory / 1048576)} MB`));
+            }
+        } catch (e) {
+            results = [{icon: 'dialog-warning-symbolic', title: e.message, subtitle: '', run: () => {}}];
+        }
+        if (id !== this._searchId)
+            return;
+        this._results = results;
+        this._selected = 0;
+        this._render();
+    }
+
+    _stopRow(pid, title, subtitle) {
+        return {
+            icon: 'process-stop-symbolic',
+            title,
+            subtitle: `${subtitle} · Enter, then Enter again to stop it`,
+            confirm: true,
+            run: () => this._processes.call('stop', {pid}).catch(e => console.warn(`[osmin] stop ${pid}: ${e.message}`)),
+        };
     }
 
     _apps(query) {
@@ -240,6 +280,14 @@ export class CommandView extends St.BoxLayout {
         const result = this._results[index];
         if (!result)
             return;
+        // Stopping a process asks twice.
+        if (result.confirm && !result.armed) {
+            result.armed = true;
+            result.subtitle = 'Press Enter again to stop it now';
+            this._selected = index;
+            this._render();
+            return;
+        }
         this._entry.text = '';
         this.stopTyping();
         this._onDone();
