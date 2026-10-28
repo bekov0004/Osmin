@@ -10,6 +10,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},
     {id: 'todo', title: 'To-do', subtitle: 'A simple local task list', cells: 4, minCells: 3},
     {id: 'notes', title: 'Notes', subtitle: 'Quick notes you can copy later', cells: 4, minCells: 3},
+    {id: 'tools', title: 'Quick Toggles', subtitle: 'Keep awake, dark mode, screenshot, colour picker, cleaning mode', cells: 5, minCells: 4},
 ]);
 
 export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror']);

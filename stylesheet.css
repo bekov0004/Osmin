@@ -1522,3 +1522,39 @@
 .osmin-lsv-on {
     color: #4d8dff;
 }
+
+/* Quick toggles */
+.osmin-tools {
+    spacing: 4px;
+}
+
+.osmin-tools-row {
+    spacing: 4px;
+}
+
+.osmin-tool {
+    border-radius: 12px;
+    padding: 6px 2px;
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.osmin-tool:hover,
+.osmin-tool:focus {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.osmin-tool:checked {
+    background-color: rgba(77, 141, 255, 0.35);
+}
+
+.osmin-tool-icon {
+    icon-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.osmin-tool-label {
+    margin-top: 2px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 9px;
+    font-weight: 600;
+}

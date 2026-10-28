@@ -137,6 +137,7 @@ const WIDGET_ICONS = {
     todo: 'checkbox-checked-symbolic',
     notes: 'document-edit-symbolic',
     shortcuts: 'view-app-grid-symbolic',
+    tools: 'applications-utilities-symbolic',
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',

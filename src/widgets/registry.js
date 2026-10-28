@@ -4,6 +4,7 @@ import {NotesWidget} from './notes/notesWidget.js';
 import {MirrorWidget} from './mirror/mirrorWidget.js';
 import {ShortcutsWidget} from './shortcuts/shortcutsWidget.js';
 import {TimerWidget} from './timer/timerWidget.js';
+import {ToolsWidget} from './tools/toolsWidget.js';
 import {TodoWidget} from './todo/todoWidget.js';
 
 /** All widgets by id. The user chooses which ones to show and in what order. */
@@ -15,4 +16,5 @@ export const WIDGET_CLASSES = [
     TodoWidget,
     NotesWidget,
     ShortcutsWidget,
+    ToolsWidget,
 ];
