@@ -86,7 +86,7 @@ export class OsminHost {
             notifications: new NotificationsService(),
             camera: new CameraService(),
             localSend: new LocalSendService(this._backend.localSend),
-            clipboard: new ClipboardService({
+            clipboard: new ClipboardService(this._backend.clipboard, {
                 keepHistory: () => this._settings.get('clipboard-keep-history'),
                 maxItems: () => this._settings.get('clipboard-max-items'),
             }),

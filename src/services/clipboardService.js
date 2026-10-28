@@ -5,7 +5,6 @@ import Meta from 'gi://Meta';
 import St from 'gi://St';
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
-import {JsonStore} from '../utils/jsonStore.js';
 
 const MAX_LENGTH = 20000;
 const MAX_SAVED = 100;
@@ -44,12 +43,16 @@ const uriToPath = uri => Gio.File.new_for_uri(uri).get_path() ?? uri;
  * Signal: 'changed'.
  */
 export class ClipboardService extends Signals.EventEmitter {
-    /** @param {{keepHistory: () => boolean, maxItems: () => number}} options */
-    constructor({keepHistory = () => false, maxItems = () => 30} = {}) {
+    /**
+     * @param {ModuleClient} module the Osmin service keeps the history on disk
+     * @param {{keepHistory: () => boolean, maxItems: () => number}} options
+     */
+    constructor(module, {keepHistory = () => false, maxItems = () => 30} = {}) {
         super();
+        this._module = module;
+        this._loaded = false; // nothing is saved before the saved items were read (it would erase them)
         this._keepHistory = keepHistory;
         this._maxItems = maxItems;
-        this._store = new JsonStore('clipboard.json');
         this._items = [];
         this._nextId = 1;
         this._clipboard = St.Clipboard.get_default();
@@ -61,31 +64,44 @@ export class ClipboardService extends Signals.EventEmitter {
         return this._items;
     }
 
-    /** Loads the saved items and starts watching the clipboard. */
+    /** Starts watching the clipboard and reads the saved items (from the service) next to what is copied meanwhile. */
     start() {
-        const data = this._store.load();
-        if (Array.isArray(data?.items)) {
-            this._items = data.items
-                .filter(item => item && typeof item.text === 'string' && item.text !== '')
-                .map(item => ({
-                    id: 0,
-                    text: item.text.slice(0, MAX_LENGTH),
-                    files: Array.isArray(item.files) && item.files.every(u => typeof u === 'string') ? item.files : null,
-                    saved: item.saved === true,
-                    note: item.note === true,
-                    at: Number(item.at) || 0,
-                }));
-            this._items.forEach(item => {
-                item.id = this._nextId++;
-            });
-        }
-        this.emit('changed');
-
         global.display.get_selection().connectObject('owner-changed', (_sel, type) => {
             if (type === Meta.SelectionType.SELECTION_CLIPBOARD)
                 this._read();
         }, this);
         this._read();
+        this._loadSaved();
+    }
+
+    async _loadSaved() {
+        let data;
+        try {
+            data = await this._module.call('load');
+        } catch (e) {
+            console.warn(`[osmin] the saved clipboard items are not available: ${e.message}`);
+            return;
+        }
+        const saved = (Array.isArray(data?.items) ? data.items : [])
+            .filter(item => item && typeof item.text === 'string' && item.text !== '')
+            .map(item => ({
+                id: 0,
+                text: item.text.slice(0, MAX_LENGTH),
+                files: Array.isArray(item.files) && item.files.every(u => typeof u === 'string') ? item.files : null,
+                saved: item.saved === true,
+                note: item.note === true,
+                at: Number(item.at) || 0,
+            }))
+            // what was copied while they were loading is newer and already in the list
+            .filter(item => !this._items.some(own => own.text === item.text));
+        this._items = [...this._items, ...saved];
+        this._items.forEach(item => {
+            if (!item.id)
+                item.id = this._nextId++;
+        });
+        this._loaded = true;
+        this._trim();
+        this._changed();
     }
 
     destroy() {
@@ -259,12 +275,12 @@ export class ClipboardService extends Signals.EventEmitter {
     }
 
     _persist() {
+        if (!this._loaded)
+            return;
         const keep = this._keepHistory();
-        this._store.save({
-            version: 1,
-            items: this._items
-                .filter(item => keep || item.saved)
-                .map(({text, files, saved, note, at}) => ({text, files, saved, note, at})),
-        });
+        const items = this._items
+            .filter(item => keep || item.saved)
+            .map(({text, files, saved, note, at}) => ({text, files, saved, note, at}));
+        this._module.call('save', {items}).catch(e => console.warn(`[osmin] saving the clipboard items failed: ${e.message}`));
     }
 }

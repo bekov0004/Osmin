@@ -174,6 +174,7 @@ export class OsminBackend {
         this.calendar = new ModuleClient('Calendar');
         this.files = new ModuleClient('Files');
         this.artwork = new ModuleClient('Artwork');
+        this.clipboard = new ModuleClient('Clipboard');
     }
 
     start() {
@@ -185,6 +186,7 @@ export class OsminBackend {
         this.calendar.start();
         this.files.start();
         this.artwork.start();
+        this.clipboard.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -205,6 +207,7 @@ export class OsminBackend {
         this.calendar.destroy();
         this.files.destroy();
         this.artwork.destroy();
+        this.clipboard.destroy();
         this.service.destroy();
     }
 }
