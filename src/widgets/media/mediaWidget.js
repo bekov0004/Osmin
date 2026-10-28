@@ -7,6 +7,7 @@ import St from 'gi://St';
 import {EffectView} from '../../ui/effectView.js';
 import {createButton} from '../../ui/button.js';
 import {PlaybackStatus} from '../../services/mediaService.js';
+import {currentLine} from '../../services/lyricsService.js';
 import {OsminWidget} from '../widget.js';
 import {Priority} from '../../utils/events.js';
 import {MediaActivity} from './mediaActivity.js';
@@ -37,12 +38,15 @@ export class MediaWidget extends OsminWidget {
         this._artwork = context.services.artwork;
         this._activities = context.services.activities;
         this._settings = context.settings;
+        this._lyricsService = context.services.lyrics;
         this._activity = null;
         this._tickId = 0;
         this._eqId = 0;
         this._shown = false;
         this._artUrl = null;
         this._player = null;
+        this._lyrics = null;      // {key, lines} of the song that plays, when lyrics are on
+        this._lyricsKey = '';
     }
 
     /** Publishes the Live Activity: ongoing while playing, peeks on start / track change. */
@@ -307,8 +311,27 @@ export class MediaWidget extends OsminWidget {
         this._setBadge(player.desktopEntry);
 
         this._setArtwork(artUrl);
+        this._loadLyrics(player.metadata);
         this._updateProgress();
         this._updateTickers();
+    }
+
+    /** Looks the lyrics of a new song up (only when "show lyrics" is on). */
+    _loadLyrics(metadata) {
+        if (!this._settings.get('show-lyrics')) {
+            this._lyrics = null;
+            this._lyricsKey = '';
+            return;
+        }
+        const key = `${metadata.artist}\n${metadata.title}\n${metadata.album}\n${metadata.length}`;
+        if (key === this._lyricsKey)
+            return;
+        this._lyricsKey = key;
+        this._lyrics = null;
+        this._lyricsService.lookup(metadata).then(({lines}) => {
+            if (this._lyricsKey === key && lines)
+                this._lyrics = {lines};
+        });
     }
 
     /** The player's own icon, from its desktop entry. */
@@ -356,6 +379,9 @@ export class MediaWidget extends OsminWidget {
         const {length} = player.metadata;
         const position = player.position;
         this._elapsed.text = formatDuration(position);
+        // The line being sung takes the place of the album line.
+        const line = this._lyrics ? currentLine(this._lyrics.lines, position / 1000) : null;
+        this._album.text = line?.text ? line.text : (player.metadata.album || player.identity);
         const fraction = length > 0 ? Math.min(position / length, 1) : 0;
         this._fill.set_width(this._bar.mapped ? Math.round(this._bar.width * fraction) : 0);
     }

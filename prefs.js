@@ -1085,11 +1085,13 @@ export default class OsminPreferences extends ExtensionPreferences {
             radios.append(radio);
         }
         this._row(form, _('Effect type'), radios, _('The animation shown while music plays.'));
+        this._toggleRow(form, settings, 'show-lyrics', '', _('Show lyrics'),
+            _('The line being sung appears under the title. The artist, title, album and length of the song are sent to lrclib.net to find the lyrics; nothing else.'));
         this._toggleRow(form, settings, 'colored-effects', '', _('Colored effects'),
             _('The effect takes the color of the album art; otherwise it is white.'));
 
         this._resetRow(form, settings, ['activities-in-collapsed', 'album-corner-radius', 'media-effect',
-            'colored-effects', 'activity-media',
+            'colored-effects', 'show-lyrics', 'activity-media',
             'activity-timer', 'activity-calendar', 'activity-files', 'activity-downloads',
             'peek-media-seconds', 'peek-files-seconds', 'peek-calendar-seconds']);
         return body;

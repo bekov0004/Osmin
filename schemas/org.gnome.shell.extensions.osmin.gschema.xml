@@ -220,6 +220,12 @@
       <description>When you copy a link, remove its tracking parameters (utm_*, fbclid, gclid ...) from what is on the clipboard.</description>
     </key>
 
+    <key name="show-lyrics" type="b">
+      <default>false</default>
+      <summary>Show lyrics</summary>
+      <description>Show the line that is being sung under the song title. The artist, title, album and length of the song are sent to lrclib.net to find the lyrics. Off by default.</description>
+    </key>
+
     <key name="show-input-source" type="b">
       <default>true</default>
       <summary>Show keyboard layout changes</summary>
