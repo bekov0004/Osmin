@@ -7,6 +7,7 @@ import {Osmin} from './osmin.js';
 import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
+import {OsminBackend} from './client/moduleClient.js';
 import {LocalSendServer} from './services/localSendServer.js';
 import {LocalSendService} from './services/localSendService.js';
 import {CameraService} from './services/cameraService.js';
@@ -69,7 +70,11 @@ export class OsminHost {
             onChanged: () => this._capsules.forEach(osmin => osmin._relayout()),
             onToggleRequest: () => this.toggle(),
         });
+        // The service that does the heavy work (LocalSend, ...) in a process of its own.
+        this._backend = new OsminBackend();
+        this._backend.start();
         this._services = {
+            backend: this._backend,
             media: new MediaService(),
             artwork: new ArtworkService(),
             files: new FileService({persist: () => this._settings.get('tray-keep-files')}),
@@ -80,7 +85,7 @@ export class OsminHost {
             notes: new NotesService(),
             notifications: new NotificationsService(),
             camera: new CameraService(),
-            localSend: new LocalSendService(),
+            localSend: new LocalSendService(this._backend.localSend),
             clipboard: new ClipboardService({
                 keepHistory: () => this._settings.get('clipboard-keep-history'),
                 maxItems: () => this._settings.get('clipboard-max-items'),
@@ -111,6 +116,7 @@ export class OsminHost {
         this._restoreMessageTrayBinding();
         this._server?.destroy();
         this._server = null;
+        this._backend?.localSend.disconnectObject(this);
         this._signals.disconnectAll();
         for (const osmin of [...this._capsules.values()].reverse())
             osmin.destroy();
@@ -128,6 +134,8 @@ export class OsminHost {
             services.notes.destroy();
             services.camera.destroy();
             services.localSend.destroy();
+            this._backend.shutdown();
+            this._backend = null;
             services.clipboard.destroy();
             services.notifications.destroy();
         }
@@ -184,7 +192,12 @@ export class OsminHost {
             return;
         }
         if (!this._server) {
-            this._server = new LocalSendServer(this._services.localSend);
+            this._server = new LocalSendServer(this._backend.localSend);
+            // The service starts afresh when it was restarted: ask it to receive again.
+            this._backend.localSend.connectObject('connected', () => {
+                if (this._settings.get('localsend-receive'))
+                    this._syncReceiving();
+            }, this);
             this._server.connectObject('incoming', (_s, transfer) =>
                 this._capsuleAtPointer()?.showIncoming(transfer), this);
         }

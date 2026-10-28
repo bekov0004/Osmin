@@ -79,12 +79,29 @@ what is going on) and an **expanded** container that hangs from the top edge of 
 - GNOME Shell 50 (Ubuntu 26.04), Wayland session
 - `gstreamer` with the PipeWire / V4L2 plugins for the Mirror (normally installed)
 
+## How it is built: an extension and a service
+
+Osmin is two parts that talk over D-Bus (`io.github.bekov0004.Osmin`):
+
+- the **extension** (`extension.js`, `src/`) is the face: the capsule, panels, cards, gestures, and
+  everything that must live inside the shell (the clipboard capture, notifications, key bindings,
+  the monitors, dragging);
+- the **service** (`service/`, a plain `gjs` process) does the work that waits or talks to the
+  network: LocalSend (finding devices, sending, receiving) and more over time. It runs in a process
+  of its own, so a slow or broken job can never freeze the desktop, and it can be restarted without
+  logging out. It is started by D-Bus activation the first time the extension asks, and ends by
+  itself when the extension is gone.
+
+Each feature of the service is a *module* (`service/module.js`): it owns a JSON state and answers
+calls; the extension's `src/client/moduleClient.js` mirrors the state. Without the service the
+extension still runs; only the features that live in the service are unavailable.
+
 ## Install
 
 ```bash
 git clone https://github.com/bekov0004/Osmin.git
 cd Osmin
-scripts/install-dev.sh          # copies into ~/.local/share/gnome-shell/extensions and compiles the schema
+scripts/install-dev.sh          # the extension + the Osmin service, all in ~/.local/share (no root)
 ```
 
 Log out and back in (Wayland cannot restart the shell in place), then:
@@ -106,6 +123,8 @@ and install the zip with `gnome-extensions install`.
 If the settings schema is not compiled (a hand-copied extension) Osmin still works with its defaults.
 
 ## Uninstall
+
+`scripts/uninstall.sh` removes the extension, the service and its D-Bus file (your data stays).
 
 ```bash
 gnome-extensions disable osmin@bekov0004.github.io
