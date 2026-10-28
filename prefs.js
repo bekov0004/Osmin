@@ -12,37 +12,37 @@ import {DEFAULT_WIDGETS, WIDGET_INFO} from './src/utils/widgetInfo.js';
 // "capsule" preview). Both schemes follow the system setting.
 const SETTINGS_THEME = {
     light: {
-        BACKGROUND: '#e9e9ec',
-        TOOLBAR: '#efeff2',
-        SURFACE: '#e1e2e6',
-        CARD: '#f6f6f8',
-        CONTROL: '#ffffff',
-        BORDER: 'rgba(0, 0, 0, 0.10)',
-        HOVER: 'rgba(0, 0, 0, 0.06)',
+        BACKGROUND: '#f2f2f4',
+        TOOLBAR: '#e4e4e9',
+        SURFACE: '#ffffff',
+        CARD: '#f7f7f9',
+        CONTROL: 'rgba(0, 0, 0, 0.07)',
+        BORDER: 'rgba(0, 0, 0, 0.09)',
+        HOVER: 'rgba(0, 0, 0, 0.05)',
         SELECTED: 'rgba(0, 0, 0, 0.09)',
-        TEXT: '#26272b',
-        TEXT_SECONDARY: '#6d6f78',
-        TEXT_DISABLED: '#a4a6ae',
-        ACCENT: '#1a73f0',
-        ACCENT_SOFT: 'rgba(26, 115, 240, 0.16)',
+        TEXT: 'rgba(0, 0, 0, 0.86)',
+        TEXT_SECONDARY: 'rgba(0, 0, 0, 0.5)',
+        TEXT_DISABLED: 'rgba(0, 0, 0, 0.26)',
+        ACCENT: '#007aff',
+        ACCENT_SOFT: 'rgba(0, 122, 255, 0.14)',
         CAPSULE: '#0c0c10',
         CAPSULE_BLOCK: '#232327',
-        TRACK: 'rgba(0, 0, 0, 0.14)',
+        TRACK: 'rgba(0, 0, 0, 0.16)',
     },
     dark: {
-        BACKGROUND: '#1c1d21',
-        TOOLBAR: '#25262b',
-        SURFACE: '#26272c',
-        CARD: '#2f3036',
-        CONTROL: '#3a3b42',
-        BORDER: 'rgba(255, 255, 255, 0.09)',
+        BACKGROUND: '#1c1c1e',
+        TOOLBAR: '#2c2c30',
+        SURFACE: 'rgba(255, 255, 255, 0.045)',
+        CARD: 'rgba(255, 255, 255, 0.075)',
+        CONTROL: 'rgba(255, 255, 255, 0.11)',
+        BORDER: 'rgba(255, 255, 255, 0.10)',
         HOVER: 'rgba(255, 255, 255, 0.06)',
-        SELECTED: 'rgba(255, 255, 255, 0.10)',
-        TEXT: '#f1f1f4',
-        TEXT_SECONDARY: '#9b9ca5',
-        TEXT_DISABLED: '#686972',
-        ACCENT: '#4c97ff',
-        ACCENT_SOFT: 'rgba(76, 151, 255, 0.22)',
+        SELECTED: 'rgba(255, 255, 255, 0.12)',
+        TEXT: 'rgba(255, 255, 255, 0.86)',
+        TEXT_SECONDARY: 'rgba(255, 255, 255, 0.55)',
+        TEXT_DISABLED: 'rgba(255, 255, 255, 0.26)',
+        ACCENT: '#0a84ff',
+        ACCENT_SOFT: 'rgba(10, 132, 255, 0.18)',
         CAPSULE: '#050507',
         CAPSULE_BLOCK: '#1d1d21',
         TRACK: 'rgba(255, 255, 255, 0.16)',
@@ -61,20 +61,33 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-prefs .dim, .osmin-prefs label.dim { color: ${p.TEXT_SECONDARY}; font-size: 12px; }
 .osmin-prefs separator { background-color: ${p.BORDER}; min-height: 1px; min-width: 1px; }
 
-.osmin-sidebar { background-color: ${p.TOOLBAR}; border-right: 1px solid ${p.BORDER}; padding: 10px 8px; }
-.osmin-sidebar entry { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: 1px solid ${p.BORDER};
-    border-radius: 9px; box-shadow: none; min-height: 30px; margin-bottom: 8px; }
+.osmin-sidebar { background-color: ${p.TOOLBAR}; border-radius: 12px; margin: 8px 0 8px 8px; padding: 8px 8px 10px 8px; }
+.osmin-sidebar searchentry, .osmin-sidebar entry { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: none;
+    border-radius: 999px; box-shadow: none; min-height: 28px; padding: 0 8px; margin: 2px 2px 8px 2px; }
+.osmin-sidebar searchentry:focus-within { box-shadow: 0 0 0 3px ${p.ACCENT_SOFT}; }
 .osmin-sidebar list { background: none; }
-.osmin-sidebar row { background: none; border-radius: 9px; padding: 7px 10px; margin: 1px 0; color: ${p.TEXT}; }
+.osmin-sidebar row { background: none; border-radius: 8px; padding: 5px 8px; margin: 1px 2px; min-height: 22px; color: ${p.TEXT}; }
 .osmin-sidebar row:hover { background-color: ${p.HOVER}; }
-.osmin-sidebar row:selected { background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
-.osmin-sidebar .caption-heading { color: ${p.TEXT_SECONDARY}; font-size: 10px; font-weight: 800;
-    letter-spacing: 1px; margin: 12px 10px 4px 10px; }
-.osmin-feature-group { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: ${p.TEXT_SECONDARY};
-    margin-top: 14px; margin-bottom: 2px; }
-.osmin-feature { background-color: ${p.SURFACE}; border-radius: 12px; padding: 10px 14px; margin: 2px 0; }
-.osmin-feature:hover { background-color: ${p.CARD}; }
-.osmin-feature .title { font-weight: 600; }
+.osmin-sidebar row image { color: ${p.ACCENT}; }
+.osmin-sidebar row:selected { background-color: ${p.ACCENT}; color: white; }
+.osmin-sidebar row:selected image, .osmin-sidebar row:selected label { color: white; }
+.osmin-sidebar .caption-heading { color: ${p.TEXT_SECONDARY}; font-size: 11px; font-weight: 600; margin: 10px 8px 3px 6px; }
+
+.osmin-page { padding: 6px 26px 30px 26px; }
+.osmin-page-head { margin-bottom: 2px; }
+.osmin-page-title { font-size: 17px; font-weight: 700; }
+.s-card { background-color: ${p.SURFACE}; border-radius: 16px; padding: 4px 16px; margin-bottom: 6px; }
+.s-card-title { font-size: 13px; font-weight: 600; margin: 12px 0 2px 0; }
+.s-row { padding: 11px 0; min-height: 26px; }
+.s-row-title { font-size: 13px; }
+.s-card separator { background-color: ${p.BORDER}; min-height: 1px; margin: 0; }
+.s-tile { border-radius: 7px; min-width: 26px; min-height: 26px; background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
+.s-tile image { color: ${p.ACCENT}; }
+.s-tile.green { background-color: rgba(48, 209, 88, 0.16); } .s-tile.green image { color: #30d158; }
+.s-tile.orange { background-color: rgba(255, 159, 10, 0.16); } .s-tile.orange image { color: #ff9f0a; }
+.s-tile.red { background-color: rgba(255, 69, 58, 0.16); } .s-tile.red image { color: #ff453a; }
+.s-tile.purple { background-color: rgba(191, 90, 242, 0.16); } .s-tile.purple image { color: #bf5af2; }
+.osmin-nav-title { font-size: 15px; font-weight: 600; }
 .osmin-toolbar { background-color: ${p.TOOLBAR}; border-bottom: 1px solid ${p.BORDER};
     padding: 8px 10px 8px 10px; }
 .osmin-tab { background: none; box-shadow: none; border: none; border-radius: 9px;
@@ -168,7 +181,7 @@ const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'b
 export default class OsminPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window.set_default_size(960, 800);
+        window.set_default_size(980, 800);
         window.title = _('Osmin');
         window.search_enabled = false;
 
@@ -200,7 +213,10 @@ export default class OsminPreferences extends ExtensionPreferences {
         });
         const featuresPage = this._featuresPage(settings);
         const sections = [
-            [_('Features'), [['features', _('All features'), 'view-list-symbolic', featuresPage]]],
+            [_('Essentials'), [
+                ['general', _('General'), 'preferences-system-symbolic', pages.find(p => p[0] === 'general')[3]],
+                ['features', _('Features'), 'view-app-grid-symbolic', featuresPage],
+            ]],
             [_('Capsule'), [
                 ['osmin', _('Widgets'), 'view-grid-symbolic', pages.find(p => p[0] === 'osmin')[3]],
                 ['appearance', _('Appearance'), 'applications-graphics-symbolic', pages.find(p => p[0] === 'appearance')[3]],
@@ -212,24 +228,44 @@ export default class OsminPreferences extends ExtensionPreferences {
                 ['clipboard', _('Clipboard'), 'edit-paste-symbolic', pages.find(p => p[0] === 'clipboard')[3]],
             ]],
             [_('Osmin'), [
-                ['general', _('General'), 'preferences-system-symbolic', pages.find(p => p[0] === 'general')[3]],
                 ['about', _('About'), 'help-about-symbolic', pages.find(p => p[0] === 'about')[3]],
             ]],
         ];
 
-        const sidebar = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-sidebar'], width_request: 210});
-        const search = new Gtk.SearchEntry({placeholder_text: _('Search features'), hexpand: true});
+        const sidebar = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-sidebar'], width_request: 236});
+        const search = new Gtk.SearchEntry({placeholder_text: _('Search'), hexpand: true});
         sidebar.append(search);
         const list = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.SINGLE, vexpand: true});
         const rowsByName = new Map();
+        const INTROS = {
+            features: _('Everything Osmin can do, in one list. Turn a feature on to add it; turn it off to remove it.'),
+            osmin: _('Choose the widgets of the capsule, their order and their width.'),
+            appearance: _('The look of the capsule and the top bar.'),
+            gestures: _('How the capsule opens, closes and reacts to the pointer and the touchpad.'),
+            activities: _('What the capsule shows while something is going on, and for how long.'),
+            tray: _('The file shelf: drag files to the top of the screen to keep them there.'),
+            clipboard: _('The history of what you copy, and how it behaves.'),
+            general: _('Size, shortcuts and where Osmin is shown.'),
+            about: '',
+        };
         for (const [heading, entries] of sections) {
             list.append(new Gtk.ListBoxRow({
                 selectable: false,
                 activatable: false,
-                child: new Gtk.Label({label: heading.toUpperCase(), css_classes: ['caption-heading'], xalign: 0}),
+                child: new Gtk.Label({label: heading, css_classes: ['caption-heading'], xalign: 0}),
             }));
             for (const [name, title, icon, content] of entries) {
-                const scroller = new Gtk.ScrolledWindow({child: content, hscrollbar_policy: Gtk.PolicyType.NEVER, vexpand: true, hexpand: true});
+                const page = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 8, css_classes: ['osmin-page'], hexpand: true});
+                const head = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, css_classes: ['osmin-page-head']});
+                head.append(new Gtk.Label({label: title, css_classes: ['osmin-page-title'], xalign: 0}));
+                if (INTROS[name])
+                    head.append(this._dim(INTROS[name]));
+                page.append(head);
+                content.margin_start = content.margin_end = 0;
+                content.margin_top = 8;
+                page.append(content);
+                const clamp = new Adw.Clamp({maximum_size: 760, tightening_threshold: 600, child: page, valign: Gtk.Align.START, hexpand: true});
+                const scroller = new Gtk.ScrolledWindow({child: clamp, hscrollbar_policy: Gtk.PolicyType.NEVER, vexpand: true, hexpand: true});
                 stack.add_named(scroller, name);
                 const row = new Gtk.ListBoxRow();
                 row._page = name;
@@ -254,7 +290,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             featuresPage._filter(search.text);
         });
 
-        const layout = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, height_request: 700});
+        const layout = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, height_request: 720});
         layout.append(sidebar);
         layout.append(stack);
         root.append(layout);
@@ -303,6 +339,16 @@ export default class OsminPreferences extends ExtensionPreferences {
             key(_('System'), _('Free Super+V from GNOME'), _('Lets you use Super+V for the Clipboard shortcut'), 'preferences-desktop-keyboard-shortcuts-symbolic', 'free-super-v'),
         ];
 
+        const TONES = {
+            [_('Widgets in the capsule')]: '',
+            [_('Live Activities')]: 'green',
+            [_('Cards and alerts')]: 'orange',
+            [_('Music')]: 'purple',
+            [_('Clipboard')]: '',
+            [_('Files and sharing')]: 'green',
+            [_('Behaviour')]: '',
+            [_('System')]: 'red',
+        };
         const grouped = new Map();
         for (const feature of features) {
             if (!grouped.has(feature.group))
@@ -310,20 +356,24 @@ export default class OsminPreferences extends ExtensionPreferences {
             grouped.get(feature.group).push(feature);
         }
         for (const [group, items] of grouped) {
-            const heading = new Gtk.Label({label: group.toUpperCase(), css_classes: ['osmin-feature-group'], xalign: 0});
+            const heading = new Gtk.Label({label: group, css_classes: ['s-card-title'], xalign: 0, margin_start: 4});
             body.append(heading);
+            const card = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['s-card']});
+            body.append(card);
             const entries = [];
-            for (const feature of items) {
-                const row = new Gtk.Box({css_classes: ['osmin-feature'], spacing: 12});
-                const icon = this._icon(feature.icon);
-                icon.hexpand = false;
-                icon.halign = Gtk.Align.START;
-                icon.set_size_request(34, 34);
-                row.append(icon);
-                const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER});
-                texts.append(new Gtk.Label({label: feature.title, css_classes: ['title'], xalign: 0}));
+            items.forEach((feature, index) => {
+                const wrap = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
+                if (index > 0)
+                    wrap.append(new Gtk.Separator());
+                const row = new Gtk.Box({css_classes: ['s-row'], spacing: 12});
+                const tile = new Gtk.Box({css_classes: ['s-tile', TONES[group] ?? ''], halign: Gtk.Align.START, valign: Gtk.Align.CENTER});
+                tile.hexpand = false;
+                tile.set_size_request(28, 28);
+                tile.append(new Gtk.Image({icon_name: feature.icon, pixel_size: 15, hexpand: true, vexpand: true, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER}));
+                row.append(tile);
+                const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER, spacing: 2});
+                texts.append(new Gtk.Label({label: feature.title, css_classes: ['s-row-title'], xalign: 0}));
                 texts.append(this._dim(feature.subtitle));
-                texts.halign = Gtk.Align.FILL;
                 row.append(texts);
                 const toggle = new Gtk.Switch({valign: Gtk.Align.CENTER});
                 if (feature.widget) {
@@ -346,15 +396,16 @@ export default class OsminPreferences extends ExtensionPreferences {
                     settings.bind(feature.key, toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
                 }
                 row.append(toggle);
-                body.append(row);
-                entries.push({row, text: `${feature.title} ${feature.subtitle} ${group}`.toLowerCase()});
-            }
-            rows.push({heading, entries});
+                wrap.append(row);
+                card.append(wrap);
+                entries.push({row: wrap, text: `${feature.title} ${feature.subtitle} ${group}`.toLowerCase()});
+            });
+            rows.push({heading, card, entries});
         }
         // The search field of the sidebar: only the matching features stay, and only their headings.
         body._filter = text => {
             const q = text.trim().toLowerCase();
-            for (const {heading, entries} of rows) {
+            for (const {heading, card, entries} of rows) {
                 let any = false;
                 for (const {row, text: haystack} of entries) {
                     const match = q === '' || haystack.includes(q);
@@ -362,6 +413,7 @@ export default class OsminPreferences extends ExtensionPreferences {
                     any = any || match;
                 }
                 heading.visible = any;
+                card.visible = any;
             }
         };
         return body;
@@ -394,10 +446,34 @@ export default class OsminPreferences extends ExtensionPreferences {
         return box;
     }
 
+    /**
+     * A page's list of settings: cards (rounded panels) with rows. `_row()` fills the current card;
+     * `_rule()` ends it, so the next row starts a new card.
+     */
     _form() {
-        const grid = new Gtk.Grid({column_spacing: 18, row_spacing: 10, halign: Gtk.Align.FILL, hexpand: true});
-        grid._row = 0;
-        return grid;
+        const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 12, hexpand: true});
+        box._card = null;
+        // Code written for a grid can still place a widget on a row of its own.
+        box.attach = widget => {
+            const card = this._cardOf(box);
+            if (card._rows > 0)
+                card.append(new Gtk.Separator());
+            card._rows++;
+            widget.hexpand = true;
+            widget.margin_top = 10;
+            widget.margin_bottom = 10;
+            card.append(widget);
+        };
+        return box;
+    }
+
+    _cardOf(box) {
+        if (!box._card) {
+            box._card = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['s-card']});
+            box._card._rows = 0;
+            box.append(box._card);
+        }
+        return box._card;
     }
 
     _dim(text) {
@@ -411,31 +487,35 @@ export default class OsminPreferences extends ExtensionPreferences {
         });
     }
 
-    /** One form row: right-aligned label, control on the left of the second column, optional note. */
+    /** One row of a card: the name (and a note under it) on the left, the control on the right. */
     _row(grid, label, control, note = '') {
-        const r = grid._row++;
-        if (label) {
-            grid.attach(new Gtk.Label({
-                label,
-                xalign: 1,
-                halign: Gtk.Align.END,
-                valign: Gtk.Align.CENTER,
-                width_chars: 16,
-            }), 0, r, 1, 1);
-        }
-        control.halign = control.halign === Gtk.Align.FILL ? Gtk.Align.FILL : Gtk.Align.START;
+        const card = this._cardOf(grid);
+        if (card._rows > 0)
+            card.append(new Gtk.Separator());
+        card._rows++;
+        const row = new Gtk.Box({css_classes: ['s-row'], spacing: 14});
+        const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER, spacing: 2});
+        if (label)
+            texts.append(new Gtk.Label({label, css_classes: ['s-row-title'], xalign: 0, wrap: true}));
+        if (note)
+            texts.append(this._dim(note));
+        row.append(texts);
+        const wide = control.compute_expand(Gtk.Orientation.HORIZONTAL) && !control._inline;
+        control.halign = wide ? Gtk.Align.FILL : Gtk.Align.END;
         control.valign = Gtk.Align.CENTER;
-        grid.attach(control, 1, r, 1, 1);
-        if (note) {
-            const n = grid._row++;
-            grid.attach(this._dim(note), 1, n, 1, 1);
+        if (wide) {
+            // A wide control (a slider, an editor) gets the row's width; the name goes above it.
+            texts.hexpand = false;
+            row.set_orientation(Gtk.Orientation.VERTICAL);
+            row.set_spacing(6);
+            control.hexpand = true;
         }
+        row.append(control);
+        card.append(row);
     }
 
     _rule(grid) {
-        const r = grid._row++;
-        const sep = new Gtk.Separator({margin_top: 6, margin_bottom: 6});
-        grid.attach(sep, 0, r, 2, 1);
+        grid._card = null;
     }
 
     _switch(settings, key) {
@@ -445,17 +525,18 @@ export default class OsminPreferences extends ExtensionPreferences {
     }
 
     /** Slider with a boxed value, bound to a setting. */
-    _slider(settings, key, [lower, upper, step], digits = 0, width = 230) {
+    _slider(settings, key, [lower, upper, step], digits = 0, width = 170) {
         const adjustment = new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 5});
-        const box = new Gtk.Box({spacing: 10, halign: Gtk.Align.FILL, hexpand: true});
+        const box = new Gtk.Box({spacing: 10, halign: Gtk.Align.END});
+        box._inline = true;
         const scale = new Gtk.Scale({
             orientation: Gtk.Orientation.HORIZONTAL,
             adjustment,
             draw_value: false,
-            hexpand: true,
+            hexpand: false,
             width_request: width,
         });
-        const spin = new Gtk.SpinButton({adjustment, digits, css_classes: ['osmin-value'], width_chars: 5});
+        const spin = new Gtk.SpinButton({adjustment, digits, css_classes: ['osmin-value'], width_chars: 4});
         settings.bind(key, adjustment, 'value', Gio.SettingsBindFlags.DEFAULT);
         box.append(scale);
         box.append(spin);
@@ -562,11 +643,10 @@ export default class OsminPreferences extends ExtensionPreferences {
             ['shortcut-osmin', _('Osmin')], ['shortcut-tray', _('Tray')],
             ['shortcut-clipboard', _('Clipboard')], ['shortcut-alerts', _('Alerts')], ['shortcut-command', _('Search')],
         ]) {
-            const line = new Gtk.Box({spacing: 10});
-            line.append(new Gtk.Label({label: title, xalign: 0, width_chars: 10}));
-            line.append(this._shortcutButton(settings, key));
-            this._row(form, key === 'shortcut-osmin' ? _('Shortcuts') : '', line,
-                key === 'shortcut-command' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
+            if (key === 'shortcut-osmin')
+                form.append(new Gtk.Label({label: _('Shortcuts'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+            this._row(form, title, this._shortcutButton(settings, key),
+                key === 'shortcut-osmin' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
         }
 
         this._toggleRow(form, settings, 'localsend-receive', _('LocalSend'), _('Receive files'),
@@ -684,11 +764,14 @@ export default class OsminPreferences extends ExtensionPreferences {
     }
 
     /** "[switch] Title" with an optional note below, like the checkbox rows of the reference. */
+    /**
+     * A switch row: the name and the note on the left, the switch on the right. A `label` (the group
+     * it belongs to) becomes a small heading above its card when it starts one.
+     */
     _toggleRow(grid, settings, key, label, title, note = '') {
-        const box = new Gtk.Box({spacing: 10});
-        box.append(this._switch(settings, key));
-        box.append(new Gtk.Label({label: title}));
-        this._row(grid, label, box, note);
+        if (label && !grid._card)
+            grid.append(new Gtk.Label({label, css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        this._row(grid, title, this._switch(settings, key), note);
     }
 
     /** "Detected" apps on the left, the ones "In use" on the right. */

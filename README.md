@@ -64,9 +64,12 @@ what is going on) and an **expanded** container that hangs from the top edge of 
   (asks twice; the programs make their cache again), `;trigger` pastes a text snippet (`snip add ;mail = me@example.com`,
   `snip rm ;mail`, `snippets`; `{date}`, `{time}` work inside), `scratchpad` opens the Scratchpad window of the Osmin app (notes of
   any length, saved as you type, export to Markdown). A shortcut can open it (settings → General).
-- **Settings** (⚙ or `gnome-extensions prefs`) – a sidebar with a search field; the first page, *All
-  features*, lists every feature of Osmin by category with a switch and a line of description (widgets are
-  added to / removed from the capsule, the rest are settings); the other pages hold the details.
+- **Settings** (⚙ or `gnome-extensions prefs`) – styled like a modern system settings window: a floating rounded sidebar with a search pill and grouped sections (Essentials,
+  Capsule, Tabs, Osmin), accent-coloured icons and an accent-filled selected row; each page has a title and
+  a one-line introduction, and its settings sit in rounded cards with a name, a note and the control on
+  the right (iOS-style switches, sliders with a value box). The *Features* page lists every feature of
+  Osmin by category with a coloured icon tile and a switch (widgets are added to / removed from the
+  capsule, the rest are settings); the search field filters it. It follows the light / dark style of the system.
 - **Small extras** – copied links can lose their tracking parameters (utm_*, fbclid ...; settings →
   Clipboard); a card shows the keyboard layout when you switch it; the panel is never narrower than its tabs.
 - **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
