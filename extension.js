@@ -13,7 +13,7 @@ export default class OsminExtension extends Extension {
             console.warn(`[osmin] settings unavailable, using defaults: ${e.message}`);
         }
         this._settings = new SettingsService(gsettings);
-        this._osmin = new OsminHost(this._settings, {openPreferences: () => this.openPreferences()});
+        this._osmin = new OsminHost(this._settings, {openPreferences: () => this.openPreferences(), path: this.path});
         this._osmin.enable();
     }
 

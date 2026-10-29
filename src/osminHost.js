@@ -52,11 +52,12 @@ const SHORTCUTS = [
 export class OsminHost {
     /**
      * @param {SettingsService} settings
-     * @param {{openPreferences?: Function}} [options]
+     * @param {{openPreferences?: Function, path?: string}} [options] path: the extension's folder (the service is in it)
      */
-    constructor(settings, {openPreferences = () => {}} = {}) {
+    constructor(settings, {openPreferences = () => {}, path = null} = {}) {
         this._settings = settings;
         this._openPreferences = openPreferences;
+        this._path = path;
         this._signals = new SignalTracker();
         this._capsules = new Map();   // monitor index -> Osmin
         this._panel = null;
@@ -80,7 +81,7 @@ export class OsminHost {
             onToggleRequest: () => this.toggle(),
         });
         // The service that does the heavy work (LocalSend, ...) in a process of its own.
-        this._backend = new OsminBackend();
+        this._backend = new OsminBackend({servicePath: this._path ? `${this._path}/service/main.js` : null});
         this._backend.start();
         this._services = {
             backend: this._backend,

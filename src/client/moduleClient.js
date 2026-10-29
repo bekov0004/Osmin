@@ -31,9 +31,11 @@ const ModuleProxy = Gio.DBusProxy.makeProxyWrapper(MODULE_XML);
  * Signals: 'state-changed', 'event' (name, payload), 'connected', 'disconnected'.
  */
 export class ModuleClient extends Signals.EventEmitter {
-    constructor(name) {
+    /** @param {string} name @param {(() => Promise<void>)|null} [ensure] makes sure the service runs */
+    constructor(name, ensure = null) {
         super();
         this._name = name;
+        this._ensure = ensure;
         this._proxy = null;
         this._state = {};
         this._connected = false;
@@ -125,8 +127,10 @@ export class ModuleClient extends Signals.EventEmitter {
      * @returns {Promise<object>} the result; rejects with an Error whose message says what went wrong
      */
     async call(method, args = {}) {
-        // Without a proxy yet: wait for the first connection. With one, the call itself starts a
-        // service that went away (D-Bus activation).
+        // A service that went away is started again (by the backend); without a proxy yet, wait
+        // for the first connection.
+        if (this._proxy && !this._proxy.g_name_owner)
+            await this._ensure?.();
         if (!this._proxy)
             await this._whenConnected();
         try {
@@ -167,29 +171,108 @@ export class ModuleClient extends Signals.EventEmitter {
 
 /** The Osmin service as the extension sees it: one client per feature. */
 export class OsminBackend {
-    constructor() {
-        this.service = new ModuleClient('Service');
-        this.localSend = new ModuleClient('LocalSend');
-        this.todo = new ModuleClient('Todo');
-        this.notes = new ModuleClient('Notes');
-        this.timer = new ModuleClient('Timer');
-        this.calendar = new ModuleClient('Calendar');
-        this.files = new ModuleClient('Files');
-        this.artwork = new ModuleClient('Artwork');
-        this.clipboard = new ModuleClient('Clipboard');
-        this.power = new ModuleClient('Power');
-        this.tools = new ModuleClient('Tools');
-        this.focus = new ModuleClient('Focus');
-        this.system = new ModuleClient('System');
-        this.downloads = new ModuleClient('Downloads');
-        this.lyrics = new ModuleClient('Lyrics');
-        this.processes = new ModuleClient('Processes');
-        this.agents = new ModuleClient('Agents');
-        this.snippets = new ModuleClient('Snippets');
-        this.cleaner = new ModuleClient('Cleaner');
+    /**
+     * @param {{servicePath?: string|null}} [options] servicePath: the service's main.js (in the
+     *   extension's folder). Without it the service is only found if something else starts it
+     *   (D-Bus activation).
+     */
+    constructor({servicePath = null} = {}) {
+        this._servicePath = servicePath;
+        this._ensuring = null;
+        this._closing = false;
+        const ensure = () => this._ensureService();
+        this.service = new ModuleClient('Service', ensure);
+        this.localSend = new ModuleClient('LocalSend', ensure);
+        this.todo = new ModuleClient('Todo', ensure);
+        this.notes = new ModuleClient('Notes', ensure);
+        this.timer = new ModuleClient('Timer', ensure);
+        this.calendar = new ModuleClient('Calendar', ensure);
+        this.files = new ModuleClient('Files', ensure);
+        this.artwork = new ModuleClient('Artwork', ensure);
+        this.clipboard = new ModuleClient('Clipboard', ensure);
+        this.power = new ModuleClient('Power', ensure);
+        this.tools = new ModuleClient('Tools', ensure);
+        this.focus = new ModuleClient('Focus', ensure);
+        this.system = new ModuleClient('System', ensure);
+        this.downloads = new ModuleClient('Downloads', ensure);
+        this.lyrics = new ModuleClient('Lyrics', ensure);
+        this.processes = new ModuleClient('Processes', ensure);
+        this.agents = new ModuleClient('Agents', ensure);
+        this.snippets = new ModuleClient('Snippets', ensure);
+        this.cleaner = new ModuleClient('Cleaner', ensure);
+    }
+
+    /** Makes sure the service runs (starts it from the extension's folder if nobody has), once at a time. */
+    _ensureService() {
+        if (!this._ensuring) {
+            this._ensuring = this._startServiceIfNeeded()
+                .catch(e => console.warn(`[osmin] could not start the service: ${e.message}`))
+                .finally(() => {
+                    this._ensuring = null;
+                });
+        }
+        return this._ensuring;
+    }
+
+    _hasOwner() {
+        return new Promise(resolve => {
+            Gio.DBus.session.call('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'NameHasOwner',
+                new GLib.Variant('(s)', [BUS_NAME]), null, Gio.DBusCallFlags.NONE, 3000, null, (connection, result) => {
+                    try {
+                        resolve(connection.call_finish(result).deepUnpack()[0]);
+                    } catch (e) {
+                        resolve(false);
+                    }
+                });
+        });
+    }
+
+    async _startServiceIfNeeded() {
+        if (this._closing || !this._servicePath || await this._hasOwner())
+            return;
+        const gjs = GLib.find_program_in_path('gjs');
+        if (!gjs)
+            throw new Error('gjs was not found');
+        const logDir = GLib.build_filenamev([GLib.get_user_cache_dir(), 'osmin']);
+        GLib.mkdir_with_parents(logDir, 0o700);
+        const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDOUT_SILENCE});
+        launcher.setenv('OSMIN_SERVICE', '1', true);
+        // What the service says goes to a log file (appended), it has no terminal of its own.
+        launcher.spawnv(['/bin/sh', '-c', 'exec "$0" -m "$1" 2>>"$2"', gjs, this._servicePath, `${logDir}/service.log`]);
+        await new Promise(resolve => {
+            let done = false;
+            let timer = 0;
+            const finish = () => {
+                if (done)
+                    return;
+                done = true;
+                Gio.bus_unwatch_name(watch);
+                if (timer)
+                    GLib.source_remove(timer);
+                resolve();
+            };
+            const watch = Gio.bus_watch_name(Gio.BusType.SESSION, BUS_NAME, Gio.BusNameWatcherFlags.NONE, finish, null);
+            timer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
+                timer = 0;
+                finish();
+                return GLib.SOURCE_REMOVE;
+            });
+        });
     }
 
     start() {
+        // Start the service first (when nobody has), then connect to it.
+        this._ensureService().then(() => this._connect());
+        // If it ever goes away, start it again.
+        this.service.connect('disconnected', () => {
+            if (!this._closing)
+                this._ensureService();
+        });
+    }
+
+    _connect() {
+        if (this._closing)
+            return;
         this.service.start();
         this.localSend.start();
         this.todo.start();
@@ -213,6 +296,7 @@ export class OsminBackend {
 
     /** The extension is being disabled: the service has nothing left to do. */
     async shutdown() {
+        this._closing = true;
         try {
             await this.service.call('quit');
         } catch (e) {

@@ -115,75 +115,93 @@ what is going on) and an **expanded** container that hangs from the top edge of 
 
 ## Requirements
 
-- GNOME Shell 50 (Ubuntu 26.04), Wayland session
+- **GNOME Shell 50** (Ubuntu 26.04 or any distribution that ships it), **Wayland** session
+- `gjs` and `glib-compile-schemas` (on Ubuntu / Debian: `sudo apt install gjs libglib2.0-bin`)
 - `gstreamer` with the PipeWire / V4L2 plugins for the Mirror (normally installed)
+- `openssl` for LocalSend (it makes the certificate other devices ask for; normally installed)
+- No root, no extra services: everything is installed in your home folder
+
+## Install
+
+**From a clone (easiest):**
+
+```bash
+git clone https://github.com/bekov0004/Osmin.git
+cd Osmin
+scripts/install.sh
+```
+
+**From a release:** download `osmin@bekov0004.github.io.shell-extension.zip` from the
+[Releases](https://github.com/bekov0004/Osmin/releases) page and run
+`gnome-extensions install --force osmin@bekov0004.github.io.shell-extension.zip`.
+
+Either way, **log out and back in** (Wayland cannot load a new extension in a running shell), then:
+
+```bash
+gnome-extensions enable osmin@bekov0004.github.io
+gnome-extensions prefs osmin@bekov0004.github.io     # the settings window (also the ⚙ in the capsule)
+```
+
+To try it without logging out, use a nested shell (needs `mutter-devkit`):
+
+```bash
+scripts/install.sh --nested
+```
+
+Update: pull (or download) the new version, run the same install command, and log out / in again.
+To build the zip yourself: `scripts/package.sh`.
+
+## Uninstall
+
+```bash
+scripts/uninstall.sh          # removes the extension and the app launcher; your data stays
+rm -r ~/.local/share/osmin ~/.cache/osmin      # optional: your notes, tray, timer, history, caches
+```
+
+## Troubleshooting
+
+- **Nothing appears after enabling:** you have to log out and in once after the first install.
+  `gnome-extensions info osmin@bekov0004.github.io` shows the state (`ACTIVE`, `ERROR` ...).
+- **The shell log:** `journalctl --user -b -o cat | grep -i osmin`
+- **The service log** (the background process): `~/.cache/osmin/service.log`
+- **Receiving files with LocalSend does not start:** port 53317 is taken (is the LocalSend app running?).
 
 ## How it is built: an extension and a service
 
-Osmin is two parts that talk over D-Bus (`io.github.bekov0004.Osmin`):
+Osmin is two parts that talk over D-Bus (`io.github.bekov0004.Osmin`), and both are in the extension's
+folder:
 
 - the **extension** (`extension.js`, `src/`) is the face: the capsule, panels, cards, gestures, and
   everything that has to live inside the shell: capturing the clipboard, notifications, key
   bindings, the monitors, dragging, the camera preview, the music (MPRIS) players, the settings;
-- the **service** (`service/`, a plain `gjs` process, also the *Osmin* app in the app grid) does the
-  work that waits, reads files or talks to the network:
+- the **service** (`service/`, a plain `gjs` process the extension starts by itself; it is also the
+  *Osmin* app in the app grid) does the work that waits, reads files or talks to the network:
 
   | module | what it does |
   |---|---|
   | LocalSend | finding devices, sending, receiving (the HTTPS server, the certificate) |
   | Files | the file tray: the list, thumbnails, watching the files, saving |
   | Calendar | reading the system calendars |
-  | Timer | the clock, the saved state, the moment it runs out |
-  | Todo, Notes | the lists and where they are saved |
-  | Artwork | downloading album covers, finding their colour |
+  | Timer, Focus | the clocks, the saved state, the moment they run out |
+  | Todo, Notes, Snippets | the lists and where they are saved |
+  | Artwork, Lyrics | downloading album covers and lyrics |
   | Clipboard | where the clipboard history is kept on disk |
+  | Downloads, System, Agents | watching the Downloads folder, the computer, the AI agents' logs |
+  | Power, Tools, Processes, Cleaner | keep awake, small jobs, your processes and ports, the cache cleaner |
 
 The service runs in a process of its own, so a slow or broken job can never freeze the desktop, and
-it can be restarted without logging out. It is started by D-Bus activation the first time the
-extension asks, and ends by itself when the extension is gone. What it says goes to
+it can be restarted without logging out. The extension starts it when it is enabled (and again if it
+ever stops), and it ends by itself when the extension is gone. What it says goes to
 `~/.cache/osmin/service.log`. Opening *Osmin* from the app grid shows a small window with its status.
 
 Each feature of the service is a *module* (`service/module.js`): it owns a JSON state, answers calls
 (`rpc_<method>`) and sends events; the extension's `src/client/moduleClient.js` mirrors the state
-and the services in `src/services/` give the widgets the same API as before. Without the service the
-extension still runs; only the features that live in the service are unavailable (calls wait a few
-seconds for it to start, then report that it is not running).
+and the services in `src/services/` give the widgets their data. Without the service the extension
+still runs; only the features that live in the service are unavailable.
 
-## Install
+## License
 
-```bash
-git clone https://github.com/bekov0004/Osmin.git
-cd Osmin
-scripts/install-dev.sh          # the extension + the Osmin service, all in ~/.local/share (no root)
-```
-
-Log out and back in (Wayland cannot restart the shell in place), then:
-
-```bash
-gnome-extensions enable osmin@bekov0004.github.io
-gnome-extensions prefs osmin@bekov0004.github.io     # the settings window
-```
-
-Without logging out, try it in a nested shell (needs `mutter-devkit`):
-
-```bash
-scripts/install-dev.sh --nested
-```
-
-Alternatively build a package: `gnome-extensions pack --extra-source=src --schema=schemas/org.gnome.shell.extensions.osmin.gschema.xml`
-and install the zip with `gnome-extensions install`.
-
-If the settings schema is not compiled (a hand-copied extension) Osmin still works with its defaults.
-
-## Uninstall
-
-`scripts/uninstall.sh` removes the extension, the service and its D-Bus file (your data stays).
-
-```bash
-gnome-extensions disable osmin@bekov0004.github.io
-rm -r ~/.local/share/gnome-shell/extensions/osmin@bekov0004.github.io
-rm -r ~/.local/share/osmin ~/.cache/osmin      # optional: tray, timer, to-do, cached artwork
-```
+GNU General Public License, version 3 or later: see [LICENSE](LICENSE).
 
 ## Logs
 
@@ -235,7 +253,7 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep -i osmin
 ```
 metadata.json  extension.js  prefs.js  stylesheet.css
 schemas/org.gnome.shell.extensions.osmin.gschema.xml
-scripts/install-dev.sh
+scripts/install.sh  uninstall.sh  package.sh
 src/
   osmin.js                  the capsule: actor, states, animations, gestures, settings
   services/
