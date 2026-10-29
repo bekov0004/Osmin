@@ -12,6 +12,26 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 DEST="$DATA/gnome-shell/extensions/$UUID"
 
+# The project used to be called Nook: take its leftovers away and bring its data (notes, tray,
+# clipboard ...) and settings along. Nothing of the old name is kept running.
+OLD_UUID="nook@bekov0004.github.io"
+if [[ -d "$DATA/gnome-shell/extensions/$OLD_UUID" || -d "$DATA/nook" ]]; then
+    gnome-extensions disable "$OLD_UUID" 2>/dev/null || true
+    rm -rf "$DATA/gnome-shell/extensions/$OLD_UUID" "$DATA/nook-service" \
+           "$DATA/dbus-1/services/io.github.bekov0004.Nook.service" "$DATA/applications/io.github.bekov0004.Nook.desktop"
+    if [[ -d "$DATA/nook" && ! -e "$DATA/osmin" ]]; then
+        mv "$DATA/nook" "$DATA/osmin"
+        echo "Moved your data from $DATA/nook to $DATA/osmin"
+    fi
+    if command -v dconf >/dev/null && [[ -n "$(dconf list /org/gnome/shell/extensions/nook/ 2>/dev/null)" ]] &&
+       [[ -z "$(dconf list /org/gnome/shell/extensions/osmin/ 2>/dev/null)" ]]; then
+        dconf dump /org/gnome/shell/extensions/nook/ | dconf load /org/gnome/shell/extensions/osmin/ && echo "Copied your settings"
+        # the one setting whose name had the old name in it
+        old_shortcut="$(dconf read /org/gnome/shell/extensions/nook/shortcut-nook 2>/dev/null || true)"
+        [[ -n "$old_shortcut" ]] && dconf write /org/gnome/shell/extensions/osmin/shortcut-osmin "$old_shortcut" || true
+    fi
+fi
+
 rm -rf "$DEST"
 mkdir -p "$DEST"
 cp -r "$SRC/extension.js" "$SRC/prefs.js" "$SRC/metadata.json" "$SRC/stylesheet.css" \
