@@ -232,10 +232,16 @@
       <description>Show the line that is being sung under the song title. The artist, title, album and length of the song are sent to lrclib.net to find the lyrics. Off by default.</description>
     </key>
 
+    <key name="show-caps-lock" type="b">
+      <default>true</default>
+      <summary>Show Caps Lock</summary>
+      <description>The capsule widens for a moment and shows whether Caps Lock is on or off when you press it.</description>
+    </key>
+
     <key name="show-input-source" type="b">
       <default>true</default>
       <summary>Show keyboard layout changes</summary>
-      <description>Show a card with the name of the layout when you switch the keyboard layout.</description>
+      <description>The capsule widens for a moment and shows the name of the layout when you switch the keyboard layout.</description>
     </key>
 
     <key name="clipboard-keep-history" type="b">

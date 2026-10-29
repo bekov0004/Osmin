@@ -9,6 +9,7 @@ import {Osmin} from './osmin.js';
 import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
+import {IndicatorActivity} from './ui/indicatorActivity.js';
 import {OsminBackend} from './client/moduleClient.js';
 import {AgentsService} from './services/agentsService.js';
 import {DownloadsService} from './services/downloadsService.js';
@@ -134,6 +135,11 @@ export class OsminHost {
         this._backend?.localSend.disconnectObject(this);
         this._inputSources?.disconnectObject(this);
         this._inputSources = null;
+        this._keymap?.disconnectObject(this);
+        this._keymap = null;
+        this._services?.activities.end('indicator');
+        this._indicator?.destroy();
+        this._indicator = null;
         this._signals.disconnectAll();
         for (const osmin of [...this._capsules.values()].reverse())
             osmin.destroy();
@@ -207,30 +213,43 @@ export class OsminHost {
         shell.set_strv('toggle-message-tray', original.filter(binding => binding.toLowerCase() !== '<super>v'));
     }
 
-    /** A card with the name of the keyboard layout when it is switched (it can be turned off). */
+    /**
+     * Short indicators in the capsule itself: the keyboard layout when it is switched and Caps Lock
+     * when it is turned on or off. The capsule widens to both sides, shows them for a moment and
+     * shrinks back; a new one replaces the one that is showing.
+     */
     _watchInputSource() {
+        this._indicator = new IndicatorActivity(this._services.activities);
+        const startedAt = GLib.get_monotonic_time();
+        const quiet = () => GLib.get_monotonic_time() - startedAt < 3 * 1000000; // not at start-up
         try {
             this._inputSources = Keyboard.getInputSourceManager();
+            this._inputSources.connectObject('current-source-changed', () => {
+                const source = this._inputSources.currentSource;
+                if (quiet() || !source || !this._settings.get('show-input-source'))
+                    return;
+                this._indicator.show({
+                    icon: 'input-keyboard-symbolic',
+                    text: (source.shortName || source.displayName || 'Keyboard').toUpperCase(),
+                });
+            }, this);
         } catch (e) {
-            return;
+            this._inputSources = null;
         }
-        const startedAt = GLib.get_monotonic_time();
-        this._inputSources.connectObject('current-source-changed', () => {
-            // Not at start-up: only when the user switches.
-            if (GLib.get_monotonic_time() - startedAt < 3 * 1000000 || !this._settings.get('show-input-source'))
-                return;
-            const source = this._inputSources.currentSource;
-            if (!source)
-                return;
-            this._events.emit({
-                type: EventType.CUSTOM,
-                icon: 'input-keyboard-symbolic',
-                title: source.displayName ?? source.shortName ?? 'Keyboard',
-                description: 'Keyboard layout',
-                priority: Priority.LOW,
-                duration: 1500,
-            });
-        }, this);
+        try {
+            this._keymap = global.stage.context.get_backend().get_default_seat().get_keymap();
+            this._capsLock = this._keymap.get_caps_lock_state();
+            this._keymap.connectObject('state-changed', () => {
+                const on = this._keymap.get_caps_lock_state();
+                if (on === this._capsLock)
+                    return;
+                this._capsLock = on;
+                if (!quiet() && this._settings.get('show-caps-lock'))
+                    this._indicator.show({icon: 'input-keyboard-symbolic', text: on ? 'CAPS ON' : 'CAPS OFF'});
+            }, this);
+        } catch (e) {
+            this._keymap = null;
+        }
     }
 
     /** Starts or stops receiving files with LocalSend, as the setting says. */
