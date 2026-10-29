@@ -24,7 +24,8 @@ export const Layout = Object.freeze({
     // The fillet where the expanded capsule meets the top bar.
     EAR_RADIUS: 26,
     EAR_RADIUS_CLOSED: 12,
-    CLOSED_EXTRA_HEIGHT: 4,
+    // The collapsed capsule is exactly as tall as the top bar: it must not hang below it.
+    CLOSED_EXTRA_HEIGHT: 0,
     // The area that wakes the capsule up when files are dragged near it.
     DROP_HOT_HALF_WIDTH: 260,
     DROP_HOT_HEIGHT: 150,
