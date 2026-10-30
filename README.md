@@ -1,129 +1,79 @@
-# Osmin
+<h1 align="center">Osmin</h1>
 
-A Dynamic Island-style capsule for GNOME Shell 50 that **replaces the GNOME
-clock** in the middle of the top bar. At rest it shows the time (or what is going on: a timer,
-the music, a meeting); on hover or click the same capsule grows into a wide panel with widgets.
+<p align="center">
+  A Dynamic Island for the GNOME desktop: one small capsule at the top of the screen that shows
+  what is going on and opens into a panel with music, calendar, clipboard, file shelf and more.
+</p>
 
-Everything runs inside GNOME Shell (GJS): no Electron, no helper app, no root, no system files
-are touched, and disabling the extension brings the stock clock back.
+<p align="center">
+  <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue">
+  <img alt="GNOME Shell 50" src="https://img.shields.io/badge/GNOME%20Shell-50-4a86cf">
+  <img alt="Wayland" src="https://img.shields.io/badge/session-Wayland-informational">
+</p>
 
-## Features
+<p align="center">
+  <img alt="The collapsed capsule in the top bar" src="docs/screenshots/capsule.png"><br>
+  <img alt="The opened panel with the Osmin, Tray, LocalSend, Clipboard, Alerts and Search tabs" src="docs/screenshots/panel.png">
+</p>
 
-The capsule has two parts: a small **collapsed** island in the top bar (the time, or
-what is going on) and an **expanded** container that hangs from the top edge of the screen:
+## What is it?
 
-```
-  ┌──────────────────────────────────────────────────┐
-  │ [Osmin] [Tray]                  ● (camera)      ⚙ │   header: in the band of the top bar
-  ├────────────────┬─────────────────┬───────────────┤
-  │  Media Player  │    Calendar     │   Mirror      │   widgets, side by side
-  └────────────────┴─────────────────┴───────────────┘
-```
+Osmin is a **GNOME Shell extension** that replaces the clock in the middle of the top bar with a
+capsule, in the spirit of the iPhone's Dynamic Island.
 
-- **Osmin tab – widgets**, in the order you choose, each with its own width (in cells). The capsule
-  grows or shrinks with them; if they do not fit on the screen they go on extra pages.
-  - **Media Player** – any MPRIS player: artwork with the player's icon, title, album, artist,
-    previous / play-pause / next, a small activity indicator, a thin progress line (click to seek).
-  - **Calendar** – the month and a strip of days around the selected one (today accented), and that
-    day's events from the system calendars (`org.gnome.Shell.CalendarServer`, the service the GNOME
-    calendar uses).
-  - **Mirror** – a round webcam preview (GStreamer: PipeWire, then `/dev/video0`). The camera is
-    opened only when you click the circle and released when you click it again, change tab or page, or
-    close the capsule; a green dot in the header shows it is on. Nothing is recorded.
-  - **Shortcuts** – quick launchers for apps you pick in the settings (a *Detected / In use* editor),
-    one or two columns of two rows. Off by default.
-  - **Quick Toggles** – keep awake (30 min / 1 h / 2 h / until turned off, done by the service),
-    dark mode, night light, lock the screen, empty the trash (asks twice), screenshot, screen
-    recording (GNOME's own tool), a colour picker (the pixel's HEX is copied, RGB / HSL shown),
-    a cleaning mode (black screen, keyboard and pointer locked; hold Esc 3 s, ends by itself after
-    a minute), eject USB drives, and a brightness slider for the built-in screen.
-  - **Focus** – a Pomodoro timer (focus, short break, a long break every 4th round; the phases follow
-    each other by themselves) and a stopwatch with laps; both run in the service and show in the capsule.
-  - **System** – processor, memory, temperature, network, disk and battery with little bars. The
-    service also raises alerts (a processor busy for 30 s, heat, memory or disk nearly full, a low
-    battery, also of keyboards and mice) as cards; they can be turned off in the settings.
-  - **Sound** – volume, output switch, microphone mute and the volume of each application.
-  - **Downloads** – what arrives in the Downloads folder (browser `.part` / `.crdownload` files and
-    plain writes), with size and speed in the capsule and a card when it is done.
-  - **Input** – switches for mouse / touchpad natural scrolling, mouse acceleration, tap to click,
-    focus follows mouse and key repeat (GNOME's own settings, one press each way).
-  - **Windows** – live previews of every open window (click to bring it forward, ✕ closes it) and
-    buttons that snap the window you were working in to the left / right / top / bottom half, maximize,
-    centre, send it to the next monitor, or put it back where it was.
-  - **AI Agents** – Claude Code and Codex: working now (and in which project), the tokens of the last
-    5 hours and the last week, and a card when a task of more than a minute finishes. Read from the
-    agents' own session logs on this computer (only times and token counts; prompts are not looked at).
-  - **Companion** – a small friend: its eyes follow the pointer, it sways to the music, is surprised by
-    cards and falls asleep when nothing happens.
-  - **Music lyrics** (optional, off by default) – the line being sung replaces the album line under the title;
-    the song is looked up on lrclib.net (artist, title, album and length are sent there).
-- **Search tab (command bar)** – one field: launch an application, calculate (`12*(3+4)`, `2^10`,
-  `sqrt(16)`), convert units (`5 km to mi`, `100 f in c`), find something you copied, search the web
-  (DuckDuckGo), `kill <name>` lists your processes and `ports` the ports they listen on (stopping asks
-  twice; only your own processes), `clean` shows the biggest folders of `~/.cache` and empties one
-  (asks twice; the programs make their cache again), `;trigger` pastes a text snippet (`snip add ;mail = me@example.com`,
-  `snip rm ;mail`, `snippets`; `{date}`, `{time}` work inside), `scratchpad` opens the Scratchpad window of the Osmin app (notes of
-  any length, saved as you type, export to Markdown). A shortcut can open it (settings → General).
-- **Settings** (⚙ or `gnome-extensions prefs`) – styled like a modern system settings window: a floating rounded sidebar with a search pill and grouped sections (Essentials,
-  Capsule, Tabs, Osmin), accent-coloured icons and an accent-filled selected row; each page has a title and
-  a one-line introduction, and its settings sit in rounded cards with a name, a note and the control on
-  the right (iOS-style switches, sliders with a value box). The *Features* page lists every feature of
-  Osmin by category with a coloured icon tile and a switch (widgets are added to / removed from the
-  capsule, the rest are settings); the search field filters it. It follows the light / dark style of the system.
-- **Small extras** – copied links can lose their tracking parameters (utm_*, fbclid ...; settings →
-  Clipboard); a card shows the keyboard layout when you switch it; the panel is never narrower than its tabs.
-- **Alerts** tab – the notifications the shell holds (click opens the app, ✕ dismisses, Clear all) and a Do Not Disturb switch. Nothing is stored by Osmin.
-- **Monitors** – choose which monitors get a capsule (settings → General → Show on); the services and Live Activities are shared, each monitor has its own capsule and panel.
-- **Shortcuts** – a key for each section (Osmin, Tray, Clipboard, Alerts) opens the panel on it; pressing it again closes the panel. Set them in settings → General; none are set by default. GNOME itself uses Super+V (its notification list); the switch "Free Super+V from GNOME" takes that binding away while Osmin is enabled and restores it on disable, so Super+V can be recorded for Clipboard.
-- **Pull to enlarge** – in the Clipboard and Alerts tabs a two-finger swipe down grows the panel to fit all its items (at most 40% of the screen height; with a single item nothing changes), a swipe up shrinks it back. The list always scrolls first: the panel resizes only when the list has reached its top (swipe down) or bottom (swipe up), or has nothing to scroll. It resets when the panel closes or the tab changes.
-- **Enlarged mirror** – a button on the Mirror circle (or a two-finger swipe down over it) turns the capsule into a card as wide as the music card but taller, with a big square preview and a vertical zoom slider; its corner button (or a two-finger swipe up) shrinks it back.
-- **Enlarged calendar** – the same for the Calendar: a button (shown on hover) or a two-finger swipe down over it turns the capsule into a taller card with a month grid and the events of the chosen day; a swipe up or the corner button shrinks it back.
-- **Tray tab – the file shelf.** Drag files from any app over the top of the screen: the capsule
-  expands into the tray and shows the drop target; release to add them. Files are referenced, never
-  copied or moved; they stay until removed (or deleted/moved on disk). Per file: open, show in the file
-  manager, copy to the clipboard, remove. The wheel scrolls the row sideways. While dragging, a second
-  target puts them in the **LocalSend** section (a tab next to Tray) instead: the files wait as chips in the top
-  row (drop more, "Add from Tray", the send button on a tray file or "Send all", ✕ to remove), the devices
-  running [LocalSend](https://localsend.org) on your network are tiles in the row below, and a click on one sends
-  (the other device asks its user to accept). The protocol is built into Osmin; the LocalSend app is not
-  needed. Folders are skipped.
-  **Receiving** is off by default: Settings → General → LocalSend → *Receive files* makes the computer
-  visible to LocalSend devices (it listens on port 53317 with its own certificate, so close the LocalSend
-  app first). Every transfer asks in a card (Accept / Decline, 60 s then it is declined); accepted files are
-  streamed to the Downloads folder under a free name (`name (1).ext`), never over an existing file. **Drag a file out of the tray**
-  into any other app or folder.
-- **Clipboard tab – history and notes.** Everything you copy as text (Ctrl+C) appears as a card, newest
-- **Drag out of Clipboard** – press an item and drag it into any other app: a text is dropped as text, a copied file as the file (the same helper window as for the Tray, see the notes below).
-- **Copied files** – a file copied in the file manager appears in Clipboard as its name with the file icon (not as a path); clicking it pastes the file itself (a file manager gets its own file type, browsers and chats a uri list, terminals and editors the path).
-  first. A click puts it into the app you were using (Ctrl+V; or only copies, see the settings); hover
-  for copy / pin / remove. The first card is for your own notes (Enter saves them). Pinned items and
-  notes are saved; the rest of the history is only kept in memory unless you turn on *Keep history*.
-  Only text is recorded and password managers' copies are skipped.
-- **Live Activities** – a running timer, music, or a meeting within 10 minutes takes the place of
-  the time in the collapsed capsule; track changes, meetings, a finished timer and added files pop out
-  as short cards hanging from the top. Clicking a card opens its widget.
-- **Gestures** – the pointer approaching the collapsed capsule wakes it; if it rests, the capsule
-  swells and then opens (click opens at once); the wheel / a swipe switches pages. Touchpad swipes:
-  down opens, up closes; sideways over the collapsed capsule skips tracks while music plays; a middle
-  click flips between activities or plays / pauses. All of it (and *invert direction*) is in the
-  Gestures settings.
-- **Settings** (the ⚙ in the header, or `gnome-extensions prefs`) – a window with these pages: General, Osmin (widgets: on/off, order, width in cells, a live preview, auto or fixed
-  capsule width), Appearance, Gestures, Tray, Clipboard, Live Activities (album corner radius, spectrum or waves
-  effect, colours from the album art), About. Changes apply live.
+- **Closed**, it is small and shows the time, or what is happening right now: a timer, the music
+  that is playing, a meeting that starts soon, a file that is downloading.
+- **Opened** (hover, click or a shortcut), the same capsule grows into a panel with widgets and tabs.
 
-`Super+V` (the "toggle calendar" shortcut) toggles Osmin instead of the hidden calendar popup.
+It runs entirely in your user session: no root, no system files are touched, and turning the
+extension off brings the stock GNOME clock back.
+
+## What can it do?
+
+| Area | What you get |
+|---|---|
+| **Now playing** | Any media player (MPRIS): cover art, title, controls, a progress line; optional synced lyrics |
+| **Calendar** | A strip of days and the events from your GNOME calendars; a bigger month view |
+| **Clipboard** | History of what you copied, pinned items, quick notes, drag an item into any app |
+| **File tray** | Drop files on the top of the screen to park them; drag them out later |
+| **LocalSend** | Send files to phones and computers running [LocalSend](https://localsend.org), or receive them |
+| **Search bar** | Launch apps, calculate, convert units, `kill` a process, see open `ports`, text snippets |
+| **Quick toggles** | Keep awake, dark mode, night light, lock, screenshot, screen recording, colour picker, brightness |
+| **Focus** | Pomodoro timer and stopwatch that live in the capsule |
+| **System** | CPU, memory, temperature, network, disk, battery, with alerts |
+| **Sound** | Volume, output, microphone and per-application volume |
+| **Windows** | Live window previews and snap buttons (halves, maximize, next monitor) |
+| **Downloads** | Progress, size and speed of what lands in your Downloads folder |
+| **Mirror** | A round webcam preview, the camera is on only while you look |
+| **AI agents** | Claude Code / Codex: what is working now and token use (read from local logs) |
+| **Alerts** | The notifications GNOME holds, with Do Not Disturb |
+| **Settings** | A modern settings window: turn widgets on or off, reorder them, change look and gestures |
+
+Everything is optional: pick the widgets you want in the settings.
 
 ## Requirements
 
-- **GNOME Shell 50** (Ubuntu 26.04 or any distribution that ships it), **Wayland** session
-- `gjs` and `glib-compile-schemas` (on Ubuntu / Debian: `sudo apt install gjs libglib2.0-bin`)
-- `gstreamer` with the PipeWire / V4L2 plugins for the Mirror (normally installed)
-- `openssl` for LocalSend (it makes the certificate other devices ask for; normally installed)
-- No root, no extra services: everything is installed in your home folder
+- **GNOME Shell 50** (for example Ubuntu 26.04) on a **Wayland** session
+- `gjs` and `glib-compile-schemas`
+  (Ubuntu / Debian: `sudo apt install gjs libglib2.0-bin`, Fedora: `sudo dnf install gjs glib2`)
+- Normally already installed: GStreamer with PipeWire / V4L2 plugins (for Mirror) and `openssl` (for LocalSend)
 
-## Install
+## Installation
 
-**From a clone (easiest):**
+### From a release (recommended)
+
+1. Download `Osmin-<version>.zip` from the [Releases](https://github.com/bekov0004/Osmin/releases) page.
+2. Install it:
+   ```bash
+   gnome-extensions install --force Osmin-<version>.zip
+   ```
+3. **Log out and log in again.** Wayland cannot load a new extension into a running session.
+4. Enable it:
+   ```bash
+   gnome-extensions enable osmin@osmin.dev
+   ```
+
+### From source
 
 ```bash
 git clone https://github.com/bekov0004/Osmin.git
@@ -131,162 +81,162 @@ cd Osmin
 scripts/install.sh
 ```
 
-**From a release:** download `Osmin-0.2.0.zip` from the
-[Releases](https://github.com/bekov0004/Osmin/releases) page and run
-`gnome-extensions install --force Osmin-0.2.0.zip`.
+Then log out and in, and enable it as in step 4 above.
 
-Either way, **log out and back in** (Wayland cannot load a new extension in a running shell), then:
+### Try it without logging out
 
-```bash
-gnome-extensions enable osmin@osmin.dev
-gnome-extensions prefs osmin@osmin.dev     # the settings window (also the ⚙ in the capsule)
-```
+If `mutter-devkit` is installed, `scripts/install.sh --nested` opens a separate nested GNOME
+Shell with Osmin enabled, so nothing changes in your real session.
 
-To try it without logging out, use a nested shell (needs `mutter-devkit`):
+### Update
 
-```bash
-scripts/install.sh --nested
-```
+Download the new zip (or `git pull`), run the same install command, log out and in again.
 
-Update: pull (or download) the new version, run the same install command, and log out / in again.
-To build the zip yourself: `scripts/package.sh`.
-
-## Uninstall
+### Uninstall
 
 ```bash
-scripts/uninstall.sh          # removes the extension and the app launcher; your data stays
-rm -r ~/.local/share/osmin ~/.cache/osmin      # optional: your notes, tray, timer, history, caches
+scripts/uninstall.sh                        # removes the extension and the app launcher
+rm -r ~/.local/share/osmin ~/.cache/osmin   # optional: also your notes, tray, history and caches
 ```
+
+Without the clone: `gnome-extensions uninstall osmin@osmin.dev`.
+
+## Using Osmin
+
+**Open and close.** Move the pointer to the capsule and rest it there, or click it. Click outside,
+press `Esc` or press the shortcut again to close.
+
+**Tabs.** The header of the panel has the tabs. Each one has a different job:
+
+| Tab | Use it for |
+|---|---|
+| **Osmin** | The widgets: music, calendar, mirror and the ones you added |
+| **Tray** | A shelf for files. Drag a file to the top of the screen, release it on the capsule. Files are only referenced, never copied |
+| **LocalSend** | Drop files on the second target, then click a device to send. Receiving is off by default (Settings → General → LocalSend) |
+| **Clipboard** | Text you copied. Click an item to paste it into the app you were using. The first card is for notes |
+| **Alerts** | Notifications and Do Not Disturb |
+| **Search** | The command bar, see below |
+
+**Gestures.** Two-finger swipe down opens the capsule and up closes it. Over the closed capsule a
+sideways swipe skips tracks while music plays, and a middle click plays or pauses. In the
+Clipboard and Alerts tabs, swipe down to make the panel taller. All gestures can be changed or
+inverted in Settings → Gestures.
+
+**Keyboard shortcuts.** Settings → General lets you set a key for each tab (Osmin, Tray, Clipboard,
+Alerts, Search). None are set by default. *Free Super+V from GNOME* gives `Super+V` to Osmin's
+Clipboard while the extension is on.
+
+**Search bar examples.**
+
+| Type | Result |
+|---|---|
+| `firefox` | Launches the app |
+| `12*(3+4)`, `2^10`, `sqrt(16)` | Calculator |
+| `5 km to mi`, `100 f in c` | Unit conversion |
+| `kill chrome` / `ports` | Lists your processes / listening ports (stopping asks twice) |
+| `clean` | Biggest folders in `~/.cache`, empty one (asks twice) |
+| `snip add ;mail = me@example.com`, then `;mail` | Saves and pastes a text snippet (`{date}` and `{time}` work) |
+| `scratchpad` | Opens the Scratchpad window of the Osmin app: long notes, saved as you type, export to Markdown |
+
+**Settings.** Click the ⚙ in the panel, or run `gnome-extensions prefs osmin@osmin.dev`. The
+*Features* page lists everything by category: switch a widget on and it appears in the capsule.
+Changes apply immediately.
+
+## Privacy
+
+- Nothing is sent anywhere unless you use a feature that needs the network: **lyrics** look the song
+  up on [lrclib.net](https://lrclib.net) (artist, title, album and length are sent), **LocalSend**
+  talks to devices on your local network, and **web search** opens your browser.
+- Only text is recorded in the clipboard history, and copies from password managers are skipped.
+  The history stays in memory unless you turn on *Keep history*.
+- The camera is opened only while you click the Mirror circle (a green dot shows it is on). Nothing is recorded.
+- The AI-agents widget reads only times and token counts from the agents' own session logs, never the prompts.
+- Your data lives in `~/.local/share/osmin` and `~/.cache/osmin`.
 
 ## Troubleshooting
 
-- **Nothing appears after enabling:** you have to log out and in once after the first install.
-  `gnome-extensions info osmin@osmin.dev` shows the state (`ACTIVE`, `ERROR` ...).
-- **The shell log:** `journalctl --user -b -o cat | grep -i osmin`
-- **The service log** (the background process): `~/.cache/osmin/service.log`
-- **Receiving files with LocalSend does not start:** port 53317 is taken (is the LocalSend app running?).
+| Problem | What to do |
+|---|---|
+| Nothing appears after enabling | Log out and in once after the first install. Check `gnome-extensions info osmin@osmin.dev` (`ACTIVE`, `ERROR`, ...) |
+| "Extension is incompatible" | Osmin needs GNOME Shell 50. Check `gnome-shell --version` |
+| Some widgets are empty or say "unavailable" | The background service is not running. Look at `~/.cache/osmin/service.log` and check that `gjs` is installed |
+| LocalSend receiving does not start | Port 53317 is taken, for example by the LocalSend app. Close it |
+| The camera does not open | Your user needs access to the camera (a normal desktop user has it) |
 
-## How it is built: an extension and a service
-
-Osmin is two parts that talk over D-Bus (`dev.osmin.Osmin`), and both are in the extension's
-folder:
-
-- the **extension** (`extension.js`, `src/`) is the face: the capsule, panels, cards, gestures, and
-  everything that has to live inside the shell: capturing the clipboard, notifications, key
-  bindings, the monitors, dragging, the camera preview, the music (MPRIS) players, the settings;
-- the **service** (`service/`, a plain `gjs` process the extension starts by itself; it is also the
-  *Osmin* app in the app grid) does the work that waits, reads files or talks to the network:
-
-  | module | what it does |
-  |---|---|
-  | LocalSend | finding devices, sending, receiving (the HTTPS server, the certificate) |
-  | Files | the file tray: the list, thumbnails, watching the files, saving |
-  | Calendar | reading the system calendars |
-  | Timer, Focus | the clocks, the saved state, the moment they run out |
-  | Todo, Notes, Snippets | the lists and where they are saved |
-  | Artwork, Lyrics | downloading album covers and lyrics |
-  | Clipboard | where the clipboard history is kept on disk |
-  | Downloads, System, Agents | watching the Downloads folder, the computer, the AI agents' logs |
-  | Power, Tools, Processes, Cleaner | keep awake, small jobs, your processes and ports, the cache cleaner |
-
-The service runs in a process of its own, so a slow or broken job can never freeze the desktop, and
-it can be restarted without logging out. The extension starts it when it is enabled (and again if it
-ever stops), and it ends by itself when the extension is gone. What it says goes to
-`~/.cache/osmin/service.log`. Opening *Osmin* from the app grid shows a small window with its status.
-
-Each feature of the service is a *module* (`service/module.js`): it owns a JSON state, answers calls
-(`rpc_<method>`) and sends events; the extension's `src/client/moduleClient.js` mirrors the state
-and the services in `src/services/` give the widgets their data. Without the service the extension
-still runs; only the features that live in the service are unavailable.
-
-## License
-
-GNU General Public License, version 3 or later: see [LICENSE](LICENSE).
-
-## Logs
+Logs:
 
 ```bash
-journalctl -f -o cat /usr/bin/gnome-shell | grep -i osmin
+journalctl --user -b -o cat | grep -i osmin   # the shell side
+less ~/.cache/osmin/service.log                # the background service
 ```
 
-## How it works
-
-- `PanelService` hides `Main.panel.statusArea.dateMenu.container` (and re-hides it if the panel
-  shows it again on a session-mode change), adds an invisible anchor button to the panel's center
-  box and overrides `Main.panel.toggleCalendar` with `InjectionManager`. `destroy()` undoes all of it.
-- The capsule is a single actor in the shell's chrome (part of the shell, not a window),
-  positioned from the anchor. Its top edge never moves: only x, width and height are animated,
-  so it reads as one object growing out of the top bar. Sizes are CSS px (scaled by the UI scale);
-  the expanded width is a share of the monitor width, clamped.
-- Layout: `ui/osminLayout.js` computes the expanded size from the enabled widgets (cells × cell width +
-  spacing + padding), the screen width and the UI scale, so nothing is tied to one resolution. The
-  header is exactly as tall as the top bar; the content hangs below it, and two small "ears" (cairo
-  fillets) join the capsule to the bar so it reads as one shape.
-- Dragged files: GNOME Shell cannot be a real Wayland drop target, but it is told where the pointer
-  is during a drag (`global.backend.get_dnd()`) and can read what is dragged (`Meta.Selection`,
-  `SELECTION_DND`). Osmin treats "button released over the capsule" as a drop (Escape leaves the
-  button held, so it is told apart). Nothing is accepted from the source, so nothing is copied.
-- Keyboard input (the to-do entry) uses a modal grab on the capsule (`Main.pushModal`) that ends on
-  Escape, a click outside, or when the capsule closes.
-
-### Architecture
-
-```
- source ──emit()──> EventManager ──event──> CardManager ──host calls──> Osmin ──> cards
-                                                                         ^
- widget ──start()/stop()──> ActivityManager ── compact view (collapsed capsule)
-                                  └── peek ──> event -> card pipeline
-```
-
-- **Events and cards:** `EventManager.emit({type, title, message, icon, priority, id, duration,
-  persistent})`. `CardManager` shows one card at a time, queues the rest by priority
-  (`low < normal < high < critical`), updates a card with the same id in place, pauses the auto-hide
-  while the pointer is over the capsule. Card phases: hidden, opening, visible, updating, closing.
-- **Widgets** live in `src/widgets/<name>/`, extend `OsminWidget` (`createView`, `start`, `onTick`,
-  `onPageShown`, `onPageHidden`) and are listed in `src/widgets/registry.js`; the expanded capsule
-  lays them out three per page.
-- **Live Activities:** a widget creates a `LiveActivity` (compact view + peek view) and registers
-  it with `ActivityManager` (`start` / `end` / `peek`).
-
-## Project structure
-
-```
-metadata.json  extension.js  prefs.js  stylesheet.css
-schemas/org.gnome.shell.extensions.osmin.gschema.xml
-scripts/install.sh  uninstall.sh  package.sh
-src/
-  osmin.js                  the capsule: actor, states, animations, gestures, settings
-  services/
-    panelService.js        replaces the GNOME clock: hide, anchor, position, Super+V
-    eventManager.js  cardManager.js  activityManager.js  settingsService.js
-    clockService.js        GnomeDesktop.WallClock ticks
-    mediaService.js  artworkService.js        MPRIS, cover art cache
-    calendarService.js                        org.gnome.Shell.CalendarServer
-    fileService.js  dragService.js            file tray, drag detection
-    timerService.js  todoService.js  cameraService.js  (mirrors of the service's modules, see above)
-    focusService.js  systemService.js  downloadsService.js  lyricsService.js
-  ui/                      closedView, osminPanel (header, tabs, pages), osminLayout, ear, cards, liveActivity, button
-  tray/                    trayView, trayController, fileItem, filesActivity
-  widgets/                 media/ calendar/ mirror/ timer/ todo/ notes/ tools/ focus/ system/ sound/ downloads/ input/  + widget.js, registry.js
-  commandbar/              the Search tab (engine.js: calculator and converter; commandView.js)
-  client/moduleClient.js   the extension's end of the D-Bus modules of the service
-service/                   the Osmin service and app: main.js, module.js, window.js, scratchpad.js, <module>/module.js
-  debug/testEvents.js      sample events for development
-  utils/                   constants, events, animation, scale, signals, timers, jsonStore, widgetInfo
-```
+Please open an [issue](https://github.com/bekov0004/Osmin/issues) with the output of
+`gnome-extensions info osmin@osmin.dev` and the log lines.
 
 ## Known limitations
 
-- While Osmin is enabled, GNOME's notification list and Do-Not-Disturb popup (part of the date
-  menu) are not reachable; notification banners still appear as usual.
-- Not done: OCR / QR from the screen (needs extra programs), "Watch" any part of a window, an equalizer
-  that follows the real sound, a global text expander (Wayland does not let a shell extension see what you
-  type in other apps; snippets are in the Search tab instead), key debouncing and scroll smoothing, fan
-  control and external-monitor brightness (need root or hardware interfaces), the macOS-only tools
-  (Homebrew, DMG installer, Spaces order). There is no AirDrop; the second drop target sends files to LocalSend devices instead (and receives them when you turn it on).
-- A shell extension cannot start a drag into another application itself. Dragging a file out of the
-  tray works through a tiny helper window (`src/helpers/dragout.js`) that the shell puts under the
-  pointer and drives with a virtual touch; *Copy* / *Open* / *Show in folder* remain as well.
-- The Mirror was verified with a test video source; the PipeWire / V4L2 path needs a camera
-  your user may access (a seated desktop user normally can).
+- While Osmin is on, GNOME's own notification list (part of the date menu) is not reachable. Notification banners still appear, and Osmin has an Alerts tab.
+- A shell extension cannot start a drag into another application. Dragging out of the tray or the clipboard works through a tiny helper window under the pointer. *Copy*, *Open* and *Show in folder* are there too.
+- Not available: OCR / QR from the screen, a global text expander (Wayland does not let an extension see what you type, so snippets are in the Search tab), fan control and external-monitor brightness, macOS-only tools, AirDrop (LocalSend is used instead).
 - Dragging files over the capsule while a card is showing is ignored until the card is gone.
+
+## How it is built
+
+Osmin is two parts that talk over D-Bus (`dev.osmin.Osmin`), and both ship inside the extension folder:
+
+- the **extension** (`extension.js`, `src/`) is the face: the capsule, panels, cards, gestures, and
+  everything that has to live in the shell (clipboard capture, notifications, key bindings, the
+  camera preview, MPRIS players, settings);
+- the **service** (`service/`) is a plain `gjs` process that the extension starts and restarts by
+  itself. It does the work that waits, reads files or uses the network, so a slow job can never
+  freeze the desktop. It is also the *Osmin* app in the app grid.
+
+| Service module | What it does |
+|---|---|
+| LocalSend | Finding devices, sending, receiving (HTTPS server, certificate) |
+| Files, Clipboard | The tray and where the clipboard history is kept |
+| Calendar | Reading the system calendars |
+| Timer, Focus, Todo, Notes, Snippets | Clocks and lists, and where they are saved |
+| Artwork, Lyrics | Cover art and lyrics downloads |
+| Downloads, System, Agents | Watching the Downloads folder, the computer, the AI agents' logs |
+| Power, Tools, Processes, Cleaner | Keep awake, small jobs, processes and ports, the cache cleaner |
+
+Without the service the extension still runs; only the features that live in the service are unavailable.
+
+### For developers
+
+```
+metadata.json  extension.js  prefs.js  stylesheet.css
+schemas/                     GSettings schema
+scripts/                     install.sh  uninstall.sh  package.sh
+src/
+  osmin.js                   the capsule: actor, states, animations, gestures
+  services/                  panel, events, cards, activities, settings, media, calendar, files, mirrors of service modules
+  ui/                        closed view, panel (header, tabs, pages), layout, cards, live activities
+  widgets/                   one folder per widget + widget.js, registry.js
+  tray/  clipboard/  commandbar/  localsend/  notifications/  windows/  helpers/
+  client/moduleClient.js     the extension's end of the service's D-Bus modules
+service/                     the service and app: main.js, module.js, window.js, <module>/module.js
+```
+
+- **Panel:** `PanelService` hides the stock date menu and adds an anchor in the top bar. The capsule
+  is one actor in the shell's chrome, so its top edge never moves: only x, width and height animate.
+  `destroy()` undoes everything.
+- **Events and cards:** sources call `EventManager.emit({...})`, `CardManager` shows one card at a
+  time and queues the rest by priority.
+- **Widgets** live in `src/widgets/<name>/`, extend `OsminWidget` and are listed in `src/widgets/registry.js`.
+- **Live Activities:** a widget registers a `LiveActivity` (compact view + peek) with `ActivityManager`.
+- **A new service module:** add a class in `service/<name>/module.js` (a JSON state plus `rpc_<method>`
+  calls), register it in `service/main.js`, then add a `ModuleClient` in `src/client/moduleClient.js`
+  and a mirror in `src/services/`.
+- **Build a release zip:** `scripts/package.sh` creates `Osmin-<version>.zip`.
+- **Try changes:** `scripts/install.sh --nested`. Wayland cannot reload a shell extension in place.
+
+## Contributing
+
+Bug reports and ideas are welcome in [Issues](https://github.com/bekov0004/Osmin/issues). For code
+changes, open a pull request that describes what changed and how you tried it.
+
+## License
+
+GNU General Public License, version 3 or later. See [LICENSE](LICENSE).
