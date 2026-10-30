@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-export const MODULE_INTERFACE = 'io.github.bekov0004.Osmin.Module';
+export const MODULE_INTERFACE = 'dev.osmin.Osmin.Module';
 const MODULE_XML = `<node>
   <interface name="${MODULE_INTERFACE}">
     <method name="Call">
@@ -24,7 +24,7 @@ const MODULE_XML = `<node>
  * over D-Bus is JSON text, so a client is a thin mirror of `state`.
  */
 export class Module {
-    /** @param {string} name the D-Bus object is /io/github/bekov0004/Osmin/<name> */
+    /** @param {string} name the D-Bus object is /dev/osmin/Osmin/<name> */
     constructor(name) {
         this.name = name;
         this._export = null;
@@ -77,7 +77,7 @@ export class Module {
                     const result = await module.dispatch(method, args === '' ? {} : JSON.parse(args));
                     invocation.return_value(new GLib.Variant('(s)', [JSON.stringify(result)]));
                 } catch (e) {
-                    invocation.return_dbus_error('io.github.bekov0004.Osmin.Error', String(e.message ?? e));
+                    invocation.return_dbus_error('dev.osmin.Osmin.Error', String(e.message ?? e));
                 }
             },
             async GetStateAsync(_params, invocation) {
@@ -86,7 +86,7 @@ export class Module {
             },
         };
         this._export = Gio.DBusExportedObject.wrapJSObject(MODULE_XML, implementation);
-        this._export.export(connection, `/io/github/bekov0004/Osmin/${this.name}`);
+        this._export.export(connection, `/dev/osmin/Osmin/${this.name}`);
     }
 
     unexport() {

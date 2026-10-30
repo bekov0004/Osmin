@@ -131,15 +131,15 @@ cd Osmin
 scripts/install.sh
 ```
 
-**From a release:** download `osmin@bekov0004.github.io.shell-extension.zip` from the
+**From a release:** download `Osmin-0.2.0.zip` from the
 [Releases](https://github.com/bekov0004/Osmin/releases) page and run
-`gnome-extensions install --force osmin@bekov0004.github.io.shell-extension.zip`.
+`gnome-extensions install --force Osmin-0.2.0.zip`.
 
 Either way, **log out and back in** (Wayland cannot load a new extension in a running shell), then:
 
 ```bash
-gnome-extensions enable osmin@bekov0004.github.io
-gnome-extensions prefs osmin@bekov0004.github.io     # the settings window (also the ⚙ in the capsule)
+gnome-extensions enable osmin@osmin.dev
+gnome-extensions prefs osmin@osmin.dev     # the settings window (also the ⚙ in the capsule)
 ```
 
 To try it without logging out, use a nested shell (needs `mutter-devkit`):
@@ -161,14 +161,14 @@ rm -r ~/.local/share/osmin ~/.cache/osmin      # optional: your notes, tray, tim
 ## Troubleshooting
 
 - **Nothing appears after enabling:** you have to log out and in once after the first install.
-  `gnome-extensions info osmin@bekov0004.github.io` shows the state (`ACTIVE`, `ERROR` ...).
+  `gnome-extensions info osmin@osmin.dev` shows the state (`ACTIVE`, `ERROR` ...).
 - **The shell log:** `journalctl --user -b -o cat | grep -i osmin`
 - **The service log** (the background process): `~/.cache/osmin/service.log`
 - **Receiving files with LocalSend does not start:** port 53317 is taken (is the LocalSend app running?).
 
 ## How it is built: an extension and a service
 
-Osmin is two parts that talk over D-Bus (`io.github.bekov0004.Osmin`), and both are in the extension's
+Osmin is two parts that talk over D-Bus (`dev.osmin.Osmin`), and both are in the extension's
 folder:
 
 - the **extension** (`extension.js`, `src/`) is the face: the capsule, panels, cards, gestures, and

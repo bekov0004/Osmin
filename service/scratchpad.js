@@ -16,7 +16,7 @@ const titleOf = text => (text.split('\n').find(line => line.trim()) ?? 'New note
  * Markdown file. Opened from the Search tab ("scratchpad") or the app menu.
  */
 export function createScratchpad() {
-    GLib.set_prgname('io.github.bekov0004.Osmin');
+    GLib.set_prgname('dev.osmin.Osmin');
     Adw.init();
 
     const store = new JsonStore('scratchpad.json');

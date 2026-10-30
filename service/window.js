@@ -11,7 +11,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 export function createWindow(application, modules, {restart, openScratchpad}) {
     // The service is a plain Gio.Application (no Gtk.Application): start GTK by hand, and say which
     // desktop file the window belongs to.
-    GLib.set_prgname('io.github.bekov0004.Osmin');
+    GLib.set_prgname('dev.osmin.Osmin');
     Adw.init();
     const window = new Adw.Window({
         title: 'Osmin',
@@ -64,7 +64,7 @@ export function createWindow(application, modules, {restart, openScratchpad}) {
     settings.add_suffix(new Gtk.Image({icon_name: 'go-next-symbolic'}));
     settings.connect('activated', () => {
         try {
-            Gio.Subprocess.new(['gnome-extensions', 'prefs', 'osmin@bekov0004.github.io'], Gio.SubprocessFlags.NONE);
+            Gio.Subprocess.new(['gnome-extensions', 'prefs', 'osmin@osmin.dev'], Gio.SubprocessFlags.NONE);
         } catch (e) {
             console.warn(`[osmin-service] cannot open the settings: ${e.message}`);
         }

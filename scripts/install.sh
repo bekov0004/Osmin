@@ -6,7 +6,7 @@
 #   scripts/uninstall.sh          remove everything again
 set -euo pipefail
 
-UUID="osmin@bekov0004.github.io"
+UUID="osmin@osmin.dev"
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 DEST="$DATA/gnome-shell/extensions/$UUID"
@@ -48,6 +48,9 @@ if [[ -d "$DATA/gnome-shell/extensions/$OLD_UUID" || -d "$DATA/nook" ]]; then
 fi
 # an earlier layout had the service in a folder of its own
 rm -rf "$DATA/osmin-service" "$DATA/dbus-1/services/io.github.bekov0004.Osmin.service"
+# ...and the first UUID / launcher name Osmin had
+gnome-extensions disable "osmin@bekov0004.github.io" 2>/dev/null || true
+rm -rf "$DATA/gnome-shell/extensions/osmin@bekov0004.github.io" "$DATA/applications/io.github.bekov0004.Osmin.desktop"
 
 # --- install ----------------------------------------------------------------------------------
 rm -rf "$DEST"
@@ -59,7 +62,7 @@ echo "Installed to $DEST"
 
 # A launcher for the Osmin app window (status, Scratchpad). It also works with the extension off.
 mkdir -p "$DATA/applications"
-cat > "$DATA/applications/io.github.bekov0004.Osmin.desktop" <<UNIT
+cat > "$DATA/applications/dev.osmin.Osmin.desktop" <<UNIT
 [Desktop Entry]
 Type=Application
 Name=Osmin
