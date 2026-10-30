@@ -234,7 +234,7 @@ service/                     the service and app: main.js, module.js, window.js,
 
 ## Contributing
 
-Bug reports and ideas are welcome in [Issues](https://github.com/bekov0004/Osmin/issues). For code
+See the [changelog](CHANGELOG.md) for what changed in each version. Bug reports and ideas are welcome in [Issues](https://github.com/bekov0004/Osmin/issues). For code
 changes, open a pull request that describes what changed and how you tried it.
 
 ## License
