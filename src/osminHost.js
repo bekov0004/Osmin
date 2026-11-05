@@ -324,14 +324,14 @@ export class OsminHost {
 
     /**
      * The button in the top bar whose window holds the utility widgets (Windows, Quick Toggles, Focus,
-     * ...). Rebuilt when the user turns one of them on or off; there is no button when none is on.
+     * ...). Rebuilt when the user turns one of them on or off; with none on it says where to turn them on.
      */
     _syncMenu() {
         const wanted = this._settings.menuWidgets;
         if (this._menu && wanted.join() === this._menuWidgets.map(w => w.constructor.id).join())
             return;
         this._destroyMenu();
-        if (wanted.length === 0 || !this._services)
+        if (!this._services)
             return;
         const services = this._services;
         const byId = new Map(WIDGET_CLASSES.map(WidgetClass => [WidgetClass.id, WidgetClass]));

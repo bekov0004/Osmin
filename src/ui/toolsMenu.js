@@ -74,6 +74,13 @@ export class ToolsMenu {
             pages.add_child(widget.view);
         }
 
+        if (this._widgets.length === 0) {
+            root.add_child(new St.Label({
+                text: 'No tools are turned on.\nOpen Settings → Features and switch some on.',
+                style_class: 'osmin-menu-title',
+            }));
+        }
+
         const footer = new St.BoxLayout({style_class: 'osmin-menu-footer', x_expand: true});
         footer.add_child(createButton({
             iconName: 'emblem-system-symbolic', label: 'Settings', styleClass: 'osmin-menu-action', expand: true,
@@ -85,7 +92,8 @@ export class ToolsMenu {
         root.add_child(footer);
 
         this._button.menu.connect('open-state-changed', (_menu, open) => this._onOpenChanged(open));
-        this._select(0);
+        if (this._widgets.length > 0)
+            this._select(0);
         Main.panel.addToStatusArea(ROLE, this._button, 0, 'right');
     }
 
