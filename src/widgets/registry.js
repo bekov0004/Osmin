@@ -7,6 +7,7 @@ import {ShortcutsWidget} from './shortcuts/shortcutsWidget.js';
 import {CompanionWidget} from './companion/companionWidget.js';
 import {AgentsWidget} from './agents/agentsWidget.js';
 import {WindowsWidget} from './windows/windowsWidget.js';
+import {WorkspacesWidget} from './workspaces/workspacesWidget.js';
 import {InputWidget} from './input/inputWidget.js';
 import {DownloadsWidget} from './downloads/downloadsWidget.js';
 import {SoundWidget} from './sound/soundWidget.js';
@@ -31,6 +32,7 @@ export const WIDGET_CLASSES = [
     DownloadsWidget,
     InputWidget,
     WindowsWidget,
+    WorkspacesWidget,
     AgentsWidget,
     CompanionWidget,
 ];

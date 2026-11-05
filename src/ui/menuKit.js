@@ -34,6 +34,7 @@ export function menuRow({title, subtitle = '', control = null, onClick = null}) 
     let subtitleLabel = null;
     if (subtitle) {
         subtitleLabel = new St.Label({text: subtitle, style_class: 'osmin-card-subtitle'});
+        subtitleLabel.clutter_text.line_wrap = true;
         text.add_child(subtitleLabel);
     }
     box.add_child(text);

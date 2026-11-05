@@ -13,6 +13,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'downloads', title: 'Downloads', subtitle: 'Files arriving in the Downloads folder, with progress in the capsule', cells: 4, minCells: 3, menu: true},
     {id: 'input', title: 'Input', subtitle: 'Mouse and keyboard switches: scrolling, acceleration, tap to click, focus follows mouse', cells: 4, minCells: 4, menu: true},
     {id: 'windows', title: 'Windows', subtitle: 'Live previews of the open windows, and snap, centre, maximize, move to the next monitor', cells: 5, minCells: 4, menu: true},
+    {id: 'workspaces', title: 'Desktops', subtitle: 'Create, switch and remove desktops (workspaces); keep empty ones; desktops on every monitor', cells: 4, minCells: 4, menu: true},
     {id: 'agents', title: 'AI Agents', subtitle: 'Claude Code and Codex: working now, tokens of the last 5 hours and week, a card when a task is done', cells: 4, minCells: 4, menu: true},
     {id: 'companion', title: 'Companion', subtitle: 'A small friend: its eyes follow the pointer, it sways to the music, gets surprised by cards and falls asleep', cells: 2, minCells: 2},
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},
@@ -21,7 +22,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'tools', title: 'Quick Toggles', subtitle: 'Keep awake, dark mode, screenshot, colour picker, cleaning mode', cells: 5, minCells: 4, menu: true},
 ]);
 
-export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror', 'windows', 'tools', 'focus', 'system', 'sound', 'input', 'downloads']);
+export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror', 'windows', 'workspaces', 'tools', 'focus', 'system', 'sound', 'input', 'downloads']);
 
 /** Widgets with `menu: true` live in the pages of the top-bar button's window; the others in the capsule. */
 export const MENU_WIDGET_IDS = Object.freeze(WIDGET_INFO.filter(w => w.menu).map(w => w.id));

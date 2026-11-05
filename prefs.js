@@ -174,6 +174,7 @@ const WIDGET_ICONS = {
     downloads: 'folder-download-symbolic',
     input: 'input-mouse-symbolic',
     windows: 'focus-windows-symbolic',
+    workspaces: 'view-paged-symbolic',
     agents: 'system-run-symbolic',
     companion: 'face-smile-symbolic',
 };
@@ -317,7 +318,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const TOOLS = _('Tools window (top-bar button)');
         const ISLAND = _('Island widgets (the capsule)');
         // The tools in the order of the tabs of their window, then the capsule's widgets.
-        const MENU_ORDER = ['windows', 'tools', 'focus', 'system', 'sound', 'input', 'downloads', 'agents'];
+        const MENU_ORDER = ['windows', 'workspaces', 'tools', 'focus', 'system', 'sound', 'input', 'downloads', 'agents'];
         const rank = w => (w.menu ? MENU_ORDER.indexOf(w.id) : 100 + WIDGET_INFO.indexOf(w));
         const widgetRows = [...WIDGET_INFO].sort((a, b) => rank(a) - rank(b)).map(w => ({
             group: w.menu ? TOOLS : ISLAND,

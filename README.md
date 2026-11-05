@@ -42,6 +42,7 @@ extension off brings the stock GNOME clock back.
 | **Focus** | Pomodoro timer and stopwatch that live in the capsule |
 | **System** | CPU, memory, temperature, network, disk, battery, with alerts |
 | **Sound** | Volume, output, microphone and per-application volume |
+| **Desktops** | Create, switch and remove desktops (workspaces); keep empty ones; make desktops work on every monitor |
 | **Windows** | Live window previews, snap buttons (halves, maximize, next monitor), and one-click tiling of *all* open windows: columns, rows, a grid or one main window with the rest beside it |
 | **Downloads** | Progress, size and speed of what lands in your Downloads folder |
 | **Mirror** | A round webcam preview, the camera is on only while you look |
@@ -107,8 +108,8 @@ Without the clone: `gnome-extensions uninstall osmin@osmin.dev`.
 press `Esc` or press the shortcut again to close.
 
 **The tools button.** Next to the system icons in the top bar there is an Osmin button (a grid icon).
-Click it for a window with a row of icon tabs, one per tool: Windows, Quick Toggles, Focus, System,
-Sound, Input, Downloads (and AI Agents if you turn it on). The capsule stays light (music, calendar,
+Click it for a window with a row of icon tabs, one per tool: Windows, Desktops, Quick Toggles, Focus,
+System, Sound, Input, Downloads (and AI Agents if you turn it on). The capsule stays light (music, calendar,
 mirror, timer, to-do, notes) and everything else has room here. Choose the tabs and their order in
 Settings → Tools window; Settings → Features lists every feature and says where it appears
 (top-bar button or island), with one-click bundles.

@@ -14,6 +14,9 @@ follows [Semantic Versioning](https://semver.org/).
   window of the monitor, however many there are (4, 6, 10 ...), or only the ones you tick in the
   previews; *Put it back* restores all of them.
 
+- **Desktops tab:** list, switch, create and remove desktops (workspaces), send the current window to a new
+  desktop, and two switches for GNOME's *dynamic desktops* and *desktops on every monitor*.
+
 ### Changed
 
 - Settings: **Features** now has a count and one-click bundles (Everything, Essentials, Light island), and

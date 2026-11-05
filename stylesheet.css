@@ -2067,3 +2067,7 @@
 .osmin-menu .osmin-sound-app {
     spacing: 10px;
 }
+
+.osmin-card-row:checked {
+    background-color: rgba(53, 132, 228, 0.16);
+}
