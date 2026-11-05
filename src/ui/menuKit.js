@@ -63,6 +63,18 @@ export function switchRow({title, subtitle = '', state = false, onToggle}) {
     };
 }
 
+/** One pill button; `primary` makes it the filled, highlighted one. */
+export function menuChip({label, icon = null, primary = false, onClick}) {
+    const chip = new St.Button({style_class: `osmin-chip${primary ? ' osmin-chip-primary' : ''}`, can_focus: true, x_expand: true, reactive: true, track_hover: true});
+    const content = new St.BoxLayout({x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER});
+    if (icon)
+        content.add_child(new St.Icon({icon_name: icon, style_class: 'osmin-chip-icon'}));
+    content.add_child(new St.Label({text: label, y_align: Clutter.ActorAlign.CENTER}));
+    chip.set_child(content);
+    chip.connect('clicked', () => onClick());
+    return chip;
+}
+
 /**
  * Pill buttons in rows of `perRow`.
  * @param {{id: string, label: string, icon?: string}[]} items

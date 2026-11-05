@@ -5,6 +5,7 @@ import St from 'gi://St';
 
 import {formatBytes, formatRate} from '../../services/systemService.js';
 import {createButton} from '../../ui/button.js';
+import {menuCard, menuDivider, menuHeader} from '../../ui/menuKit.js';
 import {Priority} from '../../utils/events.js';
 import {OsminWidget} from '../widget.js';
 import {DownloadsActivity} from './downloadsActivity.js';
@@ -17,6 +18,7 @@ export class DownloadsWidget extends OsminWidget {
     static id = 'downloads';
     static title = 'Downloads';
     static iconName = 'folder-download-symbolic';
+    static menuNative = true;
 
     constructor(context) {
         super(context);
@@ -62,14 +64,17 @@ export class DownloadsWidget extends OsminWidget {
     }
 
     createView() {
-        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-downloads', x_expand: true, y_expand: true});
-        root.add_child(new St.Label({text: 'DOWNLOADS', style_class: 'osmin-todo-caption'}));
-        this._empty = new St.Label({text: 'Nothing downloaded yet', style_class: 'osmin-todo-empty', x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER});
-        root.add_child(this._empty);
-        this._scroll = new St.ScrollView({hscrollbar_policy: St.PolicyType.NEVER, vscrollbar_policy: St.PolicyType.AUTOMATIC, overlay_scrollbars: true, x_expand: true, y_expand: true});
+        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-downloads osmin-menu-page', x_expand: true});
+        root.add_child(menuHeader('Downloads folder'));
+        const card = menuCard();
+        this._empty = new St.Label({text: 'Nothing downloaded yet', style_class: 'osmin-card-hint', x_align: Clutter.ActorAlign.CENTER});
+        this._empty.style = 'padding-top: 14px;';
+        card.add_child(this._empty);
+        this._scroll = new St.ScrollView({hscrollbar_policy: St.PolicyType.NEVER, vscrollbar_policy: St.PolicyType.AUTOMATIC, overlay_scrollbars: true, x_expand: true, style: 'max-height: 360px;'});
         this._list = new St.BoxLayout({vertical: true, x_expand: true});
         this._scroll.add_child(this._list);
-        root.add_child(this._scroll);
+        card.add_child(this._scroll);
+        root.add_child(card);
         return root;
     }
 
@@ -84,8 +89,10 @@ export class DownloadsWidget extends OsminWidget {
         this._empty.visible = items.length === 0;
         this._scroll.visible = items.length > 0;
         this._list.destroy_all_children();
-        for (const item of items) {
-            const row = new St.BoxLayout({style_class: 'osmin-download', x_expand: true});
+        items.forEach((item, index) => {
+            if (index > 0)
+                this._list.add_child(menuDivider());
+            const row = new St.BoxLayout({style_class: 'osmin-download osmin-card-row', x_expand: true});
             const button = new St.Button({style_class: 'osmin-download-main', x_expand: true, can_focus: true, reactive: item.state === 'done'});
             const line = new St.BoxLayout({x_expand: true});
             line.add_child(new St.Icon({
@@ -112,7 +119,7 @@ export class DownloadsWidget extends OsminWidget {
                 }));
             }
             this._list.add_child(row);
-        }
+        });
     }
 
     destroy() {

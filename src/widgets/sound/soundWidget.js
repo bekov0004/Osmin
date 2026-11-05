@@ -5,6 +5,7 @@ import St from 'gi://St';
 
 import {createButton} from '../../ui/button.js';
 import {HorizontalSlider} from '../../ui/horizontalSlider.js';
+import {menuCard, menuDivider, menuHeader, menuRow, switchRow} from '../../ui/menuKit.js';
 import {OsminWidget} from '../widget.js';
 
 const MAX_APPS = 6;
@@ -18,6 +19,7 @@ export class SoundWidget extends OsminWidget {
     static id = 'sound';
     static title = 'Sound';
     static iconName = 'audio-speakers-symbolic';
+    static menuNative = true;
 
     constructor(context) {
         super(context);
@@ -27,22 +29,19 @@ export class SoundWidget extends OsminWidget {
     }
 
     createView() {
-        const root = new St.BoxLayout({
-            vertical: true,
-            style_class: 'osmin-widget osmin-sound',
-            x_expand: true,
-            y_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
+        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-sound osmin-menu-page', x_expand: true});
+
+        root.add_child(menuHeader('Output'));
+        const output = menuCard();
+        this._outputRow = menuRow({
+            title: '…', subtitle: 'Click to use the next output',
+            control: new St.Icon({icon_name: 'audio-speakers-symbolic', style_class: 'osmin-tool-icon'}),
+            onClick: () => this._nextOutput(),
         });
+        output.add_child(this._outputRow.row);
+        output.add_child(menuDivider());
 
-        const top = new St.BoxLayout({style_class: 'osmin-sound-row', x_expand: true});
-        this._output = createButton({iconName: 'audio-speakers-symbolic', label: '…', styleClass: 'osmin-sound-output', expand: true, onClick: () => this._nextOutput()});
-        top.add_child(this._output);
-        this._mic = createButton({iconName: 'audio-input-microphone-symbolic', styleClass: 'osmin-sound-mic', onClick: () => this._toggleMic()});
-        top.add_child(this._mic);
-        root.add_child(top);
-
-        const master = new St.BoxLayout({style_class: 'osmin-sound-row', x_expand: true});
+        const master = new St.BoxLayout({style_class: 'osmin-card-row osmin-sound-row', x_expand: true});
         this._muteButton = createButton({iconName: 'audio-volume-high-symbolic', styleClass: 'osmin-sound-mute', onClick: () => this._toggleMute()});
         master.add_child(this._muteButton);
         this._slider = new HorizontalSlider({min: 0, max: 100, value: 0, onChange: value => this._setVolume(value)});
@@ -50,19 +49,18 @@ export class SoundWidget extends OsminWidget {
         master.add_child(this._slider);
         this._percent = new St.Label({text: '', style_class: 'osmin-sound-percent', y_align: Clutter.ActorAlign.CENTER});
         master.add_child(this._percent);
-        root.add_child(master);
+        output.add_child(master);
+        output.add_child(menuDivider());
+        this._micRow = switchRow({title: 'Microphone', subtitle: 'Turn off to mute it', state: true, onToggle: () => this._toggleMic()});
+        output.add_child(this._micRow.row);
+        root.add_child(output);
 
-        this._list = new St.BoxLayout({vertical: true, style_class: 'osmin-sound-apps', x_expand: true});
-        this._scroll = new St.ScrollView({
-            hscrollbar_policy: St.PolicyType.NEVER,
-            vscrollbar_policy: St.PolicyType.AUTOMATIC,
-            overlay_scrollbars: true,
-            x_expand: true,
-            y_expand: true,
-        });
-        this._scroll.add_child(this._list);
-        root.add_child(this._scroll);
-        this._note = new St.Label({text: '', style_class: 'osmin-sound-note', x_align: Clutter.ActorAlign.CENTER});
+        this._appsHeader = menuHeader('Applications');
+        root.add_child(this._appsHeader);
+        this._list = menuCard();
+        root.add_child(this._list);
+        this._scroll = this._list; // shown only while an application makes sound
+        this._note = new St.Label({text: '', style_class: 'osmin-card-hint', x_align: Clutter.ActorAlign.CENTER});
         root.add_child(this._note);
 
         this._connect();
@@ -96,7 +94,7 @@ export class SoundWidget extends OsminWidget {
         if (!this._ready) {
             this._note.text = this._mixer?.get_state() === Gvc.MixerControlState.FAILED ? 'The sound system is not available' : 'Connecting to the sound system…';
             this._note.visible = true;
-            this._scroll.visible = false;
+            this._scroll.visible = this._appsHeader.visible = false;
             return;
         }
         this._note.visible = false;
@@ -106,19 +104,14 @@ export class SoundWidget extends OsminWidget {
             this._slider.max = max;
             this._slider.value = sink.volume;
             this._percent.text = sink.is_muted ? 'muted' : `${Math.round(100 * sink.volume / max)}%`;
-            this._output.get_child().get_last_child().text = sink.description ?? sink.name ?? 'Output';
+            this._outputRow.title.text = sink.description ?? sink.name ?? 'Output';
             this._muteButton.get_child().get_first_child().icon_name = sink.is_muted || sink.volume === 0
                 ? 'audio-volume-muted-symbolic' : sink.volume < max / 2 ? 'audio-volume-medium-symbolic' : 'audio-volume-high-symbolic';
             sink.disconnectObject(this);
             sink.connectObject('notify::volume', () => this._update(), 'notify::is-muted', () => this._update(), this);
         }
         const source = this._mixer.get_default_source();
-        const micIcon = this._mic.get_child().get_first_child();
-        micIcon.icon_name = !source || source.is_muted ? 'microphone-disabled-symbolic' : 'audio-input-microphone-symbolic';
-        if (source?.is_muted)
-            this._mic.add_style_pseudo_class('checked');
-        else
-            this._mic.remove_style_pseudo_class('checked');
+        this._micRow.set(!!source && !source.is_muted);
         this._rebuildApps(max);
     }
 
@@ -134,7 +127,7 @@ export class SoundWidget extends OsminWidget {
         for (const stream of streams) {
             let app = this._apps.get(stream.id);
             if (!app) {
-                const row = new St.BoxLayout({style_class: 'osmin-sound-app', x_expand: true});
+                const row = new St.BoxLayout({style_class: 'osmin-sound-app osmin-card-row', x_expand: true});
                 const icon = new St.Icon({icon_name: stream.icon_name || 'audio-x-generic-symbolic', style_class: 'osmin-sound-app-icon', y_align: Clutter.ActorAlign.CENTER});
                 row.add_child(icon);
                 const name = new St.Label({text: stream.name || 'Application', style_class: 'osmin-sound-app-name', y_align: Clutter.ActorAlign.CENTER});
@@ -156,7 +149,7 @@ export class SoundWidget extends OsminWidget {
             app.slider.max = max;
             app.slider.value = stream.volume;
         }
-        this._scroll.visible = streams.length > 0;
+        this._scroll.visible = this._appsHeader.visible = streams.length > 0;
     }
 
     _setVolume(value) {

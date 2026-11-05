@@ -2044,3 +2044,26 @@
 .osmin-menu .toggle-switch:checked {
     background-color: #3584e4;
 }
+
+.osmin-menu-bigtime {
+    font-size: 34pt;
+    font-weight: 300;
+    padding: 6px 0 0 0;
+}
+
+.osmin-chip-primary {
+    background-color: rgba(53, 132, 228, 0.85);
+    color: white;
+}
+
+.osmin-chip-primary:hover {
+    background-color: rgba(53, 132, 228, 1);
+}
+
+.osmin-menu .osmin-sound-row {
+    spacing: 10px;
+}
+
+.osmin-menu .osmin-sound-app {
+    spacing: 10px;
+}

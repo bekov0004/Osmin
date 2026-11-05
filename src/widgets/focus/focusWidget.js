@@ -2,7 +2,7 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import {formatClock} from '../../services/focusService.js';
-import {createButton} from '../../ui/button.js';
+import {menuCard, menuChip, menuChips, menuHeader} from '../../ui/menuKit.js';
 import {EventType, Priority} from '../../utils/events.js';
 import {OsminWidget} from '../widget.js';
 import {FocusActivity} from './focusActivity.js';
@@ -18,6 +18,7 @@ export class FocusWidget extends OsminWidget {
     static id = 'focus';
     static title = 'Focus';
     static iconName = 'alarm-symbolic';
+    static menuNative = true;
 
     constructor(context) {
         super(context);
@@ -81,35 +82,23 @@ export class FocusWidget extends OsminWidget {
     }
 
     createView() {
-        const root = new St.BoxLayout({
-            vertical: true,
-            style_class: 'osmin-widget osmin-focus',
-            x_expand: true,
-            y_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._tabs = new St.BoxLayout({style_class: 'osmin-timer-presets', x_expand: true});
-        this._tabButtons = {};
-        for (const [mode, label] of [['focus', 'Focus'], ['stopwatch', 'Stopwatch']]) {
-            const button = createButton({
-                label,
-                styleClass: 'osmin-timer-chip',
-                expand: true,
-                onClick: () => {
-                    this._mode = mode;
-                    this._update();
-                },
-            });
-            this._tabButtons[mode] = button;
-            this._tabs.add_child(button);
-        }
-        root.add_child(this._tabs);
-        this._time = new St.Label({style_class: 'osmin-timer-time osmin-focus-time', x_align: Clutter.ActorAlign.CENTER});
-        root.add_child(this._time);
-        this._caption = new St.Label({style_class: 'osmin-focus-caption', x_align: Clutter.ActorAlign.CENTER});
-        root.add_child(this._caption);
-        this._actions = new St.BoxLayout({style_class: 'osmin-timer-actions', x_expand: true});
-        root.add_child(this._actions);
+        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-focus osmin-menu-page', x_expand: true});
+        root.add_child(menuHeader('Timer'));
+        const card = menuCard();
+        const modes = menuChips([{id: 'focus', label: 'Focus'}, {id: 'stopwatch', label: 'Stopwatch'}], mode => {
+            this._mode = mode;
+            this._update();
+        }, {perRow: 2});
+        modes.actor.add_style_class_name('osmin-card-pad');
+        card.add_child(modes.actor);
+        this._tabButtons = Object.fromEntries(modes.buttons);
+        this._time = new St.Label({style_class: 'osmin-menu-bigtime', x_align: Clutter.ActorAlign.CENTER});
+        card.add_child(this._time);
+        this._caption = new St.Label({style_class: 'osmin-card-subtitle', x_align: Clutter.ActorAlign.CENTER});
+        card.add_child(this._caption);
+        this._actions = new St.BoxLayout({style_class: 'osmin-chips-row osmin-card-pad', x_expand: true});
+        card.add_child(this._actions);
+        root.add_child(card);
         this._focus.connectObject('tick', () => this._update(), this);
         return root;
     }
@@ -139,13 +128,7 @@ export class FocusWidget extends OsminWidget {
         }
         this._actions.destroy_all_children();
         // The main button has a label, the others only an icon (the column is narrow).
-        const add = (label, iconName, handler, primary = false) => this._actions.add_child(createButton({
-            label: primary || !iconName ? label : null,
-            iconName: primary && !iconName ? null : iconName,
-            styleClass: `osmin-timer-action${primary ? ' osmin-timer-primary' : ''}`,
-            expand: primary,
-            onClick: handler,
-        }));
+        const add = (label, iconName, handler, primary = false) => this._actions.add_child(menuChip({label, icon: iconName, primary, onClick: handler}));
         if (mode === 'focus') {
             this._time.text = formatClock(f.pomoRemaining);
             this._caption.text = f.pomoState === 'idle'
