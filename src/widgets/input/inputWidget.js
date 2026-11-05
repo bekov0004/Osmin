@@ -1,7 +1,7 @@
-import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 
+import {menuCard, menuDivider, menuHeader, switchRow} from '../../ui/menuKit.js';
 import {OsminWidget} from '../widget.js';
 
 /**
@@ -21,6 +21,7 @@ export class InputWidget extends OsminWidget {
     static id = 'input';
     static title = 'Input';
     static iconName = 'input-mouse-symbolic';
+    static menuNative = true; // laid out with the menu kit: the menu does not wrap it
 
     constructor(context) {
         super(context);
@@ -46,44 +47,31 @@ export class InputWidget extends OsminWidget {
     }
 
     createView() {
-        const root = new St.BoxLayout({
-            vertical: true,
-            style_class: 'osmin-widget osmin-input',
-            x_expand: true,
-            y_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._buttons = new Map();
-        let line = null;
-        this._rows.forEach((row, index) => {
-            if (index % 2 === 0) {
-                line = new St.BoxLayout({style_class: 'osmin-tools-row', x_expand: true});
-                root.add_child(line);
-            }
-            const button = new St.Button({style_class: 'osmin-input-switch', can_focus: true, x_expand: true, reactive: true, track_hover: true});
-            const box = new St.BoxLayout({x_expand: true});
-            box.add_child(new St.Icon({icon_name: row.icon, style_class: 'osmin-tool-icon', y_align: Clutter.ActorAlign.CENTER}));
-            box.add_child(new St.Label({text: row.label, style_class: 'osmin-input-label', x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
-            button.set_child(box);
-            button.connect('clicked', () => this._toggle(row));
-            line.add_child(button);
-            this._buttons.set(row.id, button);
-            row.settings.connectObject(`changed::${row.key}`, () => this._update(), this);
-        });
-        this._update();
+        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-input osmin-menu-page', x_expand: true});
+        root.add_child(menuHeader('Mouse and touchpad'));
+        const pointer = menuCard();
+        const keys = menuCard();
+        this._switches = new Map();
+        const groups = [[pointer, ['mouse-scroll', 'touchpad-scroll', 'mouse-accel', 'tap', 'focus']], [keys, ['repeat']]];
+        for (const [card, ids] of groups) {
+            ids.map(id => this._rows.find(r => r.id === id)).filter(Boolean).forEach((row, index) => {
+                if (index > 0)
+                    card.add_child(menuDivider());
+                const item = switchRow({title: row.label, subtitle: row.hint, state: this._isOn(row), onToggle: () => this._toggle(row)});
+                card.add_child(item.row);
+                this._switches.set(row.id, item);
+                row.settings.connectObject(`changed::${row.key}`, () => this._update(), this);
+            });
+        }
+        root.add_child(pointer);
+        root.add_child(menuHeader('Keyboard'));
+        root.add_child(keys);
         return root;
     }
 
     _update() {
-        for (const row of this._rows) {
-            const button = this._buttons?.get(row.id);
-            if (!button)
-                continue;
-            if (this._isOn(row))
-                button.add_style_pseudo_class('checked');
-            else
-                button.remove_style_pseudo_class('checked');
-        }
+        for (const row of this._rows)
+            this._switches?.get(row.id)?.set(this._isOn(row));
     }
 
     destroy() {

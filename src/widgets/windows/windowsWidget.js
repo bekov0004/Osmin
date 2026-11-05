@@ -5,24 +5,25 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {createButton} from '../../ui/button.js';
+import {menuCard, menuChips, menuHeader} from '../../ui/menuKit.js';
 import {restoreTiled, snap, tile} from '../../windows/layout.js';
 import {OsminWidget} from '../widget.js';
 
 const SNAPS = [
-    ['left', 'go-previous-symbolic', 'Left half'],
-    ['right', 'go-next-symbolic', 'Right half'],
-    ['top', 'go-up-symbolic', 'Top half'],
-    ['bottom', 'go-down-symbolic', 'Bottom half'],
-    ['maximize', 'view-fullscreen-symbolic', 'Maximize'],
-    ['center', 'view-restore-symbolic', 'Center'],
-    ['nextMonitor', 'video-display-symbolic', 'Next monitor'],
-    ['restore', 'edit-undo-symbolic', 'Put it back'],
+    ['left', 'go-previous-symbolic', 'Left half', 'Left'],
+    ['right', 'go-next-symbolic', 'Right half', 'Right'],
+    ['top', 'go-up-symbolic', 'Top half', 'Top'],
+    ['bottom', 'go-down-symbolic', 'Bottom half', 'Bottom'],
+    ['maximize', 'view-fullscreen-symbolic', 'Maximize', 'Full'],
+    ['center', 'view-restore-symbolic', 'Centre', 'Centre'],
+    ['nextMonitor', 'video-display-symbolic', 'Next monitor', 'Monitor'],
+    ['restore', 'edit-undo-symbolic', 'Put it back', 'Undo'],
 ];
 const TILES = [
-    ['columns', 'Columns', 'All windows side by side'],
-    ['rows', 'Rows', 'All windows stacked'],
-    ['grid', 'Grid', 'All windows in a grid'],
-    ['main', 'Main + side', 'The focused window large, the others stacked beside it'],
+    ['columns', 'Columns'],
+    ['rows', 'Rows'],
+    ['grid', 'Grid'],
+    ['main', 'Main + side'],
 ];
 const PREVIEW_W = 112;
 const PREVIEW_H = 70;
@@ -37,6 +38,7 @@ export class WindowsWidget extends OsminWidget {
     static id = 'windows';
     static title = 'Windows';
     static iconName = 'focus-windows-symbolic';
+    static menuNative = true;
 
     constructor(context) {
         super(context);
@@ -46,30 +48,29 @@ export class WindowsWidget extends OsminWidget {
     }
 
     createView() {
-        const root = new St.BoxLayout({
-            vertical: true,
-            style_class: 'osmin-widget osmin-windows',
-            x_expand: true,
-            y_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        const row = new St.BoxLayout({style_class: 'osmin-tools-row', x_expand: true});
-        for (const [action, icon, tip] of SNAPS) {
-            const button = createButton({iconName: icon, styleClass: 'osmin-windows-snap', expand: true, onClick: () => this._snap(action)});
-            button.accessible_name = tip;
-            row.add_child(button);
-        }
-        root.add_child(row);
-        const tiles = new St.BoxLayout({style_class: 'osmin-tools-row', x_expand: true});
-        for (const [mode, label, tip] of TILES) {
-            const button = createButton({label, styleClass: 'osmin-windows-snap', expand: true, onClick: () => this._tile(mode)});
-            button.accessible_name = tip;
-            tiles.add_child(button);
-        }
-        root.add_child(tiles);
-        this._tileHint = new St.Label({style_class: 'osmin-todo-empty', x_align: Clutter.ActorAlign.START});
-        root.insert_child_above(this._tileHint, tiles);
+        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-windows osmin-menu-page', x_expand: true});
+
+        // Arrange every window (or the ticked ones) at once.
+        root.add_child(menuHeader('Arrange windows'));
+        const arrange = menuCard();
+        const tiles = menuChips(TILES.map(([id, label]) => ({id, label})), mode => this._tile(mode), {perRow: 4});
+        tiles.actor.add_style_class_name('osmin-card-pad');
+        arrange.add_child(tiles.actor);
+        this._tileHint = new St.Label({style_class: 'osmin-card-hint'});
+        arrange.add_child(this._tileHint);
+        root.add_child(arrange);
         this._hint();
+
+        // Move the one window you were working in.
+        root.add_child(menuHeader('This window'));
+        const snapCard = menuCard();
+        const snaps = menuChips(SNAPS.map(([id, icon, tip, label]) => ({id, icon, label})), action => this._snap(action), {perRow: 4});
+        snaps.actor.add_style_class_name('osmin-card-pad');
+        snapCard.add_child(snaps.actor);
+        root.add_child(snapCard);
+
+        root.add_child(menuHeader('Open windows'));
+        const listCard = menuCard();
         this._scroll = new St.ScrollView({hscrollbar_policy: St.PolicyType.EXTERNAL, vscrollbar_policy: St.PolicyType.NEVER, overlay_scrollbars: true, x_expand: true, y_expand: true});
         this._previews = new St.BoxLayout({style_class: 'osmin-windows-row', y_align: Clutter.ActorAlign.CENTER});
         this._scroll.add_child(this._previews);
@@ -86,9 +87,10 @@ export class WindowsWidget extends OsminWidget {
                 return Clutter.EVENT_PROPAGATE;
             }
         });
-        root.add_child(this._scroll);
+        listCard.add_child(this._scroll);
+        root.add_child(listCard);
         this._empty = new St.Label({text: 'No open windows', style_class: 'osmin-todo-empty', x_expand: true, x_align: Clutter.ActorAlign.CENTER});
-        root.add_child(this._empty);
+        listCard.add_child(this._empty);
         return root;
     }
 
@@ -126,7 +128,7 @@ export class WindowsWidget extends OsminWidget {
     _hint() {
         const count = [...this._selected].filter(w => !w.is_destroyed?.()).length;
         if (this._tileHint)
-            this._tileHint.text = count > 0 ? `Tile the ${count} ticked window${count === 1 ? '' : 's'}` : 'Tile all windows (tick some below to pick)';
+            this._tileHint.text = count > 0 ? `Only the ${count} ticked window${count === 1 ? '' : 's'} below will be arranged` : 'All windows of this screen are arranged. Tick some below to choose.';
     }
 
     _clear() {

@@ -1858,6 +1858,9 @@
 /* The window of the top-bar button (the utility widgets as pages) */
 .osmin-menu .popup-menu-content {
     padding: 0;
+    border-radius: 24px;
+    background-color: rgba(34, 34, 40, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .osmin-menu-item {
@@ -1865,30 +1868,36 @@
 }
 
 .osmin-menu-root {
-    padding: 14px 14px 12px 14px;
-    spacing: 10px;
+    padding: 16px 16px 14px 16px;
+    spacing: 12px;
 }
 
 .osmin-menu-tabs {
-    spacing: 4px;
-    padding: 4px;
-    border-radius: 14px;
-    background-color: rgba(255, 255, 255, 0.06);
+    spacing: 2px;
+    padding: 5px;
+    border-radius: 18px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .osmin-button.osmin-menu-tab {
-    width: 34px;
-    height: 30px;
-    border-radius: 10px;
+    height: 40px;
+    border-radius: 13px;
     padding: 0;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.osmin-menu-tab StIcon {
+    icon-size: 20px;
 }
 
 .osmin-button.osmin-menu-tab:hover {
-    background-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
 .osmin-button.osmin-menu-tab:checked {
-    background-color: rgba(53, 132, 228, 0.35);
+    background-color: rgba(53, 132, 228, 0.28);
+    color: #62a0ea;
 }
 
 .osmin-menu-title {
@@ -1899,17 +1908,106 @@
 }
 
 .osmin-menu-scroll {
-    max-height: 420px;
+    max-height: 520px;
 }
 
 .osmin-menu-footer {
-    spacing: 8px;
+    spacing: 10px;
 }
 
 .osmin-button.osmin-menu-action {
-    height: 30px;
-    border-radius: 10px;
-    background-color: rgba(255, 255, 255, 0.07);
+    height: 36px;
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.osmin-button.osmin-menu-action:hover {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Sections of a page: a muted header and a rounded card with rows */
+.osmin-menu-header {
+    font-size: 8.5pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.50);
+    padding: 6px 4px 0 4px;
+}
+
+.osmin-card {
+    border-radius: 16px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.osmin-card-row {
+    padding: 11px 14px;
+    min-height: 26px;
+}
+
+.osmin-card-row:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.osmin-card-title {
+    font-size: 10.5pt;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.osmin-card-subtitle {
+    font-size: 8.5pt;
+    color: rgba(255, 255, 255, 0.50);
+}
+
+.osmin-card-divider {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-card-hint {
+    font-size: 8.5pt;
+    color: rgba(255, 255, 255, 0.40);
+    padding: 0 14px 12px 14px;
+}
+
+.osmin-card-pad {
+    padding: 12px 12px 8px 12px;
+}
+
+.osmin-chips {
+    spacing: 8px;
+}
+
+.osmin-chips-row {
+    spacing: 8px;
+}
+
+.osmin-chip {
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 16px;
+    background-color: rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.90);
+    font-size: 9.5pt;
+}
+
+.osmin-chip:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.osmin-chip:checked {
+    background-color: rgba(53, 132, 228, 0.55);
+    color: white;
+}
+
+.osmin-chip-icon {
+    icon-size: 15px;
+    margin-right: 6px;
+}
+
+.osmin-tools-brightness {
+    spacing: 10px;
 }
 
 .osmin-win-thumb:checked {
@@ -1923,4 +2021,26 @@
 
 .osmin-win-titlebutton:hover {
     background-color: rgba(255, 255, 255, 0.08);
+}
+
+.osmin-menu-page {
+    spacing: 8px;
+}
+
+.osmin-card-wrap {
+    padding: 12px;
+}
+
+.osmin-menu .osmin-timer-chip,
+.osmin-menu .osmin-todo-add {
+    border-radius: 16px;
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.osmin-menu .osmin-timer-chip:checked {
+    background-color: rgba(53, 132, 228, 0.55);
+}
+
+.osmin-menu .toggle-switch:checked {
+    background-color: #3584e4;
 }

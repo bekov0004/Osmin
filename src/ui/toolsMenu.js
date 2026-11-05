@@ -1,10 +1,11 @@
-import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {createButton} from './button.js';
+import {menuCard, menuHeader} from './menuKit.js';
 
 const ROLE = 'osmin-tools';
 const MENU_WIDTH = 420;
@@ -24,6 +25,7 @@ export class ToolsMenu {
         this._openSettings = openSettings;
         this._current = -1;
         this._tabs = [];
+        this._pages = [];
         this._button = null;
     }
 
@@ -47,16 +49,16 @@ export class ToolsMenu {
         this._button.menu.addMenuItem(item);
 
         // The icon tabs.
-        const tabs = new St.BoxLayout({style_class: 'osmin-menu-tabs', x_align: Clutter.ActorAlign.CENTER});
+        const tabs = new St.BoxLayout({style_class: 'osmin-menu-tabs', x_expand: true});
         this._widgets.forEach((widget, index) => {
-            const tab = createButton({iconName: widget.constructor.iconName, styleClass: 'osmin-menu-tab', onClick: () => this._select(index)});
+            const tab = createButton({iconName: widget.constructor.iconName, styleClass: 'osmin-menu-tab', expand: true, onClick: () => this._select(index)});
             tab.accessible_name = widget.constructor.title;
             tabs.add_child(tab);
             this._tabs.push(tab);
         });
         root.add_child(tabs);
 
-        this._title = new St.Label({style_class: 'osmin-menu-title'});
+        this._title = new St.Label({style_class: 'osmin-menu-title', visible: false});
         root.add_child(this._title);
 
         // The pages: only the chosen one is shown; a tall one scrolls.
@@ -69,10 +71,21 @@ export class ToolsMenu {
         const pages = new St.BoxLayout({vertical: true, x_expand: true});
         this._scroll.set_child(pages);
         root.add_child(this._scroll);
-        for (const widget of this._widgets) {
-            widget.view.hide();
-            pages.add_child(widget.view);
-        }
+        // A widget laid out with the menu kit is a page as it is; any other is put in a card under its title.
+        this._pages = this._widgets.map(widget => {
+            let page = widget.view;
+            if (!widget.constructor.menuNative) {
+                page = new St.BoxLayout({vertical: true, style_class: 'osmin-menu-page', x_expand: true});
+                page.add_child(menuHeader(widget.constructor.title));
+                const card = menuCard();
+                card.add_style_class_name('osmin-card-wrap');
+                card.add_child(widget.view);
+                page.add_child(card);
+            }
+            page.hide();
+            pages.add_child(page);
+            return page;
+        });
 
         if (this._widgets.length === 0) {
             root.add_child(new St.Label({
@@ -82,6 +95,16 @@ export class ToolsMenu {
         }
 
         const footer = new St.BoxLayout({style_class: 'osmin-menu-footer', x_expand: true});
+        const app = Gio.DesktopAppInfo.new('dev.osmin.Osmin.desktop');
+        if (app) {
+            footer.add_child(createButton({
+                iconName: 'view-app-grid-symbolic', label: 'Osmin app', styleClass: 'osmin-menu-action', expand: true,
+                onClick: () => {
+                    this.close();
+                    app.launch([], null);
+                },
+            }));
+        }
         footer.add_child(createButton({
             iconName: 'emblem-system-symbolic', label: 'Settings', styleClass: 'osmin-menu-action', expand: true,
             onClick: () => {
@@ -111,10 +134,10 @@ export class ToolsMenu {
         const open = this._button.menu.isOpen;
         if (open)
             this._widgets[this._current]?.onPageHidden();
-        this._widgets[this._current]?.view.hide();
+        this._pages[this._current]?.hide();
         this._current = index;
         const widget = this._widgets[index];
-        widget.view.show();
+        this._pages[index].show();
         this._title.text = widget.constructor.title;
         this._tabs.forEach((tab, i) => {
             if (i === index)
@@ -133,6 +156,7 @@ export class ToolsMenu {
         this._button?.destroy();
         this._button = null;
         this._tabs = [];
+        this._pages = [];
         // The pages are destroyed by whoever created them.
     }
 }

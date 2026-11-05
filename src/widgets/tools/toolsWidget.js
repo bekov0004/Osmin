@@ -5,20 +5,13 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {HorizontalSlider} from '../../ui/horizontalSlider.js';
+import {menuCard, menuChips, menuDivider, menuHeader, setChecked, switchRow} from '../../ui/menuKit.js';
 import {startCleaningMode} from '../../tools/cleaningMode.js';
 import {pickColor} from '../../tools/colorPicker.js';
 import {EventType} from '../../utils/events.js';
 import {OsminWidget} from '../widget.js';
 
-const AWAKE_STEPS = [30, 60, 120, -1, 0]; // minutes; -1 until turned off; 0 off
-
-const awakeText = state => {
-    if (state.forever)
-        return '∞';
-    if (state.until > Date.now())
-        return `${Math.ceil((state.until - Date.now()) / 60000)}m`;
-    return 'Awake';
-};
+const AWAKE_CHIPS = [[15, '15m'], [30, '30m'], [60, '1h'], [120, '2h'], [240, '4h'], [480, '8h'], [-1, '∞']]; // minutes; -1 until turned off
 
 /**
  * Quick toggles and tools in one place: keep awake, dark mode, night light, lock the screen, empty
@@ -28,6 +21,7 @@ export class ToolsWidget extends OsminWidget {
     static id = 'tools';
     static title = 'Quick Toggles';
     static iconName = 'applications-utilities-symbolic';
+    static menuNative = true; // laid out with the menu kit: the menu does not wrap it
 
     constructor(context) {
         super(context);
@@ -40,42 +34,61 @@ export class ToolsWidget extends OsminWidget {
         } catch (e) {
             this._color = null;
         }
-        this._tiles = new Map();
+        this._chipOn = null;
         this._cleaning = null;
         this._trashArmed = 0;
     }
 
     createView() {
-        const root = new St.BoxLayout({
-            vertical: true,
-            style_class: 'osmin-widget osmin-tools',
-            x_expand: true,
-            y_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        const tools = [
-            ['awake', 'weather-clear-night-symbolic', 'Awake', () => this._cycleAwake()],
-            ['dark', 'night-light-symbolic', 'Dark', () => this._toggleDark()],
-            ['night', 'weather-clear-night-symbolic', 'Night', () => this._toggleNight()],
-            ['lock', 'system-lock-screen-symbolic', 'Lock', () => this._lock()],
-            ['trash', 'user-trash-symbolic', 'Trash', () => this._emptyTrash()],
-            ['shot', 'applets-screenshooter-symbolic', 'Shot', () => this._screenshot(0)],
-            ['record', 'media-record-symbolic', 'Record', () => this._screenshot(1)],
-            ['color', 'color-select-symbolic', 'Color', () => this._pickColor()],
-            ['clean', 'edit-clear-all-symbolic', 'Clean', () => this._cleaningMode()],
-            ['eject', 'media-eject-symbolic', 'Eject', () => this._ejectAll()],
-        ];
-        const perRow = 5;
-        let row = null;
-        tools.forEach(([id, icon, label, action], index) => {
-            if (index % perRow === 0) {
-                row = new St.BoxLayout({style_class: 'osmin-tools-row', x_expand: true});
-                root.add_child(row);
-            }
-            row.add_child(this._createTile(id, icon, label, action));
-        });
+        const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-tools osmin-menu-page', x_expand: true});
 
-        this._createBrightness(root);
+        // Keep awake: a switch for "until I turn it off", chips for a time.
+        root.add_child(menuHeader('Keep awake'));
+        const awakeCard = menuCard();
+        this._awake = switchRow({
+            title: 'Keep the computer awake',
+            subtitle: 'The computer follows its normal energy rules',
+            onToggle: on => this._setAwake(on ? -1 : 0),
+        });
+        awakeCard.add_child(this._awake.row);
+        awakeCard.add_child(menuDivider());
+        const chips = menuChips(AWAKE_CHIPS.map(([minutes, label]) => ({id: String(minutes), label})), id => this._chip(Number(id)), {perRow: 7});
+        chips.actor.add_style_class_name('osmin-card-pad');
+        awakeCard.add_child(chips.actor);
+        this._awakeChips = chips.buttons;
+        awakeCard.add_child(new St.Label({text: 'Click a time to start. Click it again to stop.', style_class: 'osmin-card-hint'}));
+        root.add_child(awakeCard);
+
+        // Appearance and display.
+        root.add_child(menuHeader('Display'));
+        const displayCard = menuCard();
+        this._dark = switchRow({title: 'Dark mode', subtitle: 'The system colour scheme', onToggle: () => this._toggleDark()});
+        displayCard.add_child(this._dark.row);
+        if (this._color) {
+            displayCard.add_child(menuDivider());
+            this._night = switchRow({title: 'Night light', subtitle: 'Warmer colours in the evening', onToggle: () => this._toggleNight()});
+            displayCard.add_child(this._night.row);
+        }
+        this._createBrightness(displayCard);
+        root.add_child(displayCard);
+
+        // One-shot actions.
+        root.add_child(menuHeader('Quick actions'));
+        const actionsCard = menuCard();
+        const actions = menuChips([
+            {id: 'lock', label: 'Lock', icon: 'system-lock-screen-symbolic'},
+            {id: 'shot', label: 'Screenshot', icon: 'applets-screenshooter-symbolic'},
+            {id: 'record', label: 'Record', icon: 'media-record-symbolic'},
+            {id: 'color', label: 'Colour', icon: 'color-select-symbolic'},
+            {id: 'clean', label: 'Clean screen', icon: 'edit-clear-all-symbolic'},
+            {id: 'eject', label: 'Eject', icon: 'media-eject-symbolic'},
+            {id: 'trash', label: 'Empty trash', icon: 'user-trash-symbolic'},
+        ], id => this._action(id), {perRow: 3});
+        actions.actor.add_style_class_name('osmin-card-pad');
+        actionsCard.add_child(actions.actor);
+        this._trashChip = actions.buttons.get('trash');
+        root.add_child(actionsCard);
+
         this._interface.connectObject('changed::color-scheme', () => this._update(), this);
         this._color?.connectObject('changed::night-light-enabled', () => this._update(), this);
         this._power?.connectObject('state-changed', () => this._update(), this);
@@ -83,14 +96,51 @@ export class ToolsWidget extends OsminWidget {
         return root;
     }
 
+    _action(id) {
+        const run = {
+            lock: () => this._lock(),
+            shot: () => this._screenshot(0),
+            record: () => this._screenshot(1),
+            color: () => this._pickColor(),
+            clean: () => this._cleaningMode(),
+            eject: () => this._ejectAll(),
+            trash: () => this._emptyTrash(),
+        }[id];
+        run?.();
+    }
+
+    async _setAwake(minutes) {
+        try {
+            await this._power.call('setAwake', {minutes});
+            this._say('weather-clear-night-symbolic', minutes === 0 ? 'Keep awake is off' : 'Keeping the computer awake',
+                minutes > 0 ? `for ${minutes} minutes` : minutes < 0 ? 'until you turn it off' : '');
+        } catch (e) {
+            this._say('dialog-warning-symbolic', 'Keep awake', e.message);
+        }
+    }
+
+    /** A chip starts that time; the same chip again (or any while it runs and matches) stops it. */
+    _chip(minutes) {
+        const state = this._power?.state ?? {};
+        const active = state.forever || state.until > Date.now();
+        if (active && this._chipOn === minutes)
+            this._setAwake(0);
+        else
+            this._setAwake(minutes);
+        this._chipOn = minutes;
+    }
+
     /** A brightness slider for the built-in screen, through GNOME's power settings service. */
-    _createBrightness(root) {
-        const row = new St.BoxLayout({style_class: 'osmin-tools-row osmin-tools-brightness', x_expand: true, visible: false});
+    _createBrightness(card) {
+        const row = new St.BoxLayout({style_class: 'osmin-card-row osmin-tools-brightness', x_expand: true, visible: false});
         row.add_child(new St.Icon({icon_name: 'display-brightness-symbolic', style_class: 'osmin-tool-icon', y_align: Clutter.ActorAlign.CENTER}));
         this._brightness = new HorizontalSlider({min: 0, max: 100, value: 50, onChange: value => this._setBrightness(Math.round(value))});
         this._brightness.y_align = Clutter.ActorAlign.CENTER;
         row.add_child(this._brightness);
-        root.add_child(row);
+        this._brightnessDivider = menuDivider();
+        this._brightnessDivider.visible = false;
+        card.add_child(this._brightnessDivider);
+        card.add_child(row);
         this._brightnessRow = row;
         this._cancellable = new Gio.Cancellable();
         Gio.DBusProxy.new_for_bus(Gio.BusType.SESSION, Gio.DBusProxyFlags.NONE, null, 'org.gnome.SettingsDaemon.Power',
@@ -107,7 +157,7 @@ export class ToolsWidget extends OsminWidget {
 
     _syncBrightness() {
         const value = this._screen?.get_cached_property('Brightness')?.get_int32() ?? -1;
-        this._brightnessRow.visible = value >= 0;
+        this._brightnessRow.visible = this._brightnessDivider.visible = value >= 0;
         if (value >= 0)
             this._brightness.value = value;
     }
@@ -118,38 +168,19 @@ export class ToolsWidget extends OsminWidget {
             null, Gio.DBusCallFlags.NONE, -1, null, null);
     }
 
-    _createTile(id, iconName, label, action) {
-        const tile = new St.Button({style_class: 'osmin-tool', can_focus: true, x_expand: true, reactive: true, track_hover: true});
-        const box = new St.BoxLayout({vertical: true, x_align: Clutter.ActorAlign.CENTER});
-        box.add_child(new St.Icon({icon_name: iconName, style_class: 'osmin-tool-icon', x_align: Clutter.ActorAlign.CENTER}));
-        const text = new St.Label({text: label, style_class: 'osmin-tool-label', x_align: Clutter.ActorAlign.CENTER});
-        box.add_child(text);
-        tile.set_child(box);
-        tile.connect('clicked', () => action());
-        this._tiles.set(id, {tile, text, label});
-        return tile;
-    }
-
     _update() {
         const dark = this._interface.get_string('color-scheme') === 'prefer-dark';
         const night = this._color?.get_boolean('night-light-enabled') ?? false;
         const awake = this._power?.state ?? {until: 0, forever: false};
         const active = awake.forever || awake.until > Date.now();
-        for (const [id, on] of [['dark', dark], ['night', night], ['awake', active]]) {
-            const entry = this._tiles.get(id);
-            if (!entry)
-                continue;
-            if (on)
-                entry.tile.add_style_pseudo_class('checked');
-            else
-                entry.tile.remove_style_pseudo_class('checked');
-        }
-        const awakeTile = this._tiles.get('awake');
-        if (awakeTile)
-            awakeTile.text.text = awakeText(awake);
-        const nightTile = this._tiles.get('night');
-        if (nightTile && !this._color)
-            nightTile.tile.visible = false;
+        this._dark.set(dark);
+        this._night?.set(night);
+        this._awake.set(active);
+        this._awake.setSubtitle(awake.forever ? 'Until you turn it off'
+            : awake.until > Date.now() ? `${Math.ceil((awake.until - Date.now()) / 60000)} minutes left`
+                : 'The computer follows its normal energy rules');
+        for (const [minutes, chip] of this._awakeChips)
+            setChecked(chip, active && (awake.forever ? minutes === '-1' : minutes === String(this._chipOn)));
     }
 
     onPageShown() {
@@ -158,24 +189,6 @@ export class ToolsWidget extends OsminWidget {
 
     _say(icon, title, description = '') {
         this._events.emit({type: EventType.CUSTOM, icon, title, description, duration: 3000});
-    }
-
-    async _cycleAwake() {
-        const state = this._power?.state ?? {};
-        const active = state.forever || state.until > Date.now();
-        // off -> 30 min -> 1 h -> 2 h -> until turned off -> off
-        let next = AWAKE_STEPS[0];
-        if (active) {
-            const left = state.forever ? Infinity : Math.round((state.until - Date.now()) / 60000);
-            next = left === Infinity ? 0 : left > 90 ? -1 : left > 40 ? 120 : 60;
-        }
-        try {
-            await this._power.call('setAwake', {minutes: next});
-            this._say('weather-clear-night-symbolic', next === 0 ? 'Keep awake is off' : 'Keeping the computer awake',
-                next > 0 ? `for ${next} minutes` : next < 0 ? 'until you turn it off' : '');
-        } catch (e) {
-            this._say('dialog-warning-symbolic', 'Keep awake', e.message);
-        }
     }
 
     _toggleDark() {
@@ -227,19 +240,19 @@ export class ToolsWidget extends OsminWidget {
 
     /** Irreversible: the first press asks ("Sure?"), a second one within 3 seconds does it. */
     async _emptyTrash() {
-        const entry = this._tiles.get('trash');
+        const label = this._trashChip.get_child().get_last_child();
         if (!this._trashArmed) {
             this._trashArmed = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
                 this._trashArmed = 0;
-                entry.text.text = entry.label;
+                label.text = 'Empty trash';
                 return GLib.SOURCE_REMOVE;
             });
-            entry.text.text = 'Sure?';
+            label.text = 'Sure?';
             return;
         }
         GLib.source_remove(this._trashArmed);
         this._trashArmed = 0;
-        entry.text.text = entry.label;
+        label.text = 'Empty trash';
         try {
             const {count} = await this._tools.call('emptyTrash');
             this._say('user-trash-symbolic', count === 0 ? 'The trash is empty' : 'Trash emptied', count > 0 ? `${count} items removed` : '');
