@@ -5,7 +5,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {createButton} from '../../ui/button.js';
-import {snap} from '../../windows/layout.js';
+import {restoreTiled, snap, tile} from '../../windows/layout.js';
 import {OsminWidget} from '../widget.js';
 
 const SNAPS = [
@@ -18,13 +18,20 @@ const SNAPS = [
     ['nextMonitor', 'video-display-symbolic', 'Next monitor'],
     ['restore', 'edit-undo-symbolic', 'Put it back'],
 ];
-const PREVIEW_W = 104;
-const PREVIEW_H = 64;
+const TILES = [
+    ['columns', 'Columns', 'All windows side by side'],
+    ['rows', 'Rows', 'All windows stacked'],
+    ['grid', 'Grid', 'All windows in a grid'],
+    ['main', 'Main + side', 'The focused window large, the others stacked beside it'],
+];
+const PREVIEW_W = 72;
+const PREVIEW_H = 40;
 
 /**
  * Windows: live previews of every open window (click to bring one forward, ✕ to close it) and
  * buttons that snap the window you were working in to a half of the screen, maximize, centre, send
- * to the next monitor, or put it back where it was.
+ * to the next monitor, or put it back where it was; and four buttons that tile all the windows of the
+ * monitor at once (columns, rows, a grid, one main window with the rest beside it).
  */
 export class WindowsWidget extends OsminWidget {
     static id = 'windows';
@@ -52,6 +59,13 @@ export class WindowsWidget extends OsminWidget {
             row.add_child(button);
         }
         root.add_child(row);
+        const tiles = new St.BoxLayout({style_class: 'osmin-tools-row', x_expand: true});
+        for (const [mode, label, tip] of TILES) {
+            const button = createButton({label, styleClass: 'osmin-windows-snap', expand: true, onClick: () => this._tile(mode)});
+            button.accessible_name = tip;
+            tiles.add_child(button);
+        }
+        root.add_child(tiles);
         this._scroll = new St.ScrollView({hscrollbar_policy: St.PolicyType.EXTERNAL, vscrollbar_policy: St.PolicyType.NEVER, overlay_scrollbars: true, x_expand: true, y_expand: true});
         this._previews = new St.BoxLayout({style_class: 'osmin-windows-row', y_align: Clutter.ActorAlign.CENTER});
         this._scroll.add_child(this._previews);
@@ -86,7 +100,14 @@ export class WindowsWidget extends OsminWidget {
         this._clear();
     }
 
+    _tile(mode) {
+        const window = this._target && !this._target.is_destroyed?.() ? this._target : null;
+        tile(mode, window ?? undefined);
+    }
+
     _snap(action) {
+        if (action === 'restore' && restoreTiled())
+            return;
         const window = this._target && !this._target.is_destroyed?.() ? this._target : null;
         snap(action, window ?? undefined);
     }

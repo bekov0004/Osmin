@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Windows widget: tile all windows at once.** Columns, Rows, Grid and Main + side arrange every open
+  window of the monitor, however many there are (4, 6, 10 ...); *Put it back* restores all of them.
+
 ## [0.2.0] - 2026-10-30
 
 The first public release: Osmin can be installed from a zip, without cloning or building.

@@ -76,6 +76,74 @@ export const ACTIONS = {
     },
 };
 
+// The windows the last tile() moved, so "put it back" can restore all of them.
+let tiled = [];
+
+/** The windows tile() arranges: normal, visible ones on the same monitor and workspace as `anchor`. */
+function tileable(anchor) {
+    const workspace = global.workspace_manager.get_active_workspace();
+    return global.display.get_tab_list(Meta.TabList.NORMAL, workspace)
+        .filter(w => !w.minimized && !w.is_skip_taskbar() && w.get_monitor() === anchor.get_monitor());
+}
+
+/** Splits the work area into `count` cells; `perRow` is the number of cells in each row (they widen to fill it). */
+function cells(area, perRow) {
+    const result = [];
+    const height = area.height / perRow.length;
+    perRow.forEach((n, row) => {
+        for (let i = 0; i < n; i++)
+            result.push([area.x + i * area.width / n, area.y + row * height, area.width / n, height]);
+    });
+    return result;
+}
+
+/**
+ * Arranges every open window of the monitor in one go, however many there are.
+ * columns: side by side. rows: stacked. grid: as square as possible. main: the focused window on the
+ * left (60%), the others stacked on the right.
+ * @returns {number} how many windows were arranged
+ */
+export function tile(mode, anchor = targetWindow()) {
+    if (!anchor)
+        return 0;
+    let windows = tileable(anchor);
+    if (windows.length === 0)
+        return 0;
+    // Keep them where the eye expects them: top to bottom, left to right, as they are now.
+    const position = w => w.get_frame_rect();
+    windows.sort((a, b) => (position(a).y - position(b).y) || (position(a).x - position(b).x));
+    const n = windows.length;
+    const area = anchor.get_work_area_current_monitor();
+    let slots;
+    if (mode === 'columns') {
+        slots = cells(area, [n]);
+    } else if (mode === 'rows') {
+        slots = cells(area, Array(n).fill(1));
+    } else if (mode === 'main' && n > 1) {
+        windows = [anchor, ...windows.filter(w => w !== anchor)];
+        const mainWidth = area.width * 0.6;
+        slots = [[area.x, area.y, mainWidth, area.height],
+            ...cells({x: area.x + mainWidth, y: area.y, width: area.width - mainWidth, height: area.height}, Array(n - 1).fill(1))];
+    } else {
+        const columns = Math.ceil(Math.sqrt(n));
+        const rows = Math.ceil(n / columns);
+        const perRow = Array(rows).fill(columns);
+        perRow[rows - 1] = n - columns * (rows - 1);
+        slots = cells(area, perRow);
+    }
+    windows.forEach((w, i) => place(w, ...slots[i]));
+    tiled = windows;
+    return n;
+}
+
+/** Puts the windows of the last tile() back where they were. @returns {boolean} whether there were any */
+export function restoreTiled() {
+    const windows = tiled.filter(w => !w.is_destroyed?.() && previous.has(w));
+    tiled = [];
+    windows.forEach(w => ACTIONS.restore(w));
+    return windows.length > 0;
+}
+
 /** @returns {boolean} whether there was a window to act on */
 export function snap(action, window = targetWindow()) {
     if (!window || !ACTIONS[action])
