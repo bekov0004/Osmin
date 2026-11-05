@@ -336,7 +336,7 @@ export class Osmin {
     /** The widgets the user enabled, in the order they chose. */
     _createWidgets() {
         const byId = new Map(WIDGET_CLASSES.map(WidgetClass => [WidgetClass.id, WidgetClass]));
-        return this._settings.enabledWidgets
+        return this._settings.islandWidgets
             .filter(id => byId.has(id))
             .map(id => new (byId.get(id))({
                 events: this._events,
@@ -421,7 +421,7 @@ export class Osmin {
 
     /** The enabled widgets or their order changed: rebuild the content of the expanded capsule. */
     _rebuildWidgets() {
-        const wanted = this._settings.enabledWidgets.join();
+        const wanted = this._settings.islandWidgets.join();
         if (wanted === this._widgets.map(w => w.constructor.id).join())
             return;
         if (PANEL_STATES.has(this._state))

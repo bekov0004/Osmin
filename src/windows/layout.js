@@ -101,12 +101,16 @@ function cells(area, perRow) {
  * Arranges every open window of the monitor in one go, however many there are.
  * columns: side by side. rows: stacked. grid: as square as possible. main: the focused window on the
  * left (60%), the others stacked on the right.
+ * With `only` (a list of windows) just those are arranged, otherwise all of the monitor.
  * @returns {number} how many windows were arranged
  */
-export function tile(mode, anchor = targetWindow()) {
+export function tile(mode, anchor = targetWindow(), only = null) {
+    const chosen = only?.filter(w => !w.is_destroyed?.() && !w.minimized);
+    if (chosen?.length && !chosen.includes(anchor))
+        anchor = chosen[0];
     if (!anchor)
         return 0;
-    let windows = tileable(anchor);
+    let windows = chosen?.length ? chosen : tileable(anchor);
     if (windows.length === 0)
         return 0;
     // Keep them where the eye expects them: top to bottom, left to right, as they are now.

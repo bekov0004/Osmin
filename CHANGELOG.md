@@ -8,8 +8,17 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Windows widget: tile all windows at once.** Columns, Rows, Grid and Main + side arrange every open
-  window of the monitor, however many there are (4, 6, 10 ...); *Put it back* restores all of them.
+- **A button in the top bar with a window of tools**, in the style of Vorssaint: a row of icon tabs and a
+  page for each (Windows, Quick Toggles, Focus, System, Sound, Input, Downloads, AI Agents).
+- **Windows: arrange all windows at once.** Columns, Rows, Grid and Main + side arrange every open
+  window of the monitor, however many there are (4, 6, 10 ...), or only the ones you tick in the
+  previews; *Put it back* restores all of them.
+
+### Changed
+
+- The capsule keeps only the light widgets (music, calendar, mirror, timer, to-do, notes, shortcuts,
+  companion); the tools moved to the new window. They are on by default, and Settings → Features
+  turns each on or off as before.
 
 ## [0.2.0] - 2026-10-30
 

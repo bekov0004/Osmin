@@ -1,6 +1,6 @@
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
-import {DEFAULT_WIDGETS, WIDGET_INFO} from '../utils/widgetInfo.js';
+import {DEFAULT_WIDGETS, MENU_WIDGET_IDS, WIDGET_INFO} from '../utils/widgetInfo.js';
 
 export const DEFAULTS = Object.freeze({
     'size-scale': 1.0,
@@ -105,6 +105,17 @@ export class SettingsService extends Signals.EventEmitter {
                 ids.push(id);
         }
         return ids.length > 0 ? ids : [...DEFAULT_WIDGETS];
+    }
+
+    /** The enabled widgets that sit in the capsule, in order. */
+    get islandWidgets() {
+        const ids = this.enabledWidgets.filter(id => !MENU_WIDGET_IDS.includes(id));
+        return ids.length > 0 ? ids : DEFAULT_WIDGETS.filter(id => !MENU_WIDGET_IDS.includes(id));
+    }
+
+    /** The enabled widgets that are pages of the top-bar button's window, in order. */
+    get menuWidgets() {
+        return this.enabledWidgets.filter(id => MENU_WIDGET_IDS.includes(id));
     }
 
     /** Width of a widget in cells. */

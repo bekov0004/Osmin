@@ -10,6 +10,8 @@ import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
 import {CalendarService} from './services/calendarService.js';
 import {IndicatorActivity} from './ui/indicatorActivity.js';
+import {ToolsMenu} from './ui/toolsMenu.js';
+import {WIDGET_CLASSES} from './widgets/registry.js';
 import {OsminBackend} from './client/moduleClient.js';
 import {AgentsService} from './services/agentsService.js';
 import {DownloadsService} from './services/downloadsService.js';
@@ -67,6 +69,8 @@ export class OsminHost {
         this._leaderIndex = -1;
         this._barTaken = false;
         this._shortcutKeys = [];
+        this._menu = null;
+        this._menuWidgets = [];
     }
 
     /** The capsules, the leader first. */
@@ -108,6 +112,7 @@ export class OsminHost {
             }),
         };
         this._syncCapsules();
+        this._syncMenu();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
@@ -138,6 +143,7 @@ export class OsminHost {
         this._inputSources = null;
         this._keymap?.disconnectObject(this);
         this._keymap = null;
+        this._destroyMenu();
         this._services?.activities.end('indicator');
         this._indicator?.destroy();
         this._indicator = null;
@@ -306,12 +312,48 @@ export class OsminHost {
     _onSettingChanged(key) {
         if (key === 'monitors')
             this._syncCapsules();
+        else if (key === 'enabled-widgets')
+            this._syncMenu();
         else if (key === 'free-super-v')
             this._syncSuperV();
         else if (key === 'localsend-receive')
             this._syncReceiving();
         else if (key === 'panel-color' || key === 'panel-opacity')
             this._applyBarLook();
+    }
+
+    /**
+     * The button in the top bar whose window holds the utility widgets (Windows, Quick Toggles, Focus,
+     * ...). Rebuilt when the user turns one of them on or off; there is no button when none is on.
+     */
+    _syncMenu() {
+        const wanted = this._settings.menuWidgets;
+        if (this._menu && wanted.join() === this._menuWidgets.map(w => w.constructor.id).join())
+            return;
+        this._destroyMenu();
+        if (wanted.length === 0 || !this._services)
+            return;
+        const services = this._services;
+        const byId = new Map(WIDGET_CLASSES.map(WidgetClass => [WidgetClass.id, WidgetClass]));
+        const ui = {
+            closeCapsule: () => this._menu?.close(),
+            beginTextInput: () => {},
+            endTextInput: () => {},
+            showCard: (activity, options) => services.activities.peek(activity, {...options, force: true, target: this.capsules[0]}),
+        };
+        this._menuWidgets = wanted.filter(id => byId.has(id)).map(id => new (byId.get(id))({
+            events: this._events, services, settings: this._settings, ui,
+        }));
+        this._menuWidgets.forEach(widget => widget.start());
+        this._menu = new ToolsMenu(this._menuWidgets, {openSettings: this._openPreferences});
+        this._menu.enable();
+    }
+
+    _destroyMenu() {
+        this._menu?.destroy();
+        this._menu = null;
+        this._menuWidgets.forEach(widget => widget.destroy());
+        this._menuWidgets = [];
     }
 
     /** Capsules for exactly the monitors that are chosen and connected right now. */

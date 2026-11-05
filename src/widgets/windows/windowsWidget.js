@@ -24,8 +24,8 @@ const TILES = [
     ['grid', 'Grid', 'All windows in a grid'],
     ['main', 'Main + side', 'The focused window large, the others stacked beside it'],
 ];
-const PREVIEW_W = 72;
-const PREVIEW_H = 40;
+const PREVIEW_W = 112;
+const PREVIEW_H = 70;
 
 /**
  * Windows: live previews of every open window (click to bring one forward, ✕ to close it) and
@@ -42,6 +42,7 @@ export class WindowsWidget extends OsminWidget {
         super(context);
         this._clones = [];
         this._target = null; // the window the buttons act on: the last one that had the focus
+        this._selected = new Set(); // windows ticked in the list: the tile buttons arrange only these
     }
 
     createView() {
@@ -66,6 +67,9 @@ export class WindowsWidget extends OsminWidget {
             tiles.add_child(button);
         }
         root.add_child(tiles);
+        this._tileHint = new St.Label({style_class: 'osmin-todo-empty', x_align: Clutter.ActorAlign.START});
+        root.insert_child_above(this._tileHint, tiles);
+        this._hint();
         this._scroll = new St.ScrollView({hscrollbar_policy: St.PolicyType.EXTERNAL, vscrollbar_policy: St.PolicyType.NEVER, overlay_scrollbars: true, x_expand: true, y_expand: true});
         this._previews = new St.BoxLayout({style_class: 'osmin-windows-row', y_align: Clutter.ActorAlign.CENTER});
         this._scroll.add_child(this._previews);
@@ -102,7 +106,7 @@ export class WindowsWidget extends OsminWidget {
 
     _tile(mode) {
         const window = this._target && !this._target.is_destroyed?.() ? this._target : null;
-        tile(mode, window ?? undefined);
+        tile(mode, window ?? undefined, [...this._selected]);
     }
 
     _snap(action) {
@@ -110,6 +114,19 @@ export class WindowsWidget extends OsminWidget {
             return;
         const window = this._target && !this._target.is_destroyed?.() ? this._target : null;
         snap(action, window ?? undefined);
+    }
+
+    _markSelection(thumb, window) {
+        if (this._selected.has(window))
+            thumb.add_style_pseudo_class('checked');
+        else
+            thumb.remove_style_pseudo_class('checked');
+    }
+
+    _hint() {
+        const count = [...this._selected].filter(w => !w.is_destroyed?.()).length;
+        if (this._tileHint)
+            this._tileHint.text = count > 0 ? `Tile the ${count} ticked window${count === 1 ? '' : 's'}` : 'Tile all windows (tick some below to pick)';
     }
 
     _clear() {
@@ -122,6 +139,8 @@ export class WindowsWidget extends OsminWidget {
             return;
         this._clear();
         const windows = global.display.get_tab_list(Meta.TabList.NORMAL, null);
+        this._selected = new Set([...this._selected].filter(w => windows.includes(w)));
+        this._hint();
         this._empty.visible = windows.length === 0;
         for (const window of windows) {
             const actor = window.get_compositor_private();
@@ -134,14 +153,27 @@ export class WindowsWidget extends OsminWidget {
             const scale = Math.min(PREVIEW_W / Math.max(width, 1), PREVIEW_H / Math.max(height, 1));
             clone.set_size(Math.round(width * scale), Math.round(height * scale));
             thumb.set_child(clone);
+            // A click ticks the window: the tile buttons then arrange only the ticked ones.
             thumb.connect('clicked', () => {
+                if (this._selected.has(window))
+                    this._selected.delete(window);
+                else
+                    this._selected.add(window);
+                this._markSelection(thumb, window);
+                this._hint();
+            });
+            this._markSelection(thumb, window);
+            card.add_child(thumb);
+            const line = new St.BoxLayout({x_expand: true});
+            // The title brings the window forward.
+            const title = new St.Button({style_class: 'osmin-win-titlebutton', x_expand: true, x_align: Clutter.ActorAlign.START, reactive: true, track_hover: true});
+            const titleLabel = new St.Label({text: window.get_title() ?? '', style_class: 'osmin-win-title', y_align: Clutter.ActorAlign.CENTER});
+            titleLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+            title.set_child(titleLabel);
+            title.connect('clicked', () => {
                 Main.activateWindow(window);
                 this.context.ui?.closeCapsule?.();
             });
-            card.add_child(thumb);
-            const line = new St.BoxLayout({x_expand: true});
-            const title = new St.Label({text: window.get_title() ?? '', style_class: 'osmin-win-title', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-            title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
             line.add_child(title);
             const close = createButton({iconName: 'window-close-symbolic', styleClass: 'osmin-ls-file-remove', onClick: () => {
                 window.delete(global.get_current_time());

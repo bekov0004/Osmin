@@ -106,6 +106,17 @@ Without the clone: `gnome-extensions uninstall osmin@osmin.dev`.
 **Open and close.** Move the pointer to the capsule and rest it there, or click it. Click outside,
 press `Esc` or press the shortcut again to close.
 
+**The tools button.** Next to the system icons in the top bar there is an Osmin button (a grid icon).
+Click it for a window with a row of icon tabs, one per tool: Windows, Quick Toggles, Focus, System,
+Sound, Input, Downloads (and AI Agents if you turn it on). The capsule stays light (music, calendar,
+mirror, timer, to-do, notes) and everything else has room here. Turn tools on or off in
+Settings → Features.
+
+**Arranging windows.** In the *Windows* tab, **Columns**, **Rows**, **Grid** and **Main + side** arrange
+every open window of the monitor at once, whether there are 4, 6 or 10. Click window previews to
+tick them and only the ticked ones are arranged; click a window's title to bring it forward; the
+undo button puts all of them back.
+
 **Tabs.** The header of the panel has the tabs. Each one has a different job:
 
 | Tab | Use it for |
