@@ -81,6 +81,9 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .s-row { padding: 11px 0; min-height: 26px; }
 .s-row-title { font-size: 13px; }
 .s-card separator { background-color: ${p.BORDER}; min-height: 1px; margin: 0; }
+.s-badge { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 8px; background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
+.s-badge.island { background-color: rgba(191, 90, 242, 0.16); color: #bf5af2; }
+.s-preset { background-color: ${p.SURFACE}; border-radius: 14px; padding: 12px 14px; }
 .s-tile { border-radius: 7px; min-width: 26px; min-height: 26px; background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
 .s-tile image { color: ${p.ACCENT}; }
 .s-tile.green { background-color: rgba(48, 209, 88, 0.16); } .s-tile.green image { color: #30d158; }
@@ -197,6 +200,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const pages = [
             ['general', _('General'), 'preferences-system-symbolic', this._generalPage(settings)],
             ['osmin', _('Osmin'), 'view-grid-symbolic', this._osminPage(settings)],
+            ['tools', _('Tools window'), 'view-app-grid-symbolic', this._toolsPage(settings)],
             ['appearance', _('Appearance'), 'applications-graphics-symbolic', this._appearancePage(settings)],
             ['gestures', _('Gestures'), 'input-touchpad-symbolic', this._gesturesPage(settings)],
             ['tray', _('Tray'), 'folder-download-symbolic', this._trayPage(settings)],
@@ -216,6 +220,9 @@ export default class OsminPreferences extends ExtensionPreferences {
             [_('Essentials'), [
                 ['general', _('General'), 'preferences-system-symbolic', pages.find(p => p[0] === 'general')[3]],
                 ['features', _('Features'), 'view-app-grid-symbolic', featuresPage],
+            ]],
+            [_('Top-bar button'), [
+                ['tools', _('Tools window'), 'view-app-grid-symbolic', pages.find(p => p[0] === 'tools')[3]],
             ]],
             [_('Capsule'), [
                 ['osmin', _('Widgets'), 'view-grid-symbolic', pages.find(p => p[0] === 'osmin')[3]],
@@ -238,8 +245,9 @@ export default class OsminPreferences extends ExtensionPreferences {
         const list = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.SINGLE, vexpand: true});
         const rowsByName = new Map();
         const INTROS = {
-            features: _('Everything Osmin can do, in one list. Turn a feature on to add it; turn it off to remove it.'),
-            osmin: _('Choose the widgets of the capsule, their order and their width.'),
+            features: _('Everything Osmin can do. Each line says where it appears: in the window of the top-bar button, or in the capsule (the island).'),
+            tools: _('The button in the top bar opens a window with a tab for each tool. Choose the tabs and their order.'),
+            osmin: _('Choose the widgets of the capsule (the island), their order and their width.'),
             appearance: _('The look of the capsule and the top bar.'),
             gestures: _('How the capsule opens, closes and reacts to the pointer and the touchpad.'),
             activities: _('What the capsule shows while something is going on, and for how long.'),
@@ -306,8 +314,13 @@ export default class OsminPreferences extends ExtensionPreferences {
     _featuresPage(settings) {
         const body = this._body();
         const rows = [];
-        const widgetRows = WIDGET_INFO.map(w => ({
-            group: _('Widgets in the capsule'),
+        const TOOLS = _('Tools window (top-bar button)');
+        const ISLAND = _('Island widgets (the capsule)');
+        // The tools in the order of the tabs of their window, then the capsule's widgets.
+        const MENU_ORDER = ['windows', 'tools', 'focus', 'system', 'sound', 'input', 'downloads', 'agents'];
+        const rank = w => (w.menu ? MENU_ORDER.indexOf(w.id) : 100 + WIDGET_INFO.indexOf(w));
+        const widgetRows = [...WIDGET_INFO].sort((a, b) => rank(a) - rank(b)).map(w => ({
+            group: w.menu ? TOOLS : ISLAND,
             title: w.title,
             subtitle: w.subtitle,
             icon: WIDGET_ICONS[w.id] ?? 'applications-symbolic',
@@ -340,8 +353,16 @@ export default class OsminPreferences extends ExtensionPreferences {
             key(_('System'), _('Free Super+V from GNOME'), _('Lets you use Super+V for the Clipboard shortcut'), 'preferences-desktop-keyboard-shortcuts-symbolic', 'free-super-v'),
         ];
 
+        // Where a feature shows up, as a small badge after its name.
+        const WHERE = {
+            [TOOLS]: [_('Top-bar button'), ''],
+            [ISLAND]: [_('Island'), 'island'],
+            [_('Live Activities')]: [_('Island'), 'island'],
+            [_('Cards and alerts')]: [_('Island'), 'island'],
+        };
         const TONES = {
-            [_('Widgets in the capsule')]: '',
+            [TOOLS]: '',
+            [ISLAND]: 'purple',
             [_('Live Activities')]: 'green',
             [_('Cards and alerts')]: 'orange',
             [_('Music')]: 'purple',
@@ -350,6 +371,39 @@ export default class OsminPreferences extends ExtensionPreferences {
             [_('Behaviour')]: '',
             [_('System')]: 'red',
         };
+        // A count and one-click sets, like a "start with a bundle" row.
+        const WIDGET_IDS = WIDGET_INFO.map(w => w.id);
+        const PRESETS = [
+            [_('Everything'), _('Every tool and widget.'), WIDGET_IDS],
+            [_('Essentials'), _('Windows, quick toggles, focus, system and sound, with music, calendar and mirror.'),
+                ['media', 'calendar', 'mirror', 'windows', 'tools', 'focus', 'system', 'sound']],
+            [_('Light island'), _('Only music and calendar; the tools window is empty.'), ['media', 'calendar']],
+        ];
+        const summary = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['s-card'], margin_bottom: 6});
+        const count = new Gtk.Label({xalign: 0, css_classes: ['s-row-title'], margin_top: 10, margin_bottom: 2});
+        summary.append(count);
+        const presets = new Gtk.Box({spacing: 10, homogeneous: true, margin_top: 6, margin_bottom: 12});
+        for (const [name, text, ids] of PRESETS) {
+            const card = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, css_classes: ['s-preset']});
+            card.append(new Gtk.Label({label: name, css_classes: ['s-row-title'], xalign: 0}));
+            const note = this._dim(text);
+            note.wrap = true;
+            note.vexpand = true;
+            note.valign = Gtk.Align.START;
+            card.append(note);
+            card.append(this._button(_('Apply'), () => settings.set_strv('enabled-widgets', ids)));
+            presets.append(card);
+        }
+        summary.append(presets);
+        const syncCount = () => {
+            const on = settings.get_strv('enabled-widgets').filter(id => WIDGET_IDS.includes(id)).length;
+            count.label = _('%d of %d tools and widgets are on').format(on, WIDGET_IDS.length);
+        };
+        syncCount();
+        settings.connect('changed::enabled-widgets', syncCount);
+        body.append(new Gtk.Label({label: _('Start with a bundle'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        body.append(summary);
+
         const grouped = new Map();
         for (const feature of features) {
             if (!grouped.has(feature.group))
@@ -373,7 +427,12 @@ export default class OsminPreferences extends ExtensionPreferences {
                 tile.append(new Gtk.Image({icon_name: feature.icon, pixel_size: 15, hexpand: true, vexpand: true, halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER}));
                 row.append(tile);
                 const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER, spacing: 2});
-                texts.append(new Gtk.Label({label: feature.title, css_classes: ['s-row-title'], xalign: 0}));
+                const titleLine = new Gtk.Box({spacing: 8});
+                titleLine.append(new Gtk.Label({label: feature.title, css_classes: ['s-row-title'], xalign: 0}));
+                if (WHERE[group]) {
+                    titleLine.append(new Gtk.Label({label: WHERE[group][0], css_classes: ['s-badge', WHERE[group][1]].filter(Boolean), valign: Gtk.Align.CENTER}));
+                }
+                texts.append(titleLine);
                 texts.append(this._dim(feature.subtitle));
                 row.append(texts);
                 const toggle = new Gtk.Switch({valign: Gtk.Align.CENTER});
@@ -883,6 +942,13 @@ export default class OsminPreferences extends ExtensionPreferences {
         return body;
     }
 
+    /** The tabs of the top-bar button's window: which tools, and in what order. */
+    _toolsPage(settings) {
+        const body = this._body();
+        body.append(this._widgetsView(settings, {menu: true}));
+        return body;
+    }
+
     _widthView(settings) {
         const form = this._form();
         const modes = ['auto', 'fixed'];
@@ -909,7 +975,8 @@ export default class OsminPreferences extends ExtensionPreferences {
         return form;
     }
 
-    _widgetsView(settings) {
+    _widgetsView(settings, {menu = false} = {}) {
+        const INFO = WIDGET_INFO.filter(w => !!w.menu === menu);
         const view = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 14});
 
         // Preview: the capsule with one block per enabled widget.
@@ -924,7 +991,8 @@ export default class OsminPreferences extends ExtensionPreferences {
         previewHolder.append(capsule);
         capsule.halign = Gtk.Align.CENTER;
         capsule.hexpand = true;
-        view.append(previewHolder);
+        if (!menu)
+            view.append(previewHolder);
 
         const strip = this._strip();
         view.append(strip);
@@ -939,13 +1007,17 @@ export default class OsminPreferences extends ExtensionPreferences {
         const enabled = () => {
             const ids = [];
             for (const id of settings.get_strv('enabled-widgets')) {
-                if (WIDGET_INFO.some(w => w.id === id) && !ids.includes(id))
+                if (INFO.some(w => w.id === id) && !ids.includes(id))
                     ids.push(id);
             }
-            return ids.length > 0 ? ids : [...DEFAULT_WIDGETS];
+            return ids.length > 0 || menu ? ids : DEFAULT_WIDGETS.filter(id => INFO.some(w => w.id === id));
         };
-        const saveEnabled = ids => settings.set_strv('enabled-widgets', ids);
-        let selected = enabled()[0];
+        // The list also holds the other group's widgets: keep them as they are.
+        const saveEnabled = ids => {
+            const others = settings.get_strv('enabled-widgets').filter(id => !INFO.some(w => w.id === id));
+            settings.set_strv('enabled-widgets', menu ? [...ids, ...others] : [...ids, ...others]);
+        };
+        let selected = enabled()[0] ?? INFO[0].id;
 
         const clear = box => {
             let child;
@@ -1002,7 +1074,8 @@ export default class OsminPreferences extends ExtensionPreferences {
             });
             box.append(scale);
             box.append(value);
-            this._row(options, _('Width'), box, _('Width of %s, in cells.').format(_(info.title)));
+            if (!menu)
+                this._row(options, _('Width'), box, _('Width of %s, in cells.').format(_(info.title)));
 
             const moves = new Gtk.Box({spacing: 6});
             const index = on.indexOf(selected);
@@ -1012,7 +1085,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             right.sensitive = isOn && index < on.length - 1;
             moves.append(left);
             moves.append(right);
-            this._row(options, _('Position'), moves, _('The order of the widgets in the capsule.'));
+            this._row(options, _('Position'), moves, menu ? _('The order of the tabs in the window.') : _('The order of the widgets in the capsule.'));
 
             if (selected === 'shortcuts') {
                 const cols = new Gtk.Box({spacing: 18});
@@ -1049,7 +1122,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const rebuildStrip = () => {
             clear(strip);
             const on = enabled();
-            const ordered = [...on, ...WIDGET_INFO.map(w => w.id).filter(id => !on.includes(id))];
+            const ordered = [...on, ...INFO.map(w => w.id).filter(id => !on.includes(id))];
             const cells = readCells();
             for (const id of ordered) {
                 const info = WIDGET_INFO.find(w => w.id === id);
@@ -1057,15 +1130,15 @@ export default class OsminPreferences extends ExtensionPreferences {
                 strip.append(this._chip({
                     icon: WIDGET_ICONS[id],
                     title: _(info.title),
-                    caption: isOn ? _('%d cells').format(cells[id]) : _('Off'),
+                    caption: isOn ? (menu ? _('Tab') : _('%d cells').format(cells[id])) : _('Off'),
                     active: isOn,
                     selected: id === selected,
-                    sensitive: !(isOn && on.length <= 1),
+                    sensitive: menu || !(isOn && on.length <= 1),
                     onToggle: active => {
                         const ids = enabled();
                         if (active && !ids.includes(id))
                             ids.push(id);
-                        else if (!active && ids.length > 1)
+                        else if (!active && (menu || ids.length > 1))
                             ids.splice(ids.indexOf(id), 1);
                         else
                             return;

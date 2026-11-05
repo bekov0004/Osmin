@@ -16,6 +16,10 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Settings: **Features** now has a count and one-click bundles (Everything, Essentials, Light island), and
+  every line says where it appears (*Top-bar button* or *Island*). New **Tools window** page for the
+  tabs and their order; the **Widgets** page is only for the island.
+- Every page of the tools window is built from the same cards, rows with switches and chips.
 - The capsule keeps only the light widgets (music, calendar, mirror, timer, to-do, notes, shortcuts,
   companion); the tools moved to the new window. They are on by default, and Settings → Features
   turns each on or off as before.
