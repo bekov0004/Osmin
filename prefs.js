@@ -32,28 +32,28 @@ const SETTINGS_THEME = {
         TRACK: 'rgba(0, 0, 0, 0.16)',
     },
     dark: {
-        BACKGROUND: '#1c1c1e',
-        TOOLBAR: '#2c2c30',
-        SURFACE: 'rgba(255, 255, 255, 0.045)',
-        CARD: 'rgba(255, 255, 255, 0.075)',
-        CONTROL: 'rgba(255, 255, 255, 0.11)',
-        BORDER: 'rgba(255, 255, 255, 0.10)',
-        HOVER: 'rgba(255, 255, 255, 0.06)',
+        BACKGROUND: '#212122',
+        TOOLBAR: '#2c2c2f',
+        SURFACE: '#2c2c2c',
+        CARD: '#363638',
+        CONTROL: '#3c3c3d',
+        BORDER: 'rgba(255, 255, 255, 0.08)',
+        HOVER: 'rgba(255, 255, 255, 0.07)',
         SELECTED: 'rgba(255, 255, 255, 0.12)',
-        TEXT: 'rgba(255, 255, 255, 0.86)',
-        TEXT_SECONDARY: 'rgba(255, 255, 255, 0.55)',
-        TEXT_DISABLED: 'rgba(255, 255, 255, 0.26)',
-        ACCENT: '#0a84ff',
-        ACCENT_SOFT: 'rgba(10, 132, 255, 0.18)',
+        TEXT: '#f5f5f7',
+        TEXT_SECONDARY: '#98989d',
+        TEXT_DISABLED: 'rgba(255, 255, 255, 0.28)',
+        ACCENT: '#1283ff',
+        ACCENT_SOFT: 'rgba(18, 131, 255, 0.2)',
         CAPSULE: '#050507',
         CAPSULE_BLOCK: '#1d1d21',
-        TRACK: 'rgba(255, 255, 255, 0.16)',
+        TRACK: '#454545',
     },
 };
 
 const buildCss = p => `
 window.background, window.background > contents { background-color: ${p.BACKGROUND}; }
-headerbar { background-image: none; background-color: ${p.TOOLBAR}; box-shadow: none;
+headerbar { background-image: none; background-color: ${p.BACKGROUND}; box-shadow: none;
     border-bottom: none; color: ${p.TEXT}; }
 headerbar label { color: ${p.TEXT}; font-weight: 600; }
 preferencespage > scrolledwindow > viewport > clamp, preferencespage clamp { margin: 0; }
@@ -63,12 +63,12 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-prefs .dim, .osmin-prefs label.dim { color: ${p.TEXT_SECONDARY}; font-size: 12px; }
 .osmin-prefs separator { background-color: ${p.BORDER}; min-height: 1px; min-width: 1px; }
 
-.osmin-sidebar { background-color: ${p.TOOLBAR}; border-radius: 12px; margin: 8px 0 8px 8px; padding: 8px 8px 10px 8px; }
+.osmin-sidebar { background-color: ${p.TOOLBAR}; border-radius: 14px; margin: 8px 0 8px 8px; padding: 8px 8px 10px 8px; }
 .osmin-sidebar searchentry, .osmin-sidebar entry { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: none;
     border-radius: 999px; box-shadow: none; min-height: 28px; padding: 0 8px; margin: 2px 2px 8px 2px; }
 .osmin-sidebar searchentry:focus-within { box-shadow: 0 0 0 3px ${p.ACCENT_SOFT}; }
 .osmin-sidebar list { background: none; }
-.osmin-sidebar row { background: none; border-radius: 8px; padding: 5px 8px; margin: 1px 2px; min-height: 22px; color: ${p.TEXT}; }
+.osmin-sidebar row { background: none; border-radius: 10px; padding: 5px 8px; margin: 1px 2px; min-height: 22px; color: ${p.TEXT}; }
 .osmin-sidebar row:hover { background-color: ${p.HOVER}; }
 .osmin-sidebar row image { color: ${p.ACCENT}; }
 .osmin-sidebar row:selected { background-color: ${p.ACCENT}; color: white; }
@@ -79,10 +79,13 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-page-head { margin-bottom: 2px; }
 .osmin-page-title { font-size: 17px; font-weight: 700; }
 .osmin-head { padding: 10px 14px 6px 14px; }
-.osmin-head-title { font-size: 16px; font-weight: 600; }
+.osmin-nav { background-color: ${p.TOOLBAR}; border-radius: 999px; padding: 2px 6px; }
+.osmin-nav button { min-width: 28px; min-height: 28px; padding: 0 6px; }
+.osmin-head-title { font-size: 17px; font-weight: 500; }
 .osmin-try { background-color: ${p.ACCENT}; color: white; border-radius: 999px; padding: 6px 16px; border: none; box-shadow: none; font-weight: 600; }
 .osmin-try:hover { background-color: ${p.ACCENT}; opacity: 0.9; }
-.osmin-pill { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: none; box-shadow: none; border-radius: 999px; padding: 5px 14px; }
+.osmin-pill { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: none; box-shadow: none; border-radius: 999px; padding: 4px 14px; font-weight: 400; }
+.osmin-pill label { font-weight: 400; }
 .osmin-pill:hover { background-color: ${p.HOVER}; }
 .osmin-caps { background-color: ${p.CONTROL}; border: none; box-shadow: none; border-radius: 8px; padding: 3px 6px; }
 .osmin-cap { background-color: ${p.HOVER}; border-radius: 5px; padding: 1px 6px; font-size: 12px; }
@@ -91,11 +94,11 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-hub { background-color: rgba(255,255,255,0.12); border-radius: 32px; padding: 18px; color: white; }
 .osmin-wheel-btn { background-color: rgba(255,255,255,0.14); border-radius: 22px; min-width: 44px; min-height: 44px; padding: 0; border: none; box-shadow: none; color: white; }
 .osmin-drop { min-width: 120px; }
-.mb-title { font-size: 14px; }
-.s-card { background-color: ${p.SURFACE}; border-radius: 16px; padding: 4px 16px; margin-bottom: 6px; }
+.mb-title { font-size: 15px; font-weight: 700; margin-top: 16px; }
+.s-card { background-color: ${p.SURFACE}; border-radius: 12px; padding: 4px 16px; margin-bottom: 6px; }
 .s-card-title { font-size: 13px; font-weight: 600; margin: 12px 0 2px 0; }
-.s-row { padding: 11px 0; min-height: 26px; }
-.s-row-title { font-size: 13px; }
+.s-row { padding: 9px 0; min-height: 26px; }
+.s-row-title { font-size: 14.5px; }
 .s-card separator { background-color: ${p.BORDER}; min-height: 1px; margin: 0; }
 .s-badge { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 8px; background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
 .s-cost { font-size: 11px; margin-right: 6px; }
@@ -385,12 +388,45 @@ export default class OsminPreferences extends ExtensionPreferences {
         let tryName = null;
         tryButton.connect('clicked', () => tryName && this._request(settings, tryName));
         const header = new Gtk.Box({spacing: 12, css_classes: ['osmin-head']});
+        const history = [];
+        let at = -1;
+        let navigating = false;
+        const back = Gtk.Button.new_from_icon_name('go-previous-symbolic');
+        const forward = Gtk.Button.new_from_icon_name('go-next-symbolic');
+        for (const b of [back, forward])
+            b.add_css_class('flat');
+        const syncNav = () => {
+            back.sensitive = at > 0;
+            forward.sensitive = at < history.length - 1;
+        };
+        const go = by => {
+            const target = at + by;
+            if (target < 0 || target >= history.length)
+                return;
+            at = target;
+            navigating = true;
+            list.select_row(rowsByName.get(history[at]));
+            navigating = false;
+            syncNav();
+        };
+        back.connect('clicked', () => go(-1));
+        forward.connect('clicked', () => go(1));
+        const nav = new Gtk.Box({css_classes: ['osmin-nav'], valign: Gtk.Align.CENTER});
+        nav.append(back);
+        nav.append(forward);
+        header.append(nav);
         header.append(heading);
         header.append(tryButton);
         list.connect('row-selected', (_list, row) => {
             if (!row?._page)
                 return;
             stack.set_visible_child_name(row._page);
+            if (!navigating && history[at] !== row._page) {
+                history.splice(at + 1);
+                history.push(row._page);
+                at = history.length - 1;
+                syncNav();
+            }
             heading.label = row._title;
             tryName = TRY[row._page] ?? null;
             tryButton.visible = !!tryName;

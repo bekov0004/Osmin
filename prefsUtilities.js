@@ -78,6 +78,7 @@ export const utilityMethods = {
         const button = new Gtk.Button({css_classes: ['osmin-caps'], child: caps});
         const reset = this._button(_('Reset'), () => settings.set_strv(key, [fallback]));
         let recording = false;
+        let shortcutTitle = null;
         const show = () => {
             const [accel] = settings.get_strv(key);
             sw.set_active(!!accel);
@@ -93,6 +94,8 @@ export const utilityMethods = {
                     caps.append(new Gtk.Label({label: cap, css_classes: ['osmin-cap']}));
             }
             button.sensitive = !!accel;
+            if (shortcutTitle)
+                shortcutTitle.opacity = accel ? 1 : 0.4;
             reset.sensitive = !!accel && accel !== fallback;
         };
         sw.connect('state-set', (_sw, state) => {
@@ -136,6 +139,8 @@ export const utilityMethods = {
         box.append(button);
         box.append(reset);
         this._row(form, _('Shortcut'), box);
+        shortcutTitle = this._cardOf(form).get_last_child().get_first_child().get_first_child();
+        show();
     },
 
     /** A drop-down bound to a string setting. */
