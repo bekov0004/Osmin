@@ -7,6 +7,7 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {DEFAULT_WIDGETS, WIDGET_INFO} from './src/utils/widgetInfo.js';
+import {utilityMethods} from './prefsUtilities.js';
 
 // --- theme -----------------------------------------------------------------
 // One place for every colour of the settings window (layered surfaces, a quiet blue accent, a dark
@@ -77,6 +78,17 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-page { padding: 6px 26px 30px 26px; }
 .osmin-page-head { margin-bottom: 2px; }
 .osmin-page-title { font-size: 17px; font-weight: 700; }
+.osmin-head { padding: 10px 14px 6px 14px; }
+.osmin-head-title { font-size: 16px; font-weight: 600; }
+.osmin-try { background-color: ${p.ACCENT}; color: white; border-radius: 999px; padding: 6px 16px; border: none; box-shadow: none; font-weight: 600; }
+.osmin-try:hover { background-color: ${p.ACCENT}; opacity: 0.9; }
+.osmin-pill { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: none; box-shadow: none; border-radius: 999px; padding: 5px 14px; }
+.osmin-pill:hover { background-color: ${p.HOVER}; }
+.osmin-caps { background-color: ${p.CONTROL}; border: none; box-shadow: none; border-radius: 8px; padding: 3px 6px; }
+.osmin-cap { background-color: ${p.HOVER}; border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+.osmin-tag { background-color: ${p.CONTROL}; border-radius: 999px; padding: 2px 9px; font-size: 12px; }
+.osmin-drop { min-width: 120px; }
+.mb-title { font-size: 14px; }
 .s-card { background-color: ${p.SURFACE}; border-radius: 16px; padding: 4px 16px; margin-bottom: 6px; }
 .s-card-title { font-size: 13px; font-weight: 600; margin: 12px 0 2px 0; }
 .s-row { padding: 11px 0; min-height: 26px; }
@@ -270,29 +282,44 @@ export default class OsminPreferences extends ExtensionPreferences {
             vexpand: true,
         });
         const featuresPage = this._featuresPage(settings);
+        const P = name => pages.find(p => p[0] === name)[3];
         const sections = [
             [_('Essentials'), [
-                ['general', _('General'), 'preferences-system-symbolic', pages.find(p => p[0] === 'general')[3]],
+                ['general', _('General'), 'preferences-system-symbolic', P('general')],
+                ['tools', _('Menu bar'), 'window-new-symbolic', P('tools')],
                 ['features', _('Features'), 'view-app-grid-symbolic', featuresPage],
-                ['monitor', _('Monitor'), 'utilities-system-monitor-symbolic', pages.find(p => p[0] === 'monitor')[3]],
+                ['monitor', _('Monitor'), 'utilities-system-monitor-symbolic', P('monitor')],
             ]],
-            [_('Top-bar button'), [
-                ['tools', _('Menu bar'), 'window-new-symbolic', pages.find(p => p[0] === 'tools')[3]],
+            [_('Utilities'), [
+                ['command', _('Command Bar'), 'system-search-symbolic', this._commandPage(settings)],
+                ['toggles', _('Quick toggles'), 'emblem-system-symbolic', this._togglesPage(settings)],
+                ['cleaning', _('Cleaning Mode'), 'input-keyboard-symbolic', this._cleaningPage(settings)],
+                ['screenshot', _('Screenshot'), 'applets-screenshooter-symbolic', this._screenshotPage(settings)],
+                ['color', _('Color picker'), 'color-select-symbolic', this._colorPage(settings)],
             ]],
-            [_('Capsule'), [
-                ['osmin', _('Widgets'), 'view-grid-symbolic', pages.find(p => p[0] === 'osmin')[3]],
-                ['appearance', _('Appearance'), 'applications-graphics-symbolic', pages.find(p => p[0] === 'appearance')[3]],
-                ['gestures', _('Gestures'), 'input-touchpad-symbolic', pages.find(p => p[0] === 'gestures')[3]],
-                ['activities', _('Live Activities'), 'media-playback-start-symbolic', pages.find(p => p[0] === 'activities')[3]],
+            [_('Sound'), [
+                ['sound', _('Volume mixer'), 'audio-volume-high-symbolic', this._soundPage(settings)],
+                ['mic', _('Mute microphone'), 'microphone-sensitivity-muted-symbolic', this._micPage(settings)],
+            ]],
+            [_('Dynamic Island'), [
+                ['osmin', _('Widgets'), 'view-grid-symbolic', P('osmin')],
+                ['appearance', _('Appearance'), 'applications-graphics-symbolic', P('appearance')],
+                ['gestures', _('Gestures'), 'input-touchpad-symbolic', P('gestures')],
+                ['activities', _('Live Activities'), 'media-playback-start-symbolic', P('activities')],
             ]],
             [_('Tabs'), [
-                ['tray', _('Tray'), 'folder-download-symbolic', pages.find(p => p[0] === 'tray')[3]],
-                ['clipboard', _('Clipboard'), 'edit-paste-symbolic', pages.find(p => p[0] === 'clipboard')[3]],
+                ['tray', _('Tray'), 'folder-download-symbolic', P('tray')],
+                ['clipboard', _('Clipboard'), 'edit-paste-symbolic', P('clipboard')],
             ]],
             [_('Osmin'), [
-                ['about', _('About'), 'help-about-symbolic', pages.find(p => p[0] === 'about')[3]],
+                ['about', _('About'), 'help-about-symbolic', P('about')],
             ]],
         ];
+        // What the blue "Try it" button of a page does.
+        const TRY = {
+            command: 'command', toggles: 'dark', cleaning: 'cleaning', screenshot: 'screenshot', color: 'color',
+            mic: 'mic', sound: 'page-sound', tools: 'page-awake',
+        };
 
         const sidebar = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-sidebar'], width_request: 236});
         const search = new Gtk.SearchEntry({placeholder_text: _('Search'), hexpand: true});
@@ -321,7 +348,6 @@ export default class OsminPreferences extends ExtensionPreferences {
             for (const [name, title, icon, content] of entries) {
                 const page = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 8, css_classes: ['osmin-page'], hexpand: true});
                 const head = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, css_classes: ['osmin-page-head']});
-                head.append(new Gtk.Label({label: title, css_classes: ['osmin-page-title'], xalign: 0}));
                 if (INTROS[name])
                     head.append(this._dim(INTROS[name]));
                 page.append(head);
@@ -333,6 +359,7 @@ export default class OsminPreferences extends ExtensionPreferences {
                 stack.add_named(scroller, name);
                 const row = new Gtk.ListBoxRow();
                 row._page = name;
+                row._title = title;
                 const box = new Gtk.Box({spacing: 10});
                 box.append(new Gtk.Image({icon_name: icon, pixel_size: 18}));
                 box.append(new Gtk.Label({label: title, xalign: 0}));
@@ -341,12 +368,27 @@ export default class OsminPreferences extends ExtensionPreferences {
                 rowsByName.set(name, row);
             }
         }
+        const heading = new Gtk.Label({css_classes: ['osmin-head-title'], xalign: 0, hexpand: true});
+        const tryButton = new Gtk.Button({css_classes: ['osmin-try'], valign: Gtk.Align.CENTER});
+        const tryBox = new Gtk.Box({spacing: 6});
+        tryBox.append(new Gtk.Image({icon_name: 'media-playback-start-symbolic', pixel_size: 14}));
+        tryBox.append(new Gtk.Label({label: _('Try it')}));
+        tryButton.set_child(tryBox);
+        let tryName = null;
+        tryButton.connect('clicked', () => tryName && this._request(settings, tryName));
+        const header = new Gtk.Box({spacing: 12, css_classes: ['osmin-head']});
+        header.append(heading);
+        header.append(tryButton);
         list.connect('row-selected', (_list, row) => {
-            if (row?._page)
-                stack.set_visible_child_name(row._page);
+            if (!row?._page)
+                return;
+            stack.set_visible_child_name(row._page);
+            heading.label = row._title;
+            tryName = TRY[row._page] ?? null;
+            tryButton.visible = !!tryName;
         });
         sidebar.append(list);
-        list.select_row(rowsByName.get('features'));
+        list.select_row(rowsByName.get('general'));
 
         // Typing in the search field shows the features page, filtered.
         search.connect('search-changed', () => {
@@ -355,8 +397,11 @@ export default class OsminPreferences extends ExtensionPreferences {
         });
 
         const layout = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, height_request: 720});
+        const right = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true});
+        right.append(header);
+        right.append(stack);
         layout.append(sidebar);
-        layout.append(stack);
+        layout.append(right);
         root.append(layout);
     }
 
@@ -818,6 +863,12 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Makes this computer visible to LocalSend devices on your network (port 53317). Every transfer must be accepted in a card first; files are saved in Downloads. Close the LocalSend app first: only one can listen.'));
         this._toggleRow(form, settings, 'free-super-v', '', _('Free Super+V from GNOME'),
             _('GNOME opens its notification list on Super+V, so you cannot record it. This takes that binding away while Osmin is enabled and gives it back when Osmin is disabled. Turn it on first, then record Super+V.'));
+
+        this._shortcutPair(form, settings, 'shortcut-awake', '<Control><Alt><Super>k', _('Enable shortcut for “Keep awake”'));
+        this._hint(form, _('Works in any app, no extra permissions.'));
+        this._rule(form);
+        this._row(form, _('Feedback'), this._button(_('Send feedback'), () => Gio.AppInfo.launch_default_for_uri('https://github.com/bekov0004/Osmin/issues/new', null)),
+            _('Send a bug report or a feature idea directly to the person who maintains Osmin.'));
 
         this._rule(form);
         this._row(form, _('Show on'), this._monitorsEditor(settings),
@@ -1813,3 +1864,5 @@ export default class OsminPreferences extends ExtensionPreferences {
         return body;
     }
 }
+
+Object.assign(OsminPreferences.prototype, utilityMethods);

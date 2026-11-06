@@ -27,6 +27,7 @@ import {MediaService} from './services/mediaService.js';
 import {NotesService} from './services/notesService.js';
 import {NotificationsService} from './services/notificationsService.js';
 import {PanelService} from './services/panelService.js';
+import {ToolActions} from './tools/toolActions.js';
 import {SystemService, barReadings} from './services/systemService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
@@ -40,7 +41,14 @@ const SHORTCUTS = [
     ['shortcut-clipboard', 'clipboard'],
     ['shortcut-alerts', 'notifications'],
     ['shortcut-command', 'command'],
+    ['shortcut-screenshot', 'screenshot'],
+    ['shortcut-recording', 'recording'],
+    ['shortcut-color', 'color'],
+    ['shortcut-mic', 'mic'],
+    ['shortcut-cleaning', 'cleaning'],
+    ['shortcut-awake', 'awake'],
 ];
+const ACTIONS = new Set(['screenshot', 'recording', 'color', 'mic', 'cleaning', 'awake']);
 
 /**
  * Everything Osmin shares between its capsules: the services (music, timer, files, ...), the event
@@ -137,6 +145,7 @@ export class OsminHost {
     destroy() {
         this._settings?.disconnectObject(this);
         this._removeShortcuts();
+        this._actions?.destroy();
         this._restoreMessageTrayBinding();
         this._server?.destroy();
         this._server = null;
@@ -189,6 +198,30 @@ export class OsminHost {
         this._capsuleAtPointer()?.toggle();
     }
 
+    /** A shortcut or a request of the settings window: a tool, the search or one of the window's pages. */
+    _runAction(name) {
+        if (ACTIONS.has(name) || name === 'dark' || name === 'night' || name === 'lock') {
+            this._actions ??= new ToolActions({events: this._events, services: this._services, settings: this._settings, ui: {closeCapsule: () => this._menu?.close()}});
+            const a = this._actions;
+            switch (name) {
+            case 'screenshot': a.screenshot(0); break;
+            case 'recording': a.screenshot(1); break;
+            case 'color': a.pickColor(); break;
+            case 'mic': a.toggleMic(); break;
+            case 'cleaning': a.cleaningMode(); break;
+            case 'awake': a.setAwake(a.awake.active ? 0 : -1); break;
+            case 'dark': a.toggleDark(); break;
+            case 'night': a.toggleNight(); break;
+            case 'lock': a.lock(); break;
+            }
+        } else if (name.startsWith('page-')) {
+            this._menu?.openPage(name.slice(5));
+            this._menu?.menu?.open();
+        } else {
+            this.openSection(name);
+        }
+    }
+
     /** The keys that open the panel on a section; they are set in the preferences. */
     _addShortcuts() {
         const gsettings = this._settings.gsettings;
@@ -196,7 +229,7 @@ export class OsminHost {
             return;
         for (const [key, section] of SHORTCUTS) {
             Main.wm.addKeybinding(key, gsettings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW, () => this.openSection(section));
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW, () => this._runAction(section));
             this._shortcutKeys.push(key);
         }
     }
@@ -318,6 +351,8 @@ export class OsminHost {
             this._syncMenu();
         else if (key === 'monitor-interval' || key.startsWith('alert-'))
             this._syncMonitor();
+        else if (key === 'action-request')
+            this._runAction(this._settings.get('action-request').split(':')[0]);
         else if (key === 'bar-icon')
             this._menu?.setBaseIcon(this._settings.get('bar-icon'));
         else if (key === 'bar-metrics')

@@ -96,6 +96,53 @@
       <description>Opens the panel on the Alerts section (or closes it if that section is already shown). Empty means no shortcut.</description>
     </key>
 
+
+    <key name="shortcut-screenshot" type="as">
+      <default>[]</default>
+      <summary>Shortcut: screenshot</summary>
+      <description>Opens the screenshot tool of GNOME. Empty means no shortcut.</description>
+    </key>
+    <key name="shortcut-recording" type="as">
+      <default>[]</default>
+      <summary>Shortcut: screen recording</summary>
+      <description>Opens the screen recording tool of GNOME. Empty means no shortcut.</description>
+    </key>
+    <key name="shortcut-color" type="as">
+      <default>[]</default>
+      <summary>Shortcut: colour picker</summary>
+      <description>Picks a colour from the screen and copies it. Empty means no shortcut.</description>
+    </key>
+    <key name="shortcut-mic" type="as">
+      <default>[]</default>
+      <summary>Shortcut: mute the microphone</summary>
+      <description>Mutes or unmutes the microphone. Empty means no shortcut.</description>
+    </key>
+    <key name="shortcut-cleaning" type="as">
+      <default>[]</default>
+      <summary>Shortcut: cleaning mode</summary>
+      <description>Locks the keyboard so it can be cleaned. Empty means no shortcut.</description>
+    </key>
+    <key name="shortcut-awake" type="as">
+      <default>[]</default>
+      <summary>Shortcut: keep awake</summary>
+      <description>Turns keep awake on (until you turn it off) or off. Empty means no shortcut.</description>
+    </key>
+    <key name="action-request" type="s">
+      <default>''</default>
+      <summary>Run an action (written by the settings window)</summary>
+      <description>"name:time". The settings window writes it to make the shell do something now: open the search, take a screenshot, ...</description>
+    </key>
+    <key name="eject-excluded" type="as">
+      <default>[]</default>
+      <summary>Drives that Eject all disks leaves alone</summary>
+      <description>Mount paths.</description>
+    </key>
+    <key name="cleaning-visible" type="b">
+      <default>false</default>
+      <summary>Cleaning mode: keep the screen visible</summary>
+      <description>Show a small indicator instead of blacking out the screen.</description>
+    </key>
+
     <key name="monitors" type="as">
       <default>['primary']</default>
       <summary>Monitors with a capsule</summary>

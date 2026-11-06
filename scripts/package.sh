@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 gnome-extensions pack --force \
-    --extra-source=src --extra-source=service --extra-source=LICENSE \
+    --extra-source=prefsUtilities.js --extra-source=src --extra-source=service --extra-source=LICENSE \
     --schema=schemas/org.gnome.shell.extensions.osmin.gschema.xml \
     --out-dir=. .
 VERSION="$(grep -oP '"version-name":\s*"\K[^"]+' metadata.json)"

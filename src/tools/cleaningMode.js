@@ -12,7 +12,7 @@ const HOLD_ESC_MS = 3000;   // holding Escape ends it earlier
  * a minute.
  * @returns {{end: () => void}}
  */
-export function startCleaningMode({onEnd = () => {}} = {}) {
+export function startCleaningMode({onEnd = () => {}, indicatorOnly = false} = {}) {
     const overlay = new St.BoxLayout({
         reactive: true,
         vertical: true,
@@ -20,15 +20,17 @@ export function startCleaningMode({onEnd = () => {}} = {}) {
         y: 0,
         width: global.stage.width,
         height: global.stage.height,
-        style: 'background-color: black;',
+        style: indicatorOnly ? '' : 'background-color: black;',
     });
     const label = new St.Label({
         text: 'Cleaning mode\nHold Esc for 3 seconds to finish',
-        style: 'color: rgba(255, 255, 255, 0.45); font-size: 22px; text-align: center;',
+        style: indicatorOnly
+            ? 'color: white; font-size: 13px; background-color: rgba(0, 0, 0, 0.7); border-radius: 10px; padding: 8px 12px; margin: 14px;'
+            : 'color: rgba(255, 255, 255, 0.45); font-size: 22px; text-align: center;',
         x_expand: true,
         y_expand: true,
-        x_align: Clutter.ActorAlign.CENTER,
-        y_align: Clutter.ActorAlign.CENTER,
+        x_align: indicatorOnly ? Clutter.ActorAlign.END : Clutter.ActorAlign.CENTER,
+        y_align: indicatorOnly ? Clutter.ActorAlign.END : Clutter.ActorAlign.CENTER,
     });
     overlay.add_child(label);
     Main.uiGroup.add_child(overlay);

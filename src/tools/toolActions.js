@@ -102,9 +102,10 @@ export class ToolActions {
 
     /** The removable drives that can be taken out (USB sticks, cards ...). */
     ejectables() {
+        const excluded = this.context.settings?.gsettings?.get_strv('eject-excluded') ?? [];
         return Gio.VolumeMonitor.get().get_mounts().filter(mount => {
             const path = mount.get_root()?.get_path() ?? '';
-            return !mount.is_shadowed() && (mount.can_eject() || mount.can_unmount()) &&
+            return !excluded.includes(path) && !mount.is_shadowed() && (mount.can_eject() || mount.can_unmount()) &&
                 (path.startsWith('/media/') || path.startsWith('/run/media/'));
         });
     }
@@ -195,7 +196,7 @@ export class ToolActions {
             return;
         this.context.ui?.closeCapsule?.();
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 350, () => {
-            this._cleaning = startCleaningMode({onEnd: () => {
+            this._cleaning = startCleaningMode({indicatorOnly: this.context.settings?.get('cleaning-visible'), onEnd: () => {
                 this._cleaning = null;
             }});
             return GLib.SOURCE_REMOVE;
