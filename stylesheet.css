@@ -1858,7 +1858,7 @@
 /* The window of the top-bar button (the utility widgets as pages) */
 .osmin-menu .popup-menu-content {
     padding: 0;
-    border-radius: 24px;
+    border-radius: 26px;
     background-color: rgba(34, 34, 40, 0.97);
     border: 1px solid rgba(255, 255, 255, 0.10);
 }
@@ -1900,15 +1900,20 @@
     color: #62a0ea;
 }
 
+.osmin-menu-logo {
+    padding: 2px 0 0 0;
+}
+
 .osmin-menu-title {
-    font-size: 10pt;
+    font-size: 8.5pt;
     font-weight: bold;
+    letter-spacing: 1px;
     color: rgba(255, 255, 255, 0.55);
-    padding: 0 4px;
+    padding: 2px 6px 0 6px;
 }
 
 .osmin-menu-scroll {
-    max-height: 520px;
+    max-height: 640px;
 }
 
 .osmin-menu-footer {
@@ -2085,3 +2090,49 @@
 .osmin-pill-bad { background-color: rgba(255, 69, 58, 0.2); color: #ff453a; }
 .osmin-monitor-note { color: rgba(255, 255, 255, 0.45); font-size: 11px; padding: 6px 14px 10px 14px; }
 .osmin-disk-bar { margin: 0 14px 10px 14px; }
+
+/* Monitoring pages as in the reference: one card, sections divided by thin lines */
+.osmin-bigcard { padding: 4px 0; }
+.osmin-section-label { color: rgba(255, 255, 255, 0.55); font-size: 9.5pt; padding: 8px 14px 2px 14px; }
+.osmin-value-row { padding: 2px 14px; spacing: 6px; }
+.osmin-value-label { color: rgba(255, 255, 255, 0.78); font-size: 10pt; }
+.osmin-value-text { color: rgba(255, 255, 255, 0.78); font-size: 10pt; }
+.osmin-value-strong { color: white; font-weight: 600; }
+.osmin-value-muted { color: rgba(255, 255, 255, 0.45); font-size: 9.5pt; }
+.osmin-value-indent { padding-left: 22px; color: rgba(255, 255, 255, 0.62); }
+.osmin-tile-row { padding: 2px 14px 8px 14px; spacing: 10px; }
+.osmin-big-tile { background-color: rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 8px 10px 10px 10px; spacing: 2px; }
+.osmin-big-tile-head { color: rgba(255, 255, 255, 0.62); font-size: 9.5pt; spacing: 5px; }
+.osmin-big-tile-icon { icon-size: 13px; }
+.osmin-big-tile-value { color: white; font-size: 15pt; font-weight: 500; }
+.osmin-meter-row { padding: 4px 14px 0 14px; spacing: 10px; }
+.osmin-meter-lead { min-width: 64px; padding: 0; }
+.osmin-meter-label { color: rgba(255, 255, 255, 0.72); font-size: 10pt; }
+.osmin-meter-chevron { icon-size: 12px; color: rgba(255, 255, 255, 0.5); margin-right: 4px; }
+.osmin-meter-icon { icon-size: 15px; color: rgba(255, 255, 255, 0.6); margin-right: 8px; }
+.osmin-meter-percent { color: white; font-size: 10pt; min-width: 38px; text-align: right; }
+.osmin-meter-detail { padding: 2px 0 4px 0; }
+.osmin-graph { margin: 0 14px 6px 14px; }
+.osmin-graph-scale { color: rgba(255, 255, 255, 0.55); font-size: 8pt; background-color: rgba(0, 0, 0, 0.35); border-radius: 5px; padding: 0 5px; margin: 1px 0 0 0; }
+.osmin-icon-link { padding: 2px 4px; border-radius: 6px; color: rgba(255, 255, 255, 0.55); }
+.osmin-icon-link:hover { background-color: rgba(255, 255, 255, 0.1); }
+.osmin-speed-row { padding: 10px 14px 4px 14px; spacing: 12px; }
+.osmin-speed { spacing: 8px; }
+.osmin-speed-icon { font-size: 16pt; font-weight: 500; }
+.osmin-blue { color: #3b8ef5; }
+.osmin-green { color: #30d158; }
+.osmin-red { color: #ff4560; }
+.osmin-speed-value { color: white; font-size: 13pt; font-weight: 500; }
+.osmin-speed-label { color: rgba(255, 255, 255, 0.5); font-size: 9.5pt; }
+.osmin-vline { width: 1px; background-color: rgba(255, 255, 255, 0.1); }
+.osmin-pillbtn { border-radius: 99px; background-color: rgba(255, 255, 255, 0.1); padding: 4px 12px; color: rgba(255, 255, 255, 0.88); font-size: 9.5pt; }
+.osmin-pillbtn:hover { background-color: rgba(255, 255, 255, 0.18); }
+.osmin-pillbtn-icon { icon-size: 13px; margin-right: 6px; }
+.osmin-pill-row { padding: 4px 14px; spacing: 8px; }
+.osmin-disk-tiles { padding: 2px 14px 8px 14px; spacing: 8px; }
+.osmin-disk-tile { background-color: rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 8px 10px; }
+.osmin-disk-tile:hover { background-color: rgba(255, 255, 255, 0.11); }
+.osmin-disk-tile:checked { background-color: rgba(53, 132, 228, 0.32); }
+.osmin-badge { background-color: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1px 8px; margin-left: 4px; font-size: 8.5pt; color: rgba(255, 255, 255, 0.7); }
+.osmin-icon-row { padding: 6px 14px; spacing: 0; }
+.osmin-meter-green .osmin-system-fill { background-color: #30d158; }

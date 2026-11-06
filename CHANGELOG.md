@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Top-bar window redesigned after the reference: logo, page title, one card per page with thin dividers; System (CPU/GPU temperature tiles, usage bars with expandable busiest programs, memory pressure, graphs), Network (one graph for both directions, session, speed test), Disks (disk picker, badges, live activity, temperature, eject, open) and Power (battery, heat, draw, adapter, health).
+
 ### Added
 
 - **A button in the top bar with a window of tools**, in the style of Vorssaint: a row of icon tabs and a

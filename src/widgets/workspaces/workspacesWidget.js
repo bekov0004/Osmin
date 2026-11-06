@@ -56,7 +56,6 @@ export class WorkspacesWidget extends OsminWidget {
     createView() {
         const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-workspaces osmin-menu-page', x_expand: true});
 
-        root.add_child(menuHeader('Desktops'));
         this._monitorChips = new St.BoxLayout({vertical: true, x_expand: true});
         root.add_child(this._monitorChips);
         const card = menuCard();

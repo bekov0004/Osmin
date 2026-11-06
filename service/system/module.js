@@ -59,13 +59,15 @@ export class SystemModule extends Module {
         this._totals = {rx: 0, tx: 0};
         this._ip = {text: '', at: 0};
         this._previousDisk = null;
+        this._previousProcs = null;
+        this._ioTotals = {read: 0, write: 0};
         this._sample = null;
         this._active = new Set();   // alerts that are on now (said once)
         this._busy = 0;             // consecutive busy samples
     }
 
     get state() {
-        return {...(this._sample ?? {}), history: this._history, totals: this._totals, watched: this._watchers > 0};
+        return {...(this._sample ?? {}), history: this._history, totals: {...this._totals, read: this._ioTotals.read, write: this._ioTotals.write}, watched: this._watchers > 0};
     }
 
     start() {
@@ -132,6 +134,8 @@ export class SystemModule extends Module {
         // The bytes since the service started (a session total).
         this._totals.rx += sample.net.rx * sample.dt;
         this._totals.tx += sample.net.tx * sample.dt;
+        this._ioTotals.read += sample.io.read * sample.dt;
+        this._ioTotals.write += sample.io.write * sample.dt;
         this._evaluate(sample);
         if (this._watchers > 0)
             this.emitState();
@@ -152,7 +156,10 @@ export class SystemModule extends Module {
             cpu: this._readCpu(),
             mem: this._readMemory(),
             swap: this._readSwap(),
+            swapBytes: this._readSwapBytes(),
             temp: this._readTemperature(),
+            gpu: this._readGpu(),
+            apps: this._watchers > 0 ? this._readApps() : (this._sample?.apps ?? []),
             net: this._readNetwork(),
             disk: this._readDisk(),
             battery: this._readBattery(),
@@ -212,13 +219,26 @@ export class SystemModule extends Module {
                 const total = info.get_attribute_uint64('filesystem::size');
                 const free = info.get_attribute_uint64('filesystem::free');
                 const removable = /^\/(media|run\/media)\//.test(path);
-                disks.push({device, mount: path, type, total, free, percent: total > 0 ? Math.round(100 * (total - free) / total) : 0, removable,
+                disks.push({device, mount: path, type, total, free, temp: this._diskTemp(device), percent: total > 0 ? Math.round(100 * (total - free) / total) : 0, removable,
                     name: path === '/' ? 'System' : path.split('/').pop() || device});
             } catch (e) {
                 // unreadable: skip
             }
         }
         return disks;
+    }
+
+    /** The temperature of the physical disk behind a partition (NVMe or drivetemp), or null. */
+    _diskTemp(device) {
+        const block = device.replace('/dev/', '').replace(/p?\d+$/, '');
+        for (const dir of listDir(`/sys/block/${block}/device/hwmon`).concat(listDir(`/sys/block/${block}/hwmon`))) {
+            for (const base of [`/sys/block/${block}/device/hwmon/${dir}`, `/sys/block/${block}/hwmon/${dir}`]) {
+                const milli = readNumber(`${base}/temp1_input`);
+                if (milli !== null && milli > 0)
+                    return Math.round(milli / 1000);
+            }
+        }
+        return null;
     }
 
     /** Bytes per second read from and written to the disks (whole disks only). */
@@ -291,7 +311,71 @@ export class SystemModule extends Module {
         const value = key => Number(text.match(new RegExp(`^${key}:\\s+(\\d+)`, 'm'))?.[1] ?? 0) * 1024;
         const total = value('MemTotal');
         const available = value('MemAvailable');
-        return {total, used: total - available, percent: total > 0 ? Math.round(100 * (total - available) / total) : 0};
+        return {total, used: total - available, percent: total > 0 ? Math.round(100 * (total - available) / total) : 0,
+            cached: value('Cached') + value('SReclaimable') - value('Shmem'), buffers: value('Buffers'), available};
+    }
+
+    _readSwapBytes() {
+        const text = readText('/proc/meminfo') ?? '';
+        const value = key => Number(text.match(new RegExp(`^${key}:\\s+(\\d+)`, 'm'))?.[1] ?? 0) * 1024;
+        return {total: value('SwapTotal'), used: value('SwapTotal') - value('SwapFree')};
+    }
+
+    /** The graphics card: its temperature and how busy it is, when the system tells (AMD, some Intel, NVIDIA via hwmon). null otherwise. */
+    _readGpu() {
+        let busy = null;
+        for (const card of listDir('/sys/class/drm').filter(n => /^card\d+$/.test(n))) {
+            const value = readNumber(`/sys/class/drm/${card}/device/gpu_busy_percent`);
+            if (value !== null) {
+                busy = value;
+                break;
+            }
+        }
+        let temp = null;
+        for (const dir of listDir('/sys/class/hwmon')) {
+            const base = `/sys/class/hwmon/${dir}`;
+            if (!/amdgpu|nouveau|nvidia|radeon|i915|xe/i.test(readText(`${base}/name`) ?? ''))
+                continue;
+            const milli = readNumber(`${base}/temp1_input`);
+            if (milli !== null && milli > 0)
+                temp = Math.round(milli / 1000);
+        }
+        return busy === null && temp === null ? null : {busy, temp};
+    }
+
+    /** The programs that use the processor most (all their processes together), while a widget is watching. */
+    _readApps() {
+        const stat = (readText('/proc/stat') ?? '').split('\n')[0].split(/\s+/).slice(1).map(Number);
+        const total = stat.reduce((a, b) => a + b, 0);
+        const times = new Map();
+        const names = new Map();
+        for (const pid of listDir('/proc').filter(n => /^\d+$/.test(n))) {
+            const line = readText(`/proc/${pid}/stat`);
+            if (!line)
+                continue;
+            const close = line.lastIndexOf(')');
+            const fields = line.slice(close + 2).split(' ');
+            const ticks = Number(fields[11]) + Number(fields[12]);
+            const name = line.slice(line.indexOf('(') + 1, close);
+            times.set(pid, ticks);
+            names.set(pid, name);
+        }
+        const previous = this._previousProcs;
+        this._previousProcs = {times, total};
+        if (!previous || total <= previous.total)
+            return [];
+        const cores = Math.max(1, listDir('/sys/devices/system/cpu').filter(n => /^cpu\d+$/.test(n)).length);
+        const perName = new Map();
+        for (const [pid, ticks] of times) {
+            const delta = ticks - (previous.times.get(pid) ?? ticks);
+            if (delta <= 0)
+                continue;
+            const name = names.get(pid);
+            perName.set(name, (perName.get(name) ?? 0) + delta);
+        }
+        const span = total - previous.total;
+        return [...perName].map(([name, delta]) => ({name, cpu: Math.round(1000 * delta * cores / span) / 10}))
+            .filter(a => a.cpu >= 0.3).sort((a, b) => b.cpu - a.cpu).slice(0, 7);
     }
 
     _readSwap() {

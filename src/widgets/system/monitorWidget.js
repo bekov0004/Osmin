@@ -50,13 +50,13 @@ export class MonitorWidget extends OsminWidget {
             this._update(state);
     }
 
-    /** A graph with its top value written above it on the right. @returns {{actor: St.BoxLayout, graph: Sparkline, scale: St.Label}} */
+    /** A graph with its top value in a small tag on the dotted line. @returns {{actor: St.Widget, graph: Sparkline, scale: St.Label}} */
     graphBlock(options) {
-        const actor = new St.BoxLayout({vertical: true, x_expand: true});
-        const scale = new St.Label({text: '', style_class: 'osmin-graph-scale', x_align: Clutter.ActorAlign.END});
-        actor.add_child(scale);
+        const actor = new St.Widget({x_expand: true, layout_manager: new Clutter.BinLayout(), style_class: 'osmin-graph'});
         const graph = new Sparkline({...options, label: () => ''});
         actor.add_child(graph);
+        const scale = new St.Label({text: '', style_class: 'osmin-graph-scale', x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.START});
+        actor.add_child(scale);
         return {actor, graph, scale};
     }
 

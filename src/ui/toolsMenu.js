@@ -5,6 +5,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {createButton} from './button.js';
+import {Logo} from './logo.js';
 import {menuCard, menuHeader} from './menuKit.js';
 
 const ROLE = 'osmin-tools';
@@ -48,6 +49,12 @@ export class ToolsMenu {
         item.add_child(root);
         this._button.menu.addMenuItem(item);
 
+        const logo = new St.BoxLayout({style_class: 'osmin-menu-logo', x_expand: true});
+        const mark = new Logo();
+        mark.x_expand = true;
+        logo.add_child(mark);
+        root.add_child(logo);
+
         // The icon tabs.
         const tabs = new St.BoxLayout({style_class: 'osmin-menu-tabs', x_expand: true});
         this._widgets.forEach((widget, index) => {
@@ -58,7 +65,7 @@ export class ToolsMenu {
         });
         root.add_child(tabs);
 
-        this._title = new St.Label({style_class: 'osmin-menu-title', visible: false});
+        this._title = new St.Label({style_class: 'osmin-menu-title'});
         root.add_child(this._title);
 
         // The pages: only the chosen one is shown; a tall one scrolls.
@@ -138,7 +145,7 @@ export class ToolsMenu {
         this._current = index;
         const widget = this._widgets[index];
         this._pages[index].show();
-        this._title.text = widget.constructor.title;
+        this._title.text = widget.constructor.title.toUpperCase();
         this._tabs.forEach((tab, i) => {
             if (i === index)
                 tab.add_style_pseudo_class('checked');

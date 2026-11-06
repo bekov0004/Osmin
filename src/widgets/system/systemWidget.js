@@ -1,8 +1,10 @@
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import {formatBytes} from '../../services/systemService.js';
 import {EventType, Priority} from '../../utils/events.js';
-import {menuCard, menuDivider, menuHeader, menuRow, statTile, statusPill} from '../../ui/menuKit.js';
+import {bigTile, menuCard, menuDivider, meterRow, sectionLabel, statusPill, valueRow} from '../../ui/menuKit.js';
 import {MonitorWidget, formatDuration} from './monitorWidget.js';
 
 /**
@@ -41,54 +43,112 @@ export class SystemWidget extends MonitorWidget {
 
     createPage() {
         const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-system osmin-menu-page', x_expand: true});
+        const card = menuCard();
+        card.add_style_class_name('osmin-bigcard');
+        root.add_child(card);
 
-        root.add_child(menuHeader('Temperatures'));
-        const temps = menuCard();
-        const tiles = new St.BoxLayout({x_expand: true});
-        this._temp = statTile('Processor');
-        this._load = statTile('Load');
-        tiles.add_child(this._temp.actor);
-        tiles.add_child(this._load.actor);
-        temps.add_child(tiles);
-        root.add_child(temps);
+        card.add_child(sectionLabel('Temperatures'));
+        const tiles = new St.BoxLayout({style_class: 'osmin-tile-row', x_expand: true});
+        this._tempA = bigTile('CPU', 'computer-symbolic');
+        this._tempB = bigTile('Disk', 'drive-harddisk-symbolic');
+        tiles.add_child(this._tempA.actor);
+        tiles.add_child(this._tempB.actor);
+        card.add_child(tiles);
+        card.add_child(menuDivider());
 
-        root.add_child(menuHeader('Hardware usage'));
-        const usage = menuCard();
-        this._cpu = menuRow({title: 'Processor', control: new St.Label({text: '–', style_class: 'osmin-stat-value'})});
-        usage.add_child(this._cpu.row);
+        const open = new St.Button({style_class: 'osmin-icon-link', reactive: true, can_focus: true, track_hover: true,
+            child: new St.Icon({icon_name: 'adw-external-link-symbolic', icon_size: 12})});
+        open.connect('clicked', () => this._openMonitor());
+        card.add_child(sectionLabel('Hardware usage', open));
+        this._cpu = meterRow('CPU', {expandable: true});
+        card.add_child(this._cpu.actor);
         this._cpuGraph = this.graphBlock({color: [0.04, 0.52, 1], max: 100});
         this._cpuGraph.scale.text = '100%';
-        usage.add_child(this._cpuGraph.actor);
-        root.add_child(usage);
+        card.add_child(this._cpuGraph.actor);
+        this._gpu = meterRow('GPU', {expandable: false});
+        this._gpuGraph = this.graphBlock({color: [0.04, 0.52, 1], max: 100});
+        this._gpuGraph.scale.text = '100%';
+        this._gpuBox = new St.BoxLayout({vertical: true, x_expand: true, visible: false});
+        this._gpuBox.add_child(this._gpu.actor);
+        this._gpuBox.add_child(this._gpuGraph.actor);
+        card.add_child(this._gpuBox);
+        card.add_child(menuDivider());
 
-        root.add_child(menuHeader('Memory'));
-        const memory = menuCard();
+        card.add_child(sectionLabel('Memory'));
         this._pressure = statusPill('Normal');
-        this._mem = menuRow({title: 'Memory', subtitle: ' ', control: this._pressure.actor});
-        memory.add_child(this._mem.row);
-        this._memGraph = this.graphBlock({color: [0.19, 0.82, 0.35], max: 100});
+        const pressure = new St.BoxLayout({style_class: 'osmin-value-row', x_expand: true});
+        pressure.add_child(new St.Label({text: 'Pressure', style_class: 'osmin-value-label', y_align: Clutter.ActorAlign.CENTER}));
+        pressure.add_child(this._pressure.actor);
+        this._memTotal = new St.Label({text: '', style_class: 'osmin-value-text', x_expand: true, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER});
+        pressure.add_child(this._memTotal);
+        card.add_child(pressure);
+        this._cached = valueRow('Cached files');
+        this._buffers = valueRow('Buffers');
+        this._swap = valueRow('Swap used');
+        [this._cached, this._buffers, this._swap].forEach(r => {
+            r.label.add_style_class_name('osmin-value-indent');
+            card.add_child(r.actor);
+        });
+        this._memGraph = this.graphBlock({color: [0.35, 0.83, 0.98], max: 100});
         this._memGraph.scale.text = '100%';
-        memory.add_child(this._memGraph.actor);
-        memory.add_child(menuDivider());
-        this._swap = menuRow({title: 'Swap used', control: new St.Label({text: '–', style_class: 'osmin-stat-value'})});
-        memory.add_child(this._swap.row);
-        root.add_child(memory);
+        card.add_child(this._memGraph.actor);
+        card.add_child(menuDivider());
 
-        this._uptime = new St.Label({text: '', style_class: 'osmin-monitor-note'});
-        root.add_child(this._uptime);
+        const up = new St.BoxLayout({style_class: 'osmin-value-row', x_expand: true});
+        up.add_child(new St.Icon({icon_name: 'preferences-system-time-symbolic', style_class: 'osmin-meter-icon'}));
+        this._uptime = new St.Label({text: '', style_class: 'osmin-value-label', y_align: Clutter.ActorAlign.CENTER});
+        up.add_child(this._uptime);
+        card.add_child(up);
         return root;
     }
 
+    _openMonitor() {
+        const app = Gio.AppInfo.get_all().find(a => /system-monitor|resources|mission-center/i.test(a.get_id() ?? ''));
+        app?.launch([], null);
+    }
+
     _update(s) {
-        this._temp.set(s.temp === null ? 'n/a' : `${s.temp}°C`);
-        this._load.set(`${s.cpu}%`);
-        this._cpu.row.get_first_child().get_last_child().text = `${s.cpu}%`;
+        const disk = s.disks?.find(d => d.temp !== null)?.temp ?? null;
+        this._tempA.set(s.temp === null ? 'n/a' : `${s.temp} °C`);
+        if (s.gpu?.temp != null) {
+            this._tempB.actor.get_first_child().get_last_child().text = 'GPU';
+            this._tempB.set(`${s.gpu.temp} °C`);
+        } else {
+            this._tempB.actor.get_first_child().get_last_child().text = 'Disk';
+            this._tempB.set(disk === null ? 'n/a' : `${disk} °C`);
+        }
+        this._cpu.set(s.cpu, s.cpu >= 90);
         this._cpuGraph.graph.setValues(s.history.cpu);
+        this._fillApps(s.apps ?? []);
+        this._gpuBox.visible = s.gpu?.busy != null;
+        if (s.gpu?.busy != null) {
+            this._gpu.set(s.gpu.busy, s.gpu.busy >= 90);
+            this._gpuHistory = [...(this._gpuHistory ?? []), s.gpu.busy].slice(-60);
+            this._gpuGraph.graph.setValues(this._gpuHistory);
+        }
         const level = s.mem.percent >= 92 ? 'bad' : s.mem.percent >= 80 ? 'warn' : 'good';
         this._pressure.set(level === 'good' ? 'Normal' : level === 'warn' ? 'High' : 'Critical', level);
-        this._mem.subtitle.text = `${formatBytes(s.mem.used)} of ${formatBytes(s.mem.total)} (${s.mem.percent}%)`;
+        this._memTotal.text = `${formatBytes(s.mem.used)} / ${formatBytes(s.mem.total)}`;
+        this._cached.set(formatBytes(Math.max(0, s.mem.cached)));
+        this._buffers.set(formatBytes(s.mem.buffers));
+        this._swap.set(formatBytes(s.swapBytes?.used ?? 0));
         this._memGraph.graph.setValues(s.history.mem);
-        this._swap.row.get_first_child().get_last_child().text = `${s.swap}%`;
         this._uptime.text = s.uptime ? `Up for ${formatDuration(s.uptime)}` : '';
+    }
+
+    /** The programs using the processor most, under the CPU line. */
+    _fillApps(apps) {
+        const key = apps.map(a => `${a.name}:${a.cpu}`).join('|');
+        if (key === this._appsKey)
+            return;
+        this._appsKey = key;
+        this._cpu.detail.destroy_all_children();
+        apps.forEach(app => {
+            const row = valueRow(app.name, `${app.cpu}%`);
+            row.label.add_style_class_name('osmin-value-indent');
+            this._cpu.detail.add_child(row.actor);
+        });
+        if (apps.length === 0)
+            this._cpu.detail.add_child(new St.Label({text: 'Nothing busy right now.', style_class: 'osmin-monitor-note'}));
     }
 }

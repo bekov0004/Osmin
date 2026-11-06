@@ -167,3 +167,89 @@ export function statusPill(text, tone = 'good') {
         label.style_class = `osmin-pill osmin-pill-${newTone}`;
     }};
 }
+
+/** A small muted label inside a card ("Temperatures"), with an optional control on the right. */
+export function sectionLabel(text, control = null) {
+    const row = new St.BoxLayout({style_class: 'osmin-section-label', x_expand: true});
+    row.add_child(new St.Label({text, x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
+    if (control)
+        row.add_child(control);
+    return row;
+}
+
+/** A line with a label on the left and a value on the right. @returns {{actor: St.BoxLayout, set: (text: string) => void}} */
+export function valueRow(label, value = '–', {strong = false} = {}) {
+    const actor = new St.BoxLayout({style_class: 'osmin-value-row', x_expand: true});
+    actor.add_child(new St.Label({text: label, style_class: strong ? 'osmin-value-label osmin-value-strong' : 'osmin-value-label', x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
+    const text = new St.Label({text: value, style_class: strong ? 'osmin-value-text osmin-value-strong' : 'osmin-value-text', y_align: Clutter.ActorAlign.CENTER});
+    actor.add_child(text);
+    return {actor, set: v => (text.text = v), label: actor.get_first_child()};
+}
+
+/** A tile with an icon and a label over a big number, for the temperatures. */
+export function bigTile(label, icon = null) {
+    const actor = new St.BoxLayout({vertical: true, style_class: 'osmin-big-tile', x_expand: true});
+    const head = new St.BoxLayout({x_align: Clutter.ActorAlign.CENTER, style_class: 'osmin-big-tile-head'});
+    if (icon)
+        head.add_child(new St.Icon({icon_name: icon, style_class: 'osmin-big-tile-icon'}));
+    head.add_child(new St.Label({text: label, y_align: Clutter.ActorAlign.CENTER}));
+    actor.add_child(head);
+    const value = new St.Label({text: '–', style_class: 'osmin-big-tile-value', x_align: Clutter.ActorAlign.CENTER});
+    actor.add_child(value);
+    return {actor, set: text => (value.text = text)};
+}
+
+/** A small pill button for the actions inside a card ("Open", "Speed test"). */
+export function pillButton({label, icon = null, onClick}) {
+    const button = new St.Button({style_class: 'osmin-pillbtn', can_focus: true, reactive: true, track_hover: true, x_align: Clutter.ActorAlign.START});
+    const box = new St.BoxLayout();
+    if (icon)
+        box.add_child(new St.Icon({icon_name: icon, style_class: 'osmin-pillbtn-icon'}));
+    box.add_child(new St.Label({text: label, y_align: Clutter.ActorAlign.CENTER}));
+    button.set_child(box);
+    button.connect('clicked', () => onClick());
+    return button;
+}
+
+/**
+ * A usage line: a chevron that opens a detail box, a name, a bar and the percent.
+ * @returns {{actor: St.BoxLayout, detail: St.BoxLayout, set: (percent: number, warn?: boolean) => void, setLabel: (text: string) => void}}
+ */
+export function meterRow(label, {icon = null, expandable = false} = {}) {
+    const actor = new St.BoxLayout({vertical: true, x_expand: true});
+    const line = new St.BoxLayout({style_class: 'osmin-meter-row', x_expand: true});
+    const detail = new St.BoxLayout({vertical: true, style_class: 'osmin-meter-detail', x_expand: true, visible: false});
+    const chevron = new St.Icon({icon_name: 'pan-end-symbolic', style_class: 'osmin-meter-chevron', y_align: Clutter.ActorAlign.CENTER});
+    const lead = new St.Button({style_class: 'osmin-meter-lead', reactive: expandable, can_focus: expandable, track_hover: expandable});
+    const leadBox = new St.BoxLayout();
+    if (icon)
+        leadBox.add_child(new St.Icon({icon_name: icon, style_class: 'osmin-meter-icon'}));
+    else if (expandable)
+        leadBox.add_child(chevron);
+    const name = new St.Label({text: label, style_class: 'osmin-meter-label', y_align: Clutter.ActorAlign.CENTER});
+    leadBox.add_child(name);
+    lead.set_child(leadBox);
+    line.add_child(lead);
+    const bar = usageBar();
+    bar.actor.y_align = Clutter.ActorAlign.CENTER;
+    line.add_child(bar.actor);
+    const percent = new St.Label({text: '–', style_class: 'osmin-meter-percent', y_align: Clutter.ActorAlign.CENTER});
+    line.add_child(percent);
+    actor.add_child(line);
+    actor.add_child(detail);
+    if (expandable) {
+        lead.connect('clicked', () => {
+            detail.visible = !detail.visible;
+            chevron.icon_name = detail.visible ? 'pan-down-symbolic' : 'pan-end-symbolic';
+        });
+    }
+    return {
+        actor,
+        detail,
+        set: (value, warn = false) => {
+            percent.text = `${Math.round(value)}%`;
+            bar.set(value / 100, warn);
+        },
+        setLabel: text => (name.text = text),
+    };
+}
