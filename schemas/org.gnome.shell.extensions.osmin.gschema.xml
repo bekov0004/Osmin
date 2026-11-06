@@ -127,6 +127,26 @@
       <summary>Shortcut: keep awake</summary>
       <description>Turns keep awake on (until you turn it off) or off. Empty means no shortcut.</description>
     </key>
+    <key name="shortcut-radial" type="as">
+      <default>[]</default>
+      <summary>Shortcut: radial menu</summary>
+      <description>Opens a wheel of favourite actions around the pointer. Empty means no shortcut.</description>
+    </key>
+    <key name="shortcut-output" type="as">
+      <default>[]</default>
+      <summary>Shortcut: next sound output</summary>
+      <description>Switches to the next sound output. Empty means no shortcut.</description>
+    </key>
+    <key name="radial-actions" type="as">
+      <default>['play-pause', 'next', 'screenshot', 'downloads', 'color', 'prev']</default>
+      <summary>Actions of the radial menu</summary>
+      <description>Ids of the actions, in order around the wheel.</description>
+    </key>
+    <key name="output-skipped" type="as">
+      <default>[]</default>
+      <summary>Outputs left out of the output switcher</summary>
+      <description>Names of sound outputs that the next-output shortcut skips.</description>
+    </key>
     <key name="action-request" type="s">
       <default>''</default>
       <summary>Run an action (written by the settings window)</summary>

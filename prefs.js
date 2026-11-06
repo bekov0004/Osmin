@@ -87,6 +87,9 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-caps { background-color: ${p.CONTROL}; border: none; box-shadow: none; border-radius: 8px; padding: 3px 6px; }
 .osmin-cap { background-color: ${p.HOVER}; border-radius: 5px; padding: 1px 6px; font-size: 12px; }
 .osmin-tag { background-color: ${p.CONTROL}; border-radius: 999px; padding: 2px 9px; font-size: 12px; }
+.osmin-wheel { background-color: #14161a; color: white; border-radius: 165px; }
+.osmin-hub { background-color: rgba(255,255,255,0.12); border-radius: 32px; padding: 18px; color: white; }
+.osmin-wheel-btn { background-color: rgba(255,255,255,0.14); border-radius: 22px; min-width: 44px; min-height: 44px; padding: 0; border: none; box-shadow: none; color: white; }
 .osmin-drop { min-width: 120px; }
 .mb-title { font-size: 14px; }
 .s-card { background-color: ${p.SURFACE}; border-radius: 16px; padding: 4px 16px; margin-bottom: 6px; }
@@ -295,10 +298,14 @@ export default class OsminPreferences extends ExtensionPreferences {
                 ['toggles', _('Quick toggles'), 'emblem-system-symbolic', this._togglesPage(settings)],
                 ['cleaning', _('Cleaning Mode'), 'input-keyboard-symbolic', this._cleaningPage(settings)],
                 ['screenshot', _('Screenshot'), 'applets-screenshooter-symbolic', this._screenshotPage(settings)],
+                ['camera', _('Camera preview'), 'camera-web-symbolic', this._cameraPage(settings)],
+                ['scratchpad', _('Scratchpad'), 'accessories-text-editor-symbolic', this._scratchpadPage(settings)],
                 ['color', _('Color picker'), 'color-select-symbolic', this._colorPage(settings)],
+                ['radial', _('Radial menu'), 'view-app-grid-symbolic', this._radialPage(settings)],
             ]],
             [_('Sound'), [
                 ['sound', _('Volume mixer'), 'audio-volume-high-symbolic', this._soundPage(settings)],
+                ['output', _('Output switcher'), 'audio-speakers-symbolic', this._outputPage(settings)],
                 ['mic', _('Mute microphone'), 'microphone-sensitivity-muted-symbolic', this._micPage(settings)],
             ]],
             [_('Dynamic Island'), [
@@ -318,7 +325,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         // What the blue "Try it" button of a page does.
         const TRY = {
             command: 'command', toggles: 'dark', cleaning: 'cleaning', screenshot: 'screenshot', color: 'color',
-            mic: 'mic', sound: 'page-sound', tools: 'page-awake',
+            mic: 'mic', radial: 'radial', output: 'output', sound: 'page-sound', tools: 'page-awake',
         };
 
         const sidebar = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-sidebar'], width_request: 236});

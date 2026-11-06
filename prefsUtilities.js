@@ -293,4 +293,195 @@ export const utilityMethods = {
         this._hint(form, _('Turn the mixer tab on or off in Menu bar.'));
         return body;
     },
+
+    /** Switch that adds a widget to the capsule or takes it away. */
+    _widgetSwitch(settings, id) {
+        const sw = new Gtk.Switch({valign: Gtk.Align.CENTER});
+        const sync = () => sw.set_active(settings.get_strv('enabled-widgets').includes(id));
+        sw.connect('state-set', (_sw, state) => {
+            const list = settings.get_strv('enabled-widgets').filter(w => w !== id);
+            if (state)
+                list.push(id);
+            settings.set_strv('enabled-widgets', list);
+            return false;
+        });
+        settings.connect('changed::enabled-widgets', sync);
+        sync();
+        return sw;
+    },
+
+    _cameraPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+        this._title(form, _('Camera preview'));
+        this._row(form, _('Show in the capsule'), this._widgetSwitch(settings, 'mirror'));
+        this._hint(form, _('A mirror: see yourself in the capsule before a call. The camera is on only while the capsule shows it.'));
+        return body;
+    },
+
+    _scratchpadPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+        this._title(form, _('Scratchpad'));
+        this._row(form, _('Show in the capsule'), this._widgetSwitch(settings, 'notes'));
+        this._hint(form, _('Quick notes in separate tabs, kept on this computer.'));
+        this._row(form, _('To-do list'), this._widgetSwitch(settings, 'todo'));
+        this._hint(form, _('A short list of things to do, next to the notes.'));
+        return body;
+    },
+
+    _outputPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+        this._title(form, _('Output switcher'));
+        this._pill(form, 'audio-speakers-symbolic', _('Switch output now'), () => this._request(settings, 'output'));
+        this._hint(form, _('Switches the sound to the next output: speakers, headphones, a Bluetooth device.'));
+        this._shortcutPair(form, settings, 'shortcut-output', '<Control><Alt><Super>o');
+
+        this._title(form, _('Outputs in the cycle'));
+        let sinks = [];
+        try {
+            const [, out] = GLib.spawn_command_line_sync('pactl list sinks');
+            const text = new TextDecoder().decode(out);
+            for (const block of text.split('\n\n')) {
+                const name = /Name: (.+)/.exec(block)?.[1];
+                const desc = /Description: (.+)/.exec(block)?.[1];
+                if (name)
+                    sinks.push([name, desc ?? name]);
+            }
+        } catch (e) {
+            sinks = [];
+        }
+        if (!sinks.length)
+            this._row(form, '', this._dim(_('No sound outputs found.')));
+        for (const [name, desc] of sinks) {
+            const sw = new Gtk.Switch({valign: Gtk.Align.CENTER, active: !settings.get_strv('output-skipped').includes(name)});
+            sw.connect('state-set', (_sw, state) => {
+                const list = settings.get_strv('output-skipped').filter(n => n !== name);
+                if (!state)
+                    list.push(name);
+                settings.set_strv('output-skipped', list);
+                return false;
+            });
+            this._row(form, desc, sw);
+        }
+        this._hint(form, _('Turn an output off to skip it when switching.'));
+        return body;
+    },
+
+    _radialPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+        const INFO = {
+            'play-pause': [_('Play or pause'), _('Media control'), 'media-playback-start-symbolic'],
+            'next': [_('Next track'), _('Media control'), 'media-skip-forward-symbolic'],
+            'prev': [_('Previous track'), _('Media control'), 'media-skip-backward-symbolic'],
+            'screenshot': [_('Screenshot'), _('Tool'), 'applets-screenshooter-symbolic'],
+            'recording': [_('Screen recording'), _('Tool'), 'media-record-symbolic'],
+            'color': [_('Color picker'), _('Tool'), 'color-select-symbolic'],
+            'downloads': [_('Downloads'), _('Open a file or folder'), 'folder-download-symbolic'],
+            'command': [_('Search'), _('Command bar'), 'system-search-symbolic'],
+            'clipboard': [_('Clipboard'), _('Clipboard history'), 'edit-paste-symbolic'],
+            'dark': [_('Dark mode'), _('Quick toggles'), 'weather-clear-night-symbolic'],
+            'night': [_('Night light'), _('Quick toggles'), 'night-light-symbolic'],
+            'mic': [_('Mute microphone'), _('Quick toggles'), 'microphone-sensitivity-muted-symbolic'],
+            'awake': [_('Keep awake'), _('Tool'), 'weather-clear-night-symbolic'],
+            'cleaning': [_('Cleaning mode'), _('Tool'), 'input-keyboard-symbolic'],
+            'lock': [_('Lock the screen'), _('Quick toggles'), 'system-lock-screen-symbolic'],
+        };
+        const DEFAULT = ['play-pause', 'next', 'screenshot', 'downloads', 'color', 'prev'];
+        this._title(form, _('Radial menu'));
+        this._pill(form, 'view-app-grid-symbolic', _('Open the radial menu'), () => this._request(settings, 'radial'));
+        this._hint(form, _('Opens a wheel of your favorite actions around the pointer.'));
+        this._shortcutPair(form, settings, 'shortcut-radial', '<Control><Alt><Super>space');
+
+        this._title(form, _('Actions'));
+        const card = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 8, hexpand: true});
+        const wheel = new Gtk.Fixed({width_request: 330, height_request: 330, halign: Gtk.Align.CENTER, css_classes: ['osmin-wheel']});
+        const list = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
+        const reset = this._button(_('Reset'), () => settings.set_strv('radial-actions', DEFAULT));
+        reset.halign = Gtk.Align.END;
+        const add = new Gtk.MenuButton({label: _('Add action'), icon_name: 'list-add-symbolic', css_classes: ['osmin-pill'], halign: Gtk.Align.START});
+        const pop = new Gtk.Popover();
+        const popBox = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
+        pop.set_child(popBox);
+        add.set_popover(pop);
+        const clear = box => {
+            let c = box.get_first_child();
+            while (c) {
+                box.remove(c);
+                c = box.get_first_child();
+            }
+        };
+        const draw = () => {
+            const ids = settings.get_strv('radial-actions').filter(id => INFO[id]);
+            clear(wheel);
+            clear(list);
+            clear(popBox);
+            wheel.put(new Gtk.Image({icon_name: 'view-app-grid-symbolic', pixel_size: 28, css_classes: ['osmin-hub']}), 151, 151);
+            ids.forEach((id, i) => {
+                const angle = -Math.PI / 2 + 2 * Math.PI * i / Math.max(ids.length, 1);
+                const b = new Gtk.Button({css_classes: ['osmin-wheel-btn'], child: new Gtk.Image({icon_name: INFO[id][2], pixel_size: 20})});
+                b.connect('clicked', () => settings.set_strv('radial-actions', ids.filter(x => x !== id)));
+                b.tooltip_text = _('Click to remove');
+                wheel.put(b, 165 + Math.cos(angle) * 110 - 22, 165 + Math.sin(angle) * 110 - 22);
+            });
+            ids.forEach((id, i) => {
+                const row = new Gtk.Box({spacing: 10, margin_top: 6, margin_bottom: 6});
+                row.append(new Gtk.Image({icon_name: INFO[id][2], pixel_size: 22}));
+                const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true});
+                texts.append(new Gtk.Label({label: INFO[id][0], xalign: 0}));
+                texts.append(this._dim(INFO[id][1]));
+                row.append(texts);
+                const move = (by) => {
+                    const next = [...ids];
+                    const j = i + by;
+                    if (j < 0 || j >= next.length)
+                        return;
+                    [next[i], next[j]] = [next[j], next[i]];
+                    settings.set_strv('radial-actions', next);
+                };
+                const up = Gtk.Button.new_from_icon_name('go-up-symbolic');
+                up.connect('clicked', () => move(-1));
+                up.sensitive = i > 0;
+                const down = Gtk.Button.new_from_icon_name('go-down-symbolic');
+                down.connect('clicked', () => move(1));
+                down.sensitive = i < ids.length - 1;
+                const del = Gtk.Button.new_from_icon_name('edit-delete-symbolic');
+                del.connect('clicked', () => settings.set_strv('radial-actions', ids.filter(x => x !== id)));
+                for (const b of [up, down, del])
+                    b.add_css_class('flat');
+                row.append(up);
+                row.append(down);
+                row.append(del);
+                list.append(row);
+                if (i < ids.length - 1)
+                    list.append(new Gtk.Separator());
+            });
+            for (const id of Object.keys(INFO).filter(x => !ids.includes(x))) {
+                const item = new Gtk.Button({css_classes: ['flat'], child: new Gtk.Label({label: INFO[id][0], xalign: 0})});
+                item.connect('clicked', () => {
+                    pop.popdown();
+                    settings.set_strv('radial-actions', [...ids, id].slice(0, 8));
+                });
+                popBox.append(item);
+            }
+            add.sensitive = ids.length < 8 && popBox.get_first_child() !== null;
+        };
+        settings.connect('changed::radial-actions', draw);
+        draw();
+        card.append(reset);
+        card.append(wheel);
+        this._row(form, '', card);
+        this._hint(form, _('Click a button of the wheel to remove it. Add up to eight actions.'));
+        const addWrap = new Gtk.Box({hexpand: true});
+        addWrap.append(add);
+        this._row(form, '', addWrap);
+        this._row(form, '', list);
+        return body;
+    },
 };

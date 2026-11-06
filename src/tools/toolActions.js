@@ -5,6 +5,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {startCleaningMode} from './cleaningMode.js';
 import {pickColor} from './colorPicker.js';
+import {showRadialMenu} from './radialMenu.js';
 import {EventType} from '../utils/events.js';
 
 /**
@@ -203,12 +204,39 @@ export class ToolActions {
         });
     }
 
+    radialMenu() {
+        this.context.ui?.closeCapsule?.();
+        this._radial?.close();
+        this._radial = showRadialMenu(this.context.settings.gsettings.get_strv('radial-actions'), id => this.context.run?.(id));
+    }
+
+    /** Makes the next sound output (not a skipped one) the default. */
+    cycleOutput() {
+        try {
+            const out = GLib.spawn_command_line_sync('pactl list short sinks')[1];
+            const names = new TextDecoder().decode(out).split('\n').map(l => l.split('\t')[1]).filter(Boolean);
+            const skipped = this.context.settings.gsettings.get_strv('output-skipped');
+            const usable = names.filter(n => !skipped.includes(n));
+            if (usable.length < 2) {
+                this.say('audio-speakers-symbolic', 'Output switcher', 'There is no other output to switch to');
+                return;
+            }
+            const current = new TextDecoder().decode(GLib.spawn_command_line_sync('pactl get-default-sink')[1]).trim();
+            const next = usable[(usable.indexOf(current) + 1) % usable.length];
+            GLib.spawn_command_line_async(`pactl set-default-sink ${GLib.shell_quote(next)}`);
+            this.say('audio-speakers-symbolic', 'Sound output', next);
+        } catch (e) {
+            this.say('dialog-warning-symbolic', 'Output switcher', e.message);
+        }
+    }
+
     /** Starts the screen saver (locks the screen). */
     screensaver() {
         Main.screenShield.lock(true);
     }
 
     destroy() {
+        this._radial?.close();
         this._cleaning?.end();
         if (this._trashArmed)
             GLib.source_remove(this._trashArmed);

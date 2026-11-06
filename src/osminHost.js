@@ -47,8 +47,10 @@ const SHORTCUTS = [
     ['shortcut-mic', 'mic'],
     ['shortcut-cleaning', 'cleaning'],
     ['shortcut-awake', 'awake'],
+    ['shortcut-radial', 'radial'],
+    ['shortcut-output', 'output'],
 ];
-const ACTIONS = new Set(['screenshot', 'recording', 'color', 'mic', 'cleaning', 'awake']);
+const ACTIONS = new Set(['screenshot', 'recording', 'color', 'mic', 'cleaning', 'awake', 'radial', 'output', 'play-pause', 'next', 'prev', 'downloads']);
 
 /**
  * Everything Osmin shares between its capsules: the services (music, timer, files, ...), the event
@@ -201,7 +203,7 @@ export class OsminHost {
     /** A shortcut or a request of the settings window: a tool, the search or one of the window's pages. */
     _runAction(name) {
         if (ACTIONS.has(name) || name === 'dark' || name === 'night' || name === 'lock') {
-            this._actions ??= new ToolActions({events: this._events, services: this._services, settings: this._settings, ui: {closeCapsule: () => this._menu?.close()}});
+            this._actions ??= new ToolActions({events: this._events, services: this._services, settings: this._settings, ui: {closeCapsule: () => this._menu?.close()}, run: id => this._runAction(id)});
             const a = this._actions;
             switch (name) {
             case 'screenshot': a.screenshot(0); break;
@@ -209,6 +211,12 @@ export class OsminHost {
             case 'color': a.pickColor(); break;
             case 'mic': a.toggleMic(); break;
             case 'cleaning': a.cleaningMode(); break;
+            case 'radial': a.radialMenu(); break;
+            case 'output': a.cycleOutput(); break;
+            case 'play-pause': this._services.media.playPause(); break;
+            case 'next': this._services.media.next(); break;
+            case 'prev': this._services.media.previous(); break;
+            case 'downloads': Gio.AppInfo.launch_default_for_uri(`file://${GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)}`, null); break;
             case 'awake': a.setAwake(a.awake.active ? 0 : -1); break;
             case 'dark': a.toggleDark(); break;
             case 'night': a.toggleNight(); break;
