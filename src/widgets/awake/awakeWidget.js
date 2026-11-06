@@ -62,13 +62,13 @@ export class AwakeWidget extends OsminWidget {
         card.add_child(options.actor);
         const sub = new St.BoxLayout({vertical: true, style_class: 'osmin-subcard', x_expand: true});
         const iconLine = new St.BoxLayout({x_expand: true, style_class: 'osmin-value-row'});
-        iconLine.add_child(new St.Label({text: 'Active icon', style_class: 'osmin-value-label osmin-value-strong', x_expand: true}));
+        iconLine.add_child(new St.Label({text: 'Active icon', style_class: 'osmin-value-label', x_expand: true}));
         iconLine.add_child(new St.Label({text: 'Top bar icon', style_class: 'osmin-value-muted'}));
         sub.add_child(iconLine);
         this._icons = iconChoices(ICONS, icon => this._settings?.gsettings?.set_string('awake-icon', icon));
         sub.add_child(this._icons.actor);
         const colorLine = new St.BoxLayout({x_expand: true, style_class: 'osmin-value-row'});
-        colorLine.add_child(new St.Label({text: 'Active icon color', style_class: 'osmin-value-label osmin-value-strong', x_expand: true}));
+        colorLine.add_child(new St.Label({text: 'Active icon color', style_class: 'osmin-value-label', x_expand: true}));
         this._colorName = new St.Label({text: '', style_class: 'osmin-value-muted'});
         colorLine.add_child(this._colorName);
         sub.add_child(colorLine);
@@ -78,6 +78,10 @@ export class AwakeWidget extends OsminWidget {
 
         this._display = this._optionRow('video-display-symbolic', 'Allow the display to sleep', on => this._actions.power?.call('setDisplaySleep', {allow: on}));
         options.body.add_child(this._display.row);
+        const gs = this._settings?.gsettings;
+        this._onStart = this._optionRow('media-playback-start-symbolic', 'Keep awake when Osmin opens', on => gs?.set_boolean('awake-on-start', on));
+        this._onStart.set(!!gs?.get_boolean('awake-on-start'));
+        options.body.add_child(this._onStart.row);
         card.add_child(menuDivider());
         this._lid = switchRow({title: 'Keep going with the lid closed', subtitle: 'Works without an administrator password', onToggle: on => this._setLid(on)});
         card.add_child(this._lid.row);

@@ -51,7 +51,7 @@ const SHORTCUTS = [
     ['shortcut-quickpanel', 'quickpanel'],
     ['shortcut-output', 'output'],
 ];
-const ACTIONS = new Set(['screenshot', 'recording', 'color', 'mic', 'cleaning', 'awake', 'radial', 'output', 'play-pause', 'next', 'prev', 'downloads']);
+const ACTIONS = new Set(['screenshot', 'recording', 'color', 'mic', 'cleaning', 'awake', 'awake-on', 'radial', 'output', 'play-pause', 'next', 'prev', 'downloads']);
 
 /**
  * Everything Osmin shares between its capsules: the services (music, timer, files, ...), the event
@@ -132,6 +132,11 @@ export class OsminHost {
         this._syncSuperV();
         this._syncReceiving();
         this._watchInputSource();
+        if (this._settings.get('awake-on-start'))
+            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+                this._runAction('awake-on');
+                return GLib.SOURCE_REMOVE;
+            });
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._syncCapsules({rebuild: true}));
 
         const services = this._services;
@@ -219,6 +224,7 @@ export class OsminHost {
             case 'prev': this._services.media.previous(); break;
             case 'downloads': Gio.AppInfo.launch_default_for_uri(`file://${GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)}`, null); break;
             case 'awake': a.setAwake(a.awake.active ? 0 : -1); break;
+            case 'awake-on': if (!a.awake.active) a.setAwake(-1); break;
             case 'dark': a.toggleDark(); break;
             case 'night': a.toggleNight(); break;
             case 'lock': a.lock(); break;

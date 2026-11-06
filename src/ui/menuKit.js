@@ -412,13 +412,13 @@ export function colorDots(colors, onPick) {
     const actor = new St.BoxLayout({style_class: 'osmin-dots', x_expand: true});
     const dots = new Map();
     colors.forEach(color => {
-        const dot = new St.Button({style_class: 'osmin-dot', reactive: true, can_focus: true, track_hover: true, x_expand: true});
+        const dot = new St.Button({style_class: 'osmin-dot', reactive: true, can_focus: true, track_hover: true, x_align: Clutter.ActorAlign.CENTER});
         if (color)
             dot.style = `background-color: ${color};`;
         else
             dot.set_child(new St.Icon({icon_name: 'action-unavailable-symbolic', style_class: 'osmin-dot-none'}));
         dot.connect('clicked', () => onPick(color));
-        actor.add_child(dot);
+        actor.add_child(new St.Bin({child: dot, x_expand: true, style_class: 'osmin-dot-cell'}));
         dots.set(color, dot);
     });
     return {actor, set: value => dots.forEach((dot, color) => setChecked(dot, color === value))};

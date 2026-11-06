@@ -152,6 +152,11 @@
       <summary>Shortcut: quick panel</summary>
       <description>Opens the window of the top-bar button from anywhere. Empty means no shortcut.</description>
     </key>
+    <key name="awake-on-start" type="b">
+      <default>false</default>
+      <summary>Keep awake when Osmin starts</summary>
+      <description>Turns keep awake on every time Osmin starts (at login).</description>
+    </key>
     <key name="action-request" type="s">
       <default>''</default>
       <summary>Run an action (written by the settings window)</summary>

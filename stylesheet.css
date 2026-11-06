@@ -1859,8 +1859,8 @@
 .osmin-menu .popup-menu-content {
     padding: 0;
     border-radius: 26px;
-    background-color: rgba(34, 34, 40, 0.97);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    background-color: rgba(32, 40, 52, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .osmin-menu-item {
@@ -1876,15 +1876,18 @@
     spacing: 2px;
     padding: 5px;
     border-radius: 18px;
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .osmin-button.osmin-menu-tab {
     height: 40px;
     border-radius: 13px;
     padding: 0;
-    color: rgba(255, 255, 255, 0.62);
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.72);
 }
 
 .osmin-menu-tab StIcon {
@@ -1896,8 +1899,8 @@
 }
 
 .osmin-button.osmin-menu-tab:checked {
-    background-color: rgba(53, 132, 228, 0.28);
-    color: #62a0ea;
+    background-color: #255389;
+    color: #5aa9ff;
 }
 
 .osmin-menu-logo {
@@ -1946,6 +1949,11 @@
     border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
+.osmin-menu .osmin-card {
+    background-color: #313843;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
 .osmin-card-row {
     padding: 11px 14px;
     min-height: 26px;
@@ -1956,7 +1964,8 @@
 }
 
 .osmin-card-title {
-    font-size: 10.5pt;
+    font-size: 10pt;
+    font-weight: normal;
     color: rgba(255, 255, 255, 0.92);
 }
 
@@ -1992,7 +2001,7 @@
     min-height: 32px;
     padding: 0 8px;
     border-radius: 16px;
-    background-color: rgba(255, 255, 255, 0.09);
+    background-color: #3f454f;
     color: rgba(255, 255, 255, 0.90);
     font-size: 9.5pt;
 }
@@ -2125,7 +2134,7 @@
 .osmin-speed-value { color: white; font-size: 13pt; font-weight: 500; }
 .osmin-speed-label { color: rgba(255, 255, 255, 0.5); font-size: 9.5pt; }
 .osmin-vline { width: 1px; background-color: rgba(255, 255, 255, 0.1); }
-.osmin-pillbtn { border-radius: 99px; background-color: rgba(255, 255, 255, 0.1); padding: 4px 12px; color: rgba(255, 255, 255, 0.88); font-size: 9.5pt; }
+.osmin-pillbtn { border-radius: 99px; background-color: #3f454f; padding: 4px 12px; color: rgba(255, 255, 255, 0.88); font-size: 9.5pt; }
 .osmin-pillbtn:hover { background-color: rgba(255, 255, 255, 0.18); }
 .osmin-pillbtn-icon { icon-size: 13px; margin-right: 6px; }
 .osmin-pill-row { padding: 4px 14px; spacing: 8px; }
@@ -2161,8 +2170,9 @@
 .osmin-dropdown-item:hover { background-color: rgba(255, 255, 255, 0.1); }
 .osmin-dropdown-item:checked { background-color: rgba(53, 132, 228, 0.35); }
 .osmin-dots { spacing: 8px; padding: 2px 14px 8px 14px; }
-.osmin-dot { height: 26px; border-radius: 9px; border: 1px solid transparent; background-color: rgba(255, 255, 255, 0.06); }
-.osmin-dot:checked { border-color: #3584e4; }
+.osmin-dot { width: 18px; height: 18px; border-radius: 13px; border: 2px solid transparent; background-color: rgba(255, 255, 255, 0.06); }
+.osmin-dot:checked { border-color: #3b8ef5; }
+.osmin-dot-cell { padding: 3px; }
 .osmin-dot-none { icon-size: 14px; color: rgba(255, 255, 255, 0.5); }
 .osmin-icon-choice { height: 34px; border-radius: 9px; background-color: rgba(255, 255, 255, 0.07); border: 1px solid transparent; }
 .osmin-icon-choice:hover { background-color: rgba(255, 255, 255, 0.13); }
@@ -2194,3 +2204,9 @@
 .osmin-group-head { padding: 6px 8px; border-radius: 8px; }
 .osmin-group-title { color: rgba(255, 255, 255, 0.55); font-size: 8.5pt; font-weight: bold; letter-spacing: 1px; }
 .osmin-bar-readings { font-size: 9pt; padding-left: 6px; }
+
+/* The small option lines under "Options" of Keep awake: grey icon, small text */
+.osmin-option-line .osmin-icon-square-icon { icon-size: 14px; color: rgba(255, 255, 255, 0.72); }
+.osmin-option-line .osmin-card-title { font-size: 9.5pt; }
+.osmin-option-line { padding: 4px 14px; }
+.osmin-option-line .osmin-icon-square { width: 20px; margin-right: 8px; }
