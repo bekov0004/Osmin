@@ -48,6 +48,7 @@ const SHORTCUTS = [
     ['shortcut-cleaning', 'cleaning'],
     ['shortcut-awake', 'awake'],
     ['shortcut-radial', 'radial'],
+    ['shortcut-quickpanel', 'quickpanel'],
     ['shortcut-output', 'output'],
 ];
 const ACTIONS = new Set(['screenshot', 'recording', 'color', 'mic', 'cleaning', 'awake', 'radial', 'output', 'play-pause', 'next', 'prev', 'downloads']);
@@ -222,6 +223,8 @@ export class OsminHost {
             case 'night': a.toggleNight(); break;
             case 'lock': a.lock(); break;
             }
+        } else if (name === 'quickpanel') {
+            this._menu?.menu?.toggle();
         } else if (name.startsWith('page-')) {
             this._menu?.openPage(name.slice(5));
             this._menu?.menu?.open();

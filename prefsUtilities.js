@@ -187,16 +187,16 @@ export const utilityMethods = {
         return body;
     },
 
-    _togglesPage(settings) {
-        const body = this._body();
-        const form = this._form();
-        body.append(form);
+    _togglesPage(settings, into = null) {
+        const body = into ?? this._body();
+        const form = into ?? this._form();
+        if (!into)
+            body.append(form);
         this._title(form, _('Quick toggles'));
         this._pill(form, 'weather-clear-night-symbolic', _('Switch dark mode'), () => this._request(settings, 'dark'));
         this._pill(form, 'night-light-symbolic', _('Night light'), () => this._request(settings, 'night'));
-        this._hint(form, _('One-click system actions in the top-bar window.'));
+        this._keyboardLight(form);
 
-        this._title(form, _('Excluded drives'));
         const list = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4});
         const draw = () => {
             let child = list.get_first_child();
@@ -226,15 +226,18 @@ export const utilityMethods = {
         };
         settings.connect('changed::eject-excluded', draw);
         draw();
-        this._row(form, '', list);
-        this._hint(form, _('Drives in this list are never unmounted when using Eject all disks.'));
+        const drives = new Gtk.Expander({label: _('Excluded drives'), child: list, hexpand: true});
+        this._row(form, '', drives);
+        this._hint(form, _('Drives in the list are never unmounted when using Eject all disks.'));
+        this._hint(form, _('One-click system actions in the top-bar window and in the quick panel.'));
         return body;
     },
 
-    _cleaningPage(settings) {
-        const body = this._body();
-        const form = this._form();
-        body.append(form);
+    _cleaningPage(settings, into = null) {
+        const body = into ?? this._body();
+        const form = into ?? this._form();
+        if (!into)
+            body.append(form);
         this._title(form, _('Cleaning Mode'));
         this._pill(form, 'input-keyboard-symbolic', _('Lock keyboard now'), () => this._request(settings, 'cleaning'));
         this._hint(form, _('Locks the keyboard and the pointer so you can clean safely. Hold Esc for 3 seconds to finish; it ends by itself after a minute.'));
@@ -272,10 +275,11 @@ export const utilityMethods = {
         return body;
     },
 
-    _micPage(settings) {
-        const body = this._body();
-        const form = this._form();
-        body.append(form);
+    _micPage(settings, into = null) {
+        const body = into ?? this._body();
+        const form = into ?? this._form();
+        if (!into)
+            body.append(form);
         this._title(form, _('Mute microphone'));
         this._pill(form, 'microphone-sensitivity-muted-symbolic', _('Mute microphone'), () => this._request(settings, 'mic'));
         this._hint(form, _('Cuts the microphone with a click or a shortcut, across every app.'));
@@ -310,20 +314,75 @@ export const utilityMethods = {
         return sw;
     },
 
-    _cameraPage(settings) {
+    /** Keyboard backlight: a switch and a level, when this computer has one. */
+    _keyboardLight(form) {
+        let proxy = null;
+        try {
+            proxy = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM, Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES, null,
+                'org.freedesktop.UPower', '/org/freedesktop/UPower/KbdBacklight', 'org.freedesktop.UPower.KbdBacklight', null);
+            const max = proxy.call_sync('GetMaxBrightness', null, Gio.DBusCallFlags.NONE, 500, null).deepUnpack()[0];
+            const now = proxy.call_sync('GetBrightness', null, Gio.DBusCallFlags.NONE, 500, null).deepUnpack()[0];
+            const set = v => proxy.call_sync('SetBrightness', new GLib.Variant('(i)', [Math.round(v)]), Gio.DBusCallFlags.NONE, 500, null);
+            const sw = new Gtk.Switch({valign: Gtk.Align.CENTER, active: now > 0});
+            const scale = new Gtk.Scale({orientation: Gtk.Orientation.HORIZONTAL, draw_value: false, hexpand: true,
+                adjustment: new Gtk.Adjustment({lower: 0, upper: 100, step_increment: 5, value: now * 100 / max})});
+            const label = new Gtk.Label({label: `${Math.round(now * 100 / max)}%`, css_classes: ['dim']});
+            scale.connect('value-changed', () => {
+                label.label = `${Math.round(scale.get_value())}%`;
+                set(scale.get_value() * max / 100);
+                sw.set_active(scale.get_value() > 0);
+            });
+            sw.connect('state-set', (_s, state) => {
+                if (state && scale.get_value() === 0)
+                    scale.set_value(60);
+                if (!state)
+                    scale.set_value(0);
+                return false;
+            });
+            this._row(form, _('Keyboard light'), sw);
+            const line = new Gtk.Box({spacing: 10, hexpand: true});
+            line.append(scale);
+            line.append(label);
+            this._row(form, '', line);
+        } catch (e) {
+            // No keyboard backlight: no row.
+        }
+    },
+
+    /** One page for every tool, with the shortcut that opens the top-bar window from anywhere. */
+    _quickPanelPage(settings) {
         const body = this._body();
         const form = this._form();
         body.append(form);
+        this._title(form, _('Quick panel'));
+        this._pill(form, 'view-app-grid-symbolic', _('Open quick panel'), () => this._request(settings, 'quickpanel'));
+        this._hint(form, _('The window of the top-bar button with your favorite tools, summoned by a shortcut from anywhere.'));
+        this._hint(form, _('Use the Customize button in the window to choose, hide and drag the tools around.'));
+        this._shortcutPair(form, settings, 'shortcut-quickpanel', '<Control><Super>v');
+        this._togglesPage(settings, form);
+        this._micPage(settings, form);
+        this._cameraPage(settings, form);
+        this._scratchpadPage(settings, form);
+        this._cleaningPage(settings, form);
+        return body;
+    },
+
+    _cameraPage(settings, into = null) {
+        const body = into ?? this._body();
+        const form = into ?? this._form();
+        if (!into)
+            body.append(form);
         this._title(form, _('Camera preview'));
         this._row(form, _('Show in the capsule'), this._widgetSwitch(settings, 'mirror'));
         this._hint(form, _('A mirror: see yourself in the capsule before a call. The camera is on only while the capsule shows it.'));
         return body;
     },
 
-    _scratchpadPage(settings) {
-        const body = this._body();
-        const form = this._form();
-        body.append(form);
+    _scratchpadPage(settings, into = null) {
+        const body = into ?? this._body();
+        const form = into ?? this._form();
+        if (!into)
+            body.append(form);
         this._title(form, _('Scratchpad'));
         this._row(form, _('Show in the capsule'), this._widgetSwitch(settings, 'notes'));
         this._hint(form, _('Quick notes in separate tabs, kept on this computer.'));

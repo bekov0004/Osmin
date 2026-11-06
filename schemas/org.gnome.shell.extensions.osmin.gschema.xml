@@ -147,6 +147,11 @@
       <summary>Outputs left out of the output switcher</summary>
       <description>Names of sound outputs that the next-output shortcut skips.</description>
     </key>
+    <key name="shortcut-quickpanel" type="as">
+      <default>[]</default>
+      <summary>Shortcut: quick panel</summary>
+      <description>Opens the window of the top-bar button from anywhere. Empty means no shortcut.</description>
+    </key>
     <key name="action-request" type="s">
       <default>''</default>
       <summary>Run an action (written by the settings window)</summary>

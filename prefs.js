@@ -295,6 +295,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             ]],
             [_('Utilities'), [
                 ['command', _('Command Bar'), 'system-search-symbolic', this._commandPage(settings)],
+                ['quickpanel', _('Quick panel'), 'starred-symbolic', this._quickPanelPage(settings)],
                 ['toggles', _('Quick toggles'), 'emblem-system-symbolic', this._togglesPage(settings)],
                 ['cleaning', _('Cleaning Mode'), 'input-keyboard-symbolic', this._cleaningPage(settings)],
                 ['screenshot', _('Screenshot'), 'applets-screenshooter-symbolic', this._screenshotPage(settings)],
@@ -324,7 +325,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         ];
         // What the blue "Try it" button of a page does.
         const TRY = {
-            command: 'command', toggles: 'dark', cleaning: 'cleaning', screenshot: 'screenshot', color: 'color',
+            command: 'command', quickpanel: 'quickpanel', toggles: 'dark', cleaning: 'cleaning', screenshot: 'screenshot', color: 'color',
             mic: 'mic', radial: 'radial', output: 'output', sound: 'page-sound', tools: 'page-awake',
         };
 
