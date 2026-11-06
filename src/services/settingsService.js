@@ -55,6 +55,10 @@ export const DEFAULTS = Object.freeze({
     'activity-downloads': true,
     'activity-timer': true,
     'desktops-per-monitor': false,
+    'awake-icon': 'weather-clear-night-symbolic',
+    'awake-color': '#ff9500',
+    'menu-hidden': [],
+    'menu-order': [],
     'activity-calendar': true,
     'activity-files': true,
     'peek-media-seconds': 1.5,
@@ -101,7 +105,14 @@ export class SettingsService extends Signals.EventEmitter {
     get enabledWidgets() {
         const known = new Set(WIDGET_INFO.map(w => w.id));
         const ids = [];
-        for (const id of this.get('enabled-widgets')) {
+        let stored = [...this.get('enabled-widgets')];
+        // The old Quick Toggles page became four pages: Keep awake, Displays, Utilities and Quick toggles.
+        if (stored.includes('tools')) {
+            stored = stored.flatMap(id => id === 'tools' ? ['awake', 'displays', 'utilities', 'toggles'] : [id]);
+            if (!stored.includes('controls'))
+                stored.push('controls');
+        }
+        for (const id of stored) {
             if (known.has(id) && !ids.includes(id))
                 ids.push(id);
         }

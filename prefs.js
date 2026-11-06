@@ -168,13 +168,17 @@ const WIDGET_ICONS = {
     todo: 'checkbox-checked-symbolic',
     notes: 'document-edit-symbolic',
     shortcuts: 'view-app-grid-symbolic',
-    tools: 'applications-utilities-symbolic',
+    awake: 'weather-clear-night-symbolic',
+    displays: 'video-display-symbolic',
+    utilities: 'applications-utilities-symbolic',
+    controls: 'preferences-other-symbolic',
+    toggles: 'view-list-symbolic',
     focus: 'preferences-system-time-symbolic',
     system: 'utilities-system-monitor-symbolic',
     network: 'network-wireless-symbolic',
     disks: 'drive-harddisk-symbolic',
     power: 'battery-full-symbolic',
-    sound: 'audio-speakers-symbolic',
+    sound: 'audio-volume-high-symbolic',
     downloads: 'folder-download-symbolic',
     input: 'input-mouse-symbolic',
     windows: 'focus-windows-symbolic',
@@ -322,7 +326,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const TOOLS = _('Tools window (top-bar button)');
         const ISLAND = _('Island widgets (the capsule)');
         // The tools in the order of the tabs of their window, then the capsule's widgets.
-        const MENU_ORDER = ['windows', 'workspaces', 'tools', 'focus', 'system', 'network', 'disks', 'power', 'sound', 'input', 'downloads', 'agents'];
+        const MENU_ORDER = ['awake', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
         const rank = w => (w.menu ? MENU_ORDER.indexOf(w.id) : 100 + WIDGET_INFO.indexOf(w));
         const widgetRows = [...WIDGET_INFO].sort((a, b) => rank(a) - rank(b)).map(w => ({
             group: w.menu ? TOOLS : ISLAND,
@@ -360,7 +364,8 @@ export default class OsminPreferences extends ExtensionPreferences {
 
         // What a feature costs while it is on, said plainly (like "Nothing at rest").
         const COST = {
-            windows: _('Nothing at rest'), workspaces: _('Nothing at rest'), tools: _('Nothing at rest'),
+            windows: _('Nothing at rest'), workspaces: _('Nothing at rest'), awake: _('Nothing at rest'), displays: _('Nothing at rest'),
+            utilities: _('Nothing at rest'), controls: _('Nothing at rest'), toggles: _('Nothing at rest'),
             focus: _('Nothing at rest'), input: _('Nothing at rest'), timer: _('Nothing at rest'),
             todo: _('Nothing at rest'), notes: _('Nothing at rest'), shortcuts: _('Nothing at rest'),
             system: _('Checks every 10 s'), network: _('Checks every 10 s'), disks: _('Checks every 10 s'), power: _('Checks every 10 s'),
@@ -391,7 +396,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const PRESETS = [
             [_('Everything'), _('Every tool and widget.'), WIDGET_IDS],
             [_('Essentials'), _('Windows, quick toggles, focus, system and sound, with music, calendar and mirror.'),
-                ['media', 'calendar', 'mirror', 'windows', 'tools', 'focus', 'system', 'sound']],
+                ['media', 'calendar', 'mirror', 'awake', 'sound', 'system', 'utilities', 'toggles', 'windows']],
             [_('Light island'), _('Only music and calendar; the tools window is empty.'), ['media', 'calendar']],
         ];
         const summary = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['s-card'], margin_bottom: 6});

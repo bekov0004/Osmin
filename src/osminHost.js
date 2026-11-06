@@ -337,6 +337,9 @@ export class OsminHost {
         const byId = new Map(WIDGET_CLASSES.map(WidgetClass => [WidgetClass.id, WidgetClass]));
         const ui = {
             closeCapsule: () => this._menu?.close(),
+            setBarLook: (icon, color) => this._menu?.setLook(icon, color),
+            openPage: id => this._menu?.openPage(id),
+            openSection: section => this.openSection(section),
             beginTextInput: () => {},
             endTextInput: () => {},
             showCard: (activity, options) => services.activities.peek(activity, {...options, force: true, target: this.capsules[0]}),

@@ -1,3 +1,4 @@
+import Clutter from 'gi://Clutter';
 import GioUnix from 'gi://GioUnix';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -38,9 +39,18 @@ export class ToolsMenu {
         this._button?.menu.close();
     }
 
+    /** While the computer is kept awake the icon of the button changes (icon null: back to normal). */
+    setLook(icon, color) {
+        if (!this._icon)
+            return;
+        this._icon.icon_name = icon ?? 'view-app-grid-symbolic';
+        this._icon.style = icon && color ? `color: ${color};` : '';
+    }
+
     enable() {
         this._button = new PanelMenu.Button(0.5, 'Osmin', false);
-        this._button.add_child(new St.Icon({icon_name: 'view-app-grid-symbolic', style_class: 'system-status-icon'}));
+        this._icon = new St.Icon({icon_name: 'view-app-grid-symbolic', style_class: 'system-status-icon'});
+        this._button.add_child(this._icon);
         this._button.menu.actor.add_style_class_name('osmin-menu');
 
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false, activate: false});
@@ -65,8 +75,17 @@ export class ToolsMenu {
         });
         root.add_child(tabs);
 
-        this._title = new St.Label({style_class: 'osmin-menu-title'});
-        root.add_child(this._title);
+        const titleRow = new St.BoxLayout({x_expand: true, style_class: 'osmin-menu-titlerow'});
+        this._title = new St.Label({style_class: 'osmin-menu-title', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        titleRow.add_child(this._title);
+        this._customize = createButton({iconName: 'media-eq-symbolic', styleClass: 'osmin-menu-customize', onClick: () => this._setCustomizing(true)});
+        this._customize.accessible_name = 'Customize';
+        this._reset = createButton({iconName: 'edit-undo-symbolic', styleClass: 'osmin-menu-reset', onClick: () => this._widgets[this._current]?.resetLayout?.()});
+        this._ok = createButton({iconName: 'object-select-symbolic', label: 'OK', styleClass: 'osmin-menu-ok', onClick: () => this._setCustomizing(false)});
+        [this._customize, this._reset, this._ok].forEach(b => titleRow.add_child(b));
+        this._reset.hide();
+        this._ok.hide();
+        root.add_child(titleRow);
 
         // The pages: only the chosen one is shown; a tall one scrolls.
         this._scroll = new St.ScrollView({
@@ -75,7 +94,7 @@ export class ToolsMenu {
             vscrollbar_policy: St.PolicyType.AUTOMATIC,
             overlay_scrollbars: true,
         });
-        const pages = new St.BoxLayout({vertical: true, x_expand: true});
+        const pages = new St.BoxLayout({vertical: true, x_expand: true, y_expand: false, y_align: Clutter.ActorAlign.START});
         this._scroll.set_child(pages);
         root.add_child(this._scroll);
         // A widget laid out with the menu kit is a page as it is; any other is put in a card under its title.
@@ -89,6 +108,8 @@ export class ToolsMenu {
                 card.add_child(widget.view);
                 page.add_child(card);
             }
+            page.y_expand = false;
+            page.y_align = Clutter.ActorAlign.START;
             page.hide();
             pages.add_child(page);
             return page;
@@ -127,6 +148,24 @@ export class ToolsMenu {
         Main.panel.addToStatusArea(ROLE, this._button, 0, 'right');
     }
 
+    /** The customize mode of a page: its rows get handles and eyes. */
+    _setCustomizing(on) {
+        const widget = this._widgets[this._current];
+        widget?.setCustomizing?.(on);
+        this._customizing = on;
+        this._customize.visible = !on && !!widget?.customizable;
+        this._reset.visible = this._ok.visible = on;
+    }
+
+    /** Shows the page of the widget with this id, when it is one of the tabs. @returns {boolean} */
+    openPage(id) {
+        const index = this._widgets.findIndex(w => w.constructor.id === id);
+        if (index < 0)
+            return false;
+        this._select(index);
+        return true;
+    }
+
     _onOpenChanged(open) {
         const widget = this._widgets[this._current];
         if (open)
@@ -141,6 +180,8 @@ export class ToolsMenu {
         const open = this._button.menu.isOpen;
         if (open)
             this._widgets[this._current]?.onPageHidden();
+        if (this._customizing)
+            this._setCustomizing(false);
         this._pages[this._current]?.hide();
         this._current = index;
         const widget = this._widgets[index];
@@ -152,6 +193,7 @@ export class ToolsMenu {
             else
                 tab.remove_style_pseudo_class('checked');
         });
+        this._customize.visible = !!widget.customizable;
         this._scroll.vadjustment.value = 0;
         if (open)
             widget.onPageShown();

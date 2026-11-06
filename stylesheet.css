@@ -2136,3 +2136,60 @@
 .osmin-badge { background-color: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1px 8px; margin-left: 4px; font-size: 8.5pt; color: rgba(255, 255, 255, 0.7); }
 .osmin-icon-row { padding: 6px 14px; spacing: 0; }
 .osmin-meter-green .osmin-system-fill { background-color: #30d158; }
+
+/* Pieces for the pages that copy the reference: folds, check boxes, icon lines, pickers */
+.osmin-collapse-head { padding: 8px 14px; border-radius: 10px; }
+.osmin-collapse-head:hover { background-color: rgba(255, 255, 255, 0.05); }
+.osmin-collapse-title { color: rgba(255, 255, 255, 0.78); font-size: 10.5pt; }
+.osmin-collapse-count { color: #4a9bff; font-size: 9pt; font-weight: 600; }
+.osmin-check-row { padding: 6px 14px 6px 22px; border-radius: 8px; }
+.osmin-check-row:hover { background-color: rgba(255, 255, 255, 0.04); }
+.osmin-check-texts { padding-left: 10px; spacing: 1px; }
+.osmin-checkbox { border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.35); background-color: rgba(255, 255, 255, 0.05); }
+.osmin-checkbox:checked { background-color: #3584e4; border-color: #3584e4; }
+.osmin-checkbox-tick { icon-size: 12px; color: white; }
+.osmin-icon-line { padding: 8px 14px; }
+.osmin-icon-line:hover { background-color: rgba(255, 255, 255, 0.05); }
+.osmin-icon-square { width: 28px; height: 28px; margin-right: 12px; }
+.osmin-icon-square-icon { icon-size: 18px; color: #3b8ef5; }
+.osmin-dropdown { background-color: rgba(255, 255, 255, 0.09); border-radius: 12px; padding: 4px 10px; min-height: 22px; }
+.osmin-dropdown:hover { background-color: rgba(255, 255, 255, 0.15); }
+.osmin-dropdown-label { color: rgba(255, 255, 255, 0.9); font-size: 9.5pt; }
+.osmin-dropdown-arrow { icon-size: 12px; color: rgba(255, 255, 255, 0.6); }
+.osmin-dropdown-list { background-color: rgba(20, 20, 24, 0.96); border-radius: 12px; padding: 4px; margin-top: 3px; }
+.osmin-dropdown-item { padding: 5px 10px; border-radius: 8px; color: rgba(255, 255, 255, 0.85); font-size: 9.5pt; }
+.osmin-dropdown-item:hover { background-color: rgba(255, 255, 255, 0.1); }
+.osmin-dropdown-item:checked { background-color: rgba(53, 132, 228, 0.35); }
+.osmin-dots { spacing: 8px; padding: 2px 14px 8px 14px; }
+.osmin-dot { height: 26px; border-radius: 9px; border: 1px solid transparent; background-color: rgba(255, 255, 255, 0.06); }
+.osmin-dot:checked { border-color: #3584e4; }
+.osmin-dot-none { icon-size: 14px; color: rgba(255, 255, 255, 0.5); }
+.osmin-icon-choice { height: 34px; border-radius: 9px; background-color: rgba(255, 255, 255, 0.07); border: 1px solid transparent; }
+.osmin-icon-choice:hover { background-color: rgba(255, 255, 255, 0.13); }
+.osmin-icon-choice:checked { border-color: #3584e4; }
+.osmin-icon-choice-icon { icon-size: 18px; color: #ff9500; }
+.osmin-slider-row { padding: 4px 14px 2px 14px; spacing: 8px; }
+.osmin-subcard { background-color: rgba(255, 255, 255, 0.04); border-radius: 12px; margin: 4px 14px 6px 14px; padding: 4px 0; }
+.osmin-hint { color: rgba(255, 255, 255, 0.35); font-size: 9pt; padding: 2px 14px 6px 14px; }
+.osmin-custom-line { padding: 0 6px 0 4px; }
+.osmin-custom-handle { padding: 8px 6px; color: rgba(255, 255, 255, 0.4); border-radius: 8px; }
+.osmin-custom-handle:hover { color: white; background-color: rgba(255, 255, 255, 0.08); }
+.osmin-custom-eye { padding: 6px 8px; border-radius: 10px; background-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.6); }
+.osmin-custom-eye:hover { background-color: rgba(255, 255, 255, 0.16); }
+.osmin-menu-customize { padding: 4px 6px; border-radius: 8px; color: rgba(255, 255, 255, 0.55); }
+.osmin-menu-customize:hover { background-color: rgba(255, 255, 255, 0.1); }
+.osmin-menu-ok { padding: 4px 14px; border-radius: 10px; background-color: #0a84ff; color: white; font-weight: 600; }
+.osmin-menu-reset { padding: 4px 8px; border-radius: 10px; background-color: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8); }
+.osmin-option-line { padding: 6px 14px 6px 22px; }
+.osmin-labelled { padding: 6px 14px 2px 14px; spacing: 8px; }
+.osmin-app-line { padding: 8px 14px; spacing: 12px; }
+.osmin-app-icon { icon-size: 30px; background-color: rgba(255, 255, 255, 0.08); border-radius: 9px; padding: 3px; }
+.osmin-app-body { spacing: 4px; }
+.osmin-app-slider { spacing: 6px; }
+.osmin-app-reset { padding: 3px 5px; border-radius: 8px; color: rgba(255, 255, 255, 0.55); }
+.osmin-app-reset:hover { background-color: rgba(255, 255, 255, 0.1); }
+
+/* The cards of the top-bar window are not the notification cards above: no gap between rows */
+.osmin-menu .osmin-card { spacing: 0; width: auto; }
+.osmin-group-head { padding: 6px 8px; border-radius: 8px; }
+.osmin-group-title { color: rgba(255, 255, 255, 0.55); font-size: 8.5pt; font-weight: bold; letter-spacing: 1px; }

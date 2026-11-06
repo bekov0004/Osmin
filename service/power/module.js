@@ -19,19 +19,69 @@ export class PowerModule extends Module {
         this._until = 0;
         this._forever = false;
         this._timer = 0;
+        this._allowDisplaySleep = false;
+        this._lidFd = null;
     }
 
     get state() {
-        return {until: this._until, forever: this._forever};
+        return {until: this._until, forever: this._forever, lid: !!this._lidFd, allowDisplaySleep: this._allowDisplaySleep};
     }
 
     stop() {
         this._release();
+        this._releaseLid();
+    }
+
+    /** Lets the display go to sleep while the computer is kept awake (or not). */
+    async rpc_setDisplaySleep({allow}) {
+        this._allowDisplaySleep = !!allow;
+        if (this._cookie) {
+            const until = this._until, forever = this._forever;
+            const minutes = forever ? -1 : Math.max(1, Math.ceil((until - Date.now()) / 60000));
+            await this.rpc_setAwake({minutes, allowDisplaySleep: this._allowDisplaySleep});
+        }
+        this.emitState();
+    }
+
+    /**
+     * Keeps the computer running when the lid is closed: a systemd "handle-lid-switch" inhibitor,
+     * which a user may take for the active session (no password).
+     */
+    async rpc_setLid({on}) {
+        this._releaseLid();
+        if (on) {
+            await new Promise((resolve, reject) => {
+                Gio.DBus.system.call_with_unix_fd_list('org.freedesktop.login1', '/org/freedesktop/login1', 'org.freedesktop.login1.Manager',
+                    'Inhibit', new GLib.Variant('(ssss)', ['handle-lid-switch', 'Osmin', 'Keep going with the lid closed', 'block']),
+                    null, Gio.DBusCallFlags.NONE, 5000, null, null, (connection, result) => {
+                        try {
+                            const [, fds] = connection.call_with_unix_fd_list_finish(result);
+                            this._lidFd = fds.get(0);
+                            resolve();
+                        } catch (e) {
+                            reject(new Error(`The lid cannot be kept open (${e.message})`));
+                        }
+                    });
+            });
+        }
+        this.emitState();
+    }
+
+    _releaseLid() {
+        if (this._lidFd !== null) {
+            try {
+                GLib.close(this._lidFd);
+            } catch (e) {
+                // already closed
+            }
+            this._lidFd = null;
+        }
     }
 
     /** @param {{minutes: number}} args minutes: 0 turns it off, -1 keeps awake until turned off */
-    async rpc_setAwake({minutes}) {
+    async rpc_setAwake({minutes, allowDisplaySleep = this._allowDisplaySleep}) {
         this._release();
+        this._allowDisplaySleep = !!allowDisplaySleep;
         if (minutes !== 0) {
             await this._inhibit();
             if (minutes > 0) {
@@ -53,7 +103,7 @@ export class PowerModule extends Module {
     _inhibit() {
         return new Promise((resolve, reject) => {
             Gio.DBus.session.call('org.gnome.SessionManager', '/org/gnome/SessionManager', 'org.gnome.SessionManager',
-                'Inhibit', new GLib.Variant('(susu)', ['Osmin', 0, 'Keep awake', INHIBIT_IDLE | INHIBIT_SUSPEND]),
+                'Inhibit', new GLib.Variant('(susu)', ['Osmin', 0, 'Keep awake', (this._allowDisplaySleep ? 0 : INHIBIT_IDLE) | INHIBIT_SUSPEND]),
                 null, Gio.DBusCallFlags.NONE, 5000, null, (connection, result) => {
                     try {
                         [this._cookie] = connection.call_finish(result).deepUnpack();

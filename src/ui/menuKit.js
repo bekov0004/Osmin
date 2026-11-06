@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import Pango from 'gi://Pango';
 import St from 'gi://St';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
@@ -51,9 +52,10 @@ export function menuRow({title, subtitle = '', control = null, onClick = null}) 
 /** A switch row: clicking anywhere on it toggles. @returns {{row: St.Widget, set: Function}} */
 export function switchRow({title, subtitle = '', state = false, onToggle}) {
     const toggle = new PopupMenu.Switch(state);
-    const {row, subtitle: subtitleLabel} = menuRow({title, subtitle, control: toggle, onClick: () => onToggle(!toggle.state)});
+    const {row, title: titleLabel, subtitle: subtitleLabel} = menuRow({title, subtitle, control: toggle, onClick: () => onToggle(!toggle.state)});
     return {
         row,
+        title: titleLabel,
         set: value => {
             toggle.state = value;
         },
@@ -252,4 +254,186 @@ export function meterRow(label, {icon = null, expandable = false} = {}) {
         },
         setLabel: text => (name.text = text),
     };
+}
+
+/** A line that folds: a chevron and a title; the body shows when it is open. @returns {{actor, body, setOpen}} */
+export function collapsible(title, {open = false, count = null} = {}) {
+    const actor = new St.BoxLayout({vertical: true, x_expand: true});
+    const head = new St.Button({style_class: 'osmin-collapse-head', reactive: true, can_focus: true, track_hover: true, x_expand: true});
+    const line = new St.BoxLayout({x_expand: true});
+    const chevron = new St.Icon({icon_name: 'pan-end-symbolic', style_class: 'osmin-meter-chevron', y_align: Clutter.ActorAlign.CENTER});
+    line.add_child(chevron);
+    const label = new St.Label({text: title, style_class: 'osmin-collapse-title', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+    line.add_child(label);
+    const counter = new St.Label({text: count ?? '', style_class: 'osmin-collapse-count', y_align: Clutter.ActorAlign.CENTER, visible: count !== null});
+    line.add_child(counter);
+    head.set_child(line);
+    const body = new St.BoxLayout({vertical: true, x_expand: true, visible: open});
+    const setOpen = value => {
+        body.visible = value;
+        chevron.icon_name = value ? 'pan-down-symbolic' : 'pan-end-symbolic';
+    };
+    head.connect('clicked', () => setOpen(!body.visible));
+    setOpen(open);
+    actor.add_child(head);
+    actor.add_child(body);
+    return {actor, body, setOpen, setCount: text => {
+        counter.text = text;
+        counter.visible = true;
+    }, label};
+}
+
+/** A row with a check box, a title and a muted line: the options of a page. @returns {{row, set}} */
+export function checkRow({title, subtitle = '', state = false, onToggle}) {
+    const box = new St.Widget({style_class: 'osmin-checkbox', width: 18, height: 18, y_align: Clutter.ActorAlign.START, layout_manager: new Clutter.BinLayout()});
+    const tick = new St.Icon({icon_name: 'object-select-symbolic', style_class: 'osmin-checkbox-tick', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, x_expand: true, y_expand: true});
+    box.add_child(tick);
+    let on = state;
+    const apply = () => {
+        tick.visible = on;
+        if (on)
+            box.add_style_pseudo_class('checked');
+        else
+            box.remove_style_pseudo_class('checked');
+    };
+    apply();
+    const row = new St.Button({style_class: 'osmin-check-row', reactive: true, can_focus: true, track_hover: true, x_expand: true});
+    const line = new St.BoxLayout({x_expand: true});
+    line.add_child(box);
+    const texts = new St.BoxLayout({vertical: true, x_expand: true, style_class: 'osmin-check-texts'});
+    texts.add_child(new St.Label({text: title, style_class: 'osmin-card-title'}));
+    if (subtitle) {
+        const sub = new St.Label({text: subtitle, style_class: 'osmin-card-subtitle'});
+        sub.clutter_text.line_wrap = true;
+        texts.add_child(sub);
+    }
+    line.add_child(texts);
+    row.set_child(line);
+    row.connect('clicked', () => {
+        on = !on;
+        apply();
+        onToggle(on);
+    });
+    return {row, set: value => {
+        on = value;
+        apply();
+    }};
+}
+
+/** A line with an icon in a small square, a title, an optional muted line and a control (or a chevron). */
+export function iconRow({icon, title, subtitle = '', control = null, chevron = false, onClick = null, extra = null}) {
+    const row = new St.Button({style_class: 'osmin-icon-line', reactive: !!onClick, can_focus: !!onClick, track_hover: !!onClick, x_expand: true});
+    const line = new St.BoxLayout({x_expand: true});
+    const square = new St.Bin({style_class: 'osmin-icon-square', y_align: Clutter.ActorAlign.CENTER});
+    square.set_child(new St.Icon({icon_name: icon, style_class: 'osmin-icon-square-icon'}));
+    line.add_child(square);
+    const texts = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+    const titleLabel = new St.Label({text: title, style_class: 'osmin-card-title'});
+    texts.add_child(titleLabel);
+    let sub = null;
+    if (subtitle) {
+        sub = new St.Label({text: subtitle, style_class: 'osmin-card-subtitle'});
+        sub.clutter_text.line_wrap = true;
+        sub.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        sub.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        texts.add_child(sub);
+    }
+    if (extra)
+        texts.add_child(extra);
+    line.add_child(texts);
+    if (control) {
+        control.y_align = Clutter.ActorAlign.CENTER;
+        line.add_child(control);
+    } else if (chevron) {
+        line.add_child(new St.Icon({icon_name: 'pan-end-symbolic', style_class: 'osmin-meter-chevron', y_align: Clutter.ActorAlign.CENTER}));
+    }
+    row.set_child(line);
+    if (onClick)
+        row.connect('clicked', () => onClick());
+    return {row, title: titleLabel, subtitle: sub};
+}
+
+/**
+ * A button that shows its choice and opens a list under it: the "Default ⌃⌄" pickers.
+ * @returns {{actor: St.BoxLayout, button: St.Button, setItems: Function, setCurrent: Function}}
+ */
+export function dropdown({items = [], current = null, onPick}) {
+    const actor = new St.BoxLayout({vertical: true, x_expand: true});
+    const button = new St.Button({style_class: 'osmin-dropdown', reactive: true, can_focus: true, track_hover: true, x_expand: true});
+    const line = new St.BoxLayout({x_expand: true});
+    const label = new St.Label({text: '', style_class: 'osmin-dropdown-label', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+    label.clutter_text.ellipsize = 3;
+    line.add_child(label);
+    line.add_child(new St.Icon({icon_name: 'pan-down-symbolic', style_class: 'osmin-dropdown-arrow'}));
+    button.set_child(line);
+    const list = new St.BoxLayout({vertical: true, style_class: 'osmin-dropdown-list', visible: false, x_expand: true});
+    actor.add_child(button);
+    actor.add_child(list);
+    let entries = [];
+    let value = current;
+    const fill = () => {
+        list.destroy_all_children();
+        entries.forEach(({id, label: text}) => {
+            const item = new St.Button({style_class: 'osmin-dropdown-item', reactive: true, track_hover: true, x_expand: true});
+            item.set_child(new St.Label({text, x_expand: true}));
+            if (id === value)
+                item.add_style_pseudo_class('checked');
+            item.connect('clicked', () => {
+                list.hide();
+                value = id;
+                label.text = text;
+                onPick(id);
+            });
+            list.add_child(item);
+        });
+        label.text = entries.find(e => e.id === value)?.label ?? entries[0]?.label ?? '';
+    };
+    button.connect('clicked', () => {
+        list.visible = !list.visible;
+    });
+    entries = items;
+    fill();
+    return {
+        actor,
+        button,
+        setItems: list2 => {
+            entries = list2;
+            fill();
+        },
+        setCurrent: id => {
+            value = id;
+            fill();
+        },
+    };
+}
+
+/** A row of coloured dots to choose from ("" is the no-colour dot). @returns {{actor, set}} */
+export function colorDots(colors, onPick) {
+    const actor = new St.BoxLayout({style_class: 'osmin-dots', x_expand: true});
+    const dots = new Map();
+    colors.forEach(color => {
+        const dot = new St.Button({style_class: 'osmin-dot', reactive: true, can_focus: true, track_hover: true, x_expand: true});
+        if (color)
+            dot.style = `background-color: ${color};`;
+        else
+            dot.set_child(new St.Icon({icon_name: 'action-unavailable-symbolic', style_class: 'osmin-dot-none'}));
+        dot.connect('clicked', () => onPick(color));
+        actor.add_child(dot);
+        dots.set(color, dot);
+    });
+    return {actor, set: value => dots.forEach((dot, color) => setChecked(dot, color === value))};
+}
+
+/** A row of icons to choose from. @returns {{actor, set}} */
+export function iconChoices(icons, onPick) {
+    const actor = new St.BoxLayout({style_class: 'osmin-dots', x_expand: true});
+    const buttons = new Map();
+    icons.forEach(icon => {
+        const button = new St.Button({style_class: 'osmin-icon-choice', reactive: true, can_focus: true, track_hover: true, x_expand: true});
+        button.set_child(new St.Icon({icon_name: icon, style_class: 'osmin-icon-choice-icon'}));
+        button.connect('clicked', () => onPick(icon));
+        actor.add_child(button);
+        buttons.set(icon, button);
+    });
+    return {actor, set: value => buttons.forEach((button, icon) => setChecked(button, icon === value))};
 }

@@ -16,7 +16,11 @@ import {DisksWidget} from './disks/disksWidget.js';
 import {PowerWidget} from './power/powerWidget.js';
 import {SystemWidget} from './system/systemWidget.js';
 import {TimerWidget} from './timer/timerWidget.js';
-import {ToolsWidget} from './tools/toolsWidget.js';
+import {AwakeWidget} from './awake/awakeWidget.js';
+import {ControlsWidget} from './controls/controlsWidget.js';
+import {DisplaysWidget} from './displays/displaysWidget.js';
+import {TogglesWidget} from './toggles/togglesWidget.js';
+import {UtilitiesWidget} from './utilities/utilitiesWidget.js';
 import {TodoWidget} from './todo/todoWidget.js';
 
 /** All widgets by id. The user chooses which ones to show and in what order. */
@@ -28,7 +32,11 @@ export const WIDGET_CLASSES = [
     TodoWidget,
     NotesWidget,
     ShortcutsWidget,
-    ToolsWidget,
+    AwakeWidget,
+    DisplaysWidget,
+    UtilitiesWidget,
+    ControlsWidget,
+    TogglesWidget,
     FocusWidget,
     SystemWidget,
     NetworkWidget,

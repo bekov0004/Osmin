@@ -103,13 +103,13 @@
     </key>
 
     <key name="enabled-widgets" type="as">
-      <default>['media', 'calendar', 'mirror', 'windows', 'workspaces', 'tools', 'focus', 'system', 'network', 'disks', 'power', 'sound', 'input', 'downloads']</default>
+      <default>['media', 'calendar', 'mirror', 'awake', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces']</default>
       <summary>Widgets and their order</summary>
       <description>The widgets shown in the expanded capsule and in the window of the top-bar button, in display order.</description>
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'network': 4, 'disks': 4, 'power': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'workspaces': 4, 'agents': 4, 'companion': 2}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'awake': 4, 'displays': 4, 'utilities': 4, 'controls': 4, 'toggles': 4, 'focus': 3, 'system': 4, 'network': 4, 'disks': 4, 'power': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'workspaces': 4, 'agents': 4, 'companion': 2}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>
@@ -327,6 +327,30 @@
       <default>true</default>
       <summary>Show downloads in the capsule</summary>
       <description>While a file is being downloaded the capsule shows it, and a card tells when it is done.</description>
+    </key>
+
+    <key name="awake-icon" type="s">
+      <default>'weather-clear-night-symbolic'</default>
+      <summary>Keep awake: icon</summary>
+      <description>The icon of the top-bar button while the computer is kept awake.</description>
+    </key>
+
+    <key name="awake-color" type="s">
+      <default>'#ff9500'</default>
+      <summary>Keep awake: icon colour</summary>
+      <description>The colour of the top-bar icon while the computer is kept awake; empty keeps the normal colour.</description>
+    </key>
+
+    <key name="menu-hidden" type="as">
+      <default>[]</default>
+      <summary>Hidden rows in the top-bar window</summary>
+      <description>Rows the user hid in the window's customize mode, as "page:row".</description>
+    </key>
+
+    <key name="menu-order" type="as">
+      <default>[]</default>
+      <summary>Order of rows in the top-bar window</summary>
+      <description>The order the user gave the rows in the window's customize mode, as "page:row".</description>
     </key>
 
     <key name="desktops-per-monitor" type="b">
