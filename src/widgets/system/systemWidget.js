@@ -2,7 +2,7 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 
-import {formatBytes} from '../../services/systemService.js';
+import {formatBytes, formatTemperature} from '../../services/systemService.js';
 import {EventType, Priority} from '../../utils/events.js';
 import {bigTile, menuCard, menuDivider, meterRow, sectionLabel, statusPill, valueRow} from '../../ui/menuKit.js';
 import {MonitorWidget, formatDuration} from './monitorWidget.js';
@@ -47,14 +47,16 @@ export class SystemWidget extends MonitorWidget {
         card.add_style_class_name('osmin-bigcard');
         root.add_child(card);
 
-        card.add_child(sectionLabel('Temperatures'));
+        this._tempBlock = new St.BoxLayout({vertical: true, x_expand: true});
+        this._tempBlock.add_child(sectionLabel('Temperatures'));
         const tiles = new St.BoxLayout({style_class: 'osmin-tile-row', x_expand: true});
         this._tempA = bigTile('CPU', 'computer-symbolic');
         this._tempB = bigTile('Disk', 'drive-harddisk-symbolic');
         tiles.add_child(this._tempA.actor);
         tiles.add_child(this._tempB.actor);
-        card.add_child(tiles);
-        card.add_child(menuDivider());
+        this._tempBlock.add_child(tiles);
+        this._tempBlock.add_child(menuDivider());
+        card.add_child(this._tempBlock);
 
         const open = new St.Button({style_class: 'osmin-icon-link', reactive: true, can_focus: true, track_hover: true,
             child: new St.Icon({icon_name: 'adw-external-link-symbolic', icon_size: 12})});
@@ -74,31 +76,37 @@ export class SystemWidget extends MonitorWidget {
         card.add_child(this._gpuBox);
         card.add_child(menuDivider());
 
-        card.add_child(sectionLabel('Memory'));
+        this._memBlock = new St.BoxLayout({vertical: true, x_expand: true});
+        const memCard = this._memBlock;
+        memCard.add_child(sectionLabel('Memory'));
         this._pressure = statusPill('Normal');
         const pressure = new St.BoxLayout({style_class: 'osmin-value-row', x_expand: true});
         pressure.add_child(new St.Label({text: 'Pressure', style_class: 'osmin-value-label', y_align: Clutter.ActorAlign.CENTER}));
         pressure.add_child(this._pressure.actor);
         this._memTotal = new St.Label({text: '', style_class: 'osmin-value-text', x_expand: true, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.CENTER});
         pressure.add_child(this._memTotal);
-        card.add_child(pressure);
+        memCard.add_child(pressure);
         this._cached = valueRow('Cached files');
         this._buffers = valueRow('Buffers');
         this._swap = valueRow('Swap used');
         [this._cached, this._buffers, this._swap].forEach(r => {
             r.label.add_style_class_name('osmin-value-indent');
-            card.add_child(r.actor);
+            memCard.add_child(r.actor);
         });
         this._memGraph = this.graphBlock({color: [0.35, 0.83, 0.98], max: 100});
         this._memGraph.scale.text = '100%';
-        card.add_child(this._memGraph.actor);
-        card.add_child(menuDivider());
+        memCard.add_child(this._memGraph.actor);
 
+        card.add_child(this._memBlock);
+
+        this._upBlock = new St.BoxLayout({vertical: true, x_expand: true});
+        this._upBlock.add_child(menuDivider());
         const up = new St.BoxLayout({style_class: 'osmin-value-row', x_expand: true});
         up.add_child(new St.Icon({icon_name: 'preferences-system-time-symbolic', style_class: 'osmin-meter-icon'}));
         this._uptime = new St.Label({text: '', style_class: 'osmin-value-label', y_align: Clutter.ActorAlign.CENTER});
         up.add_child(this._uptime);
-        card.add_child(up);
+        this._upBlock.add_child(up);
+        card.add_child(this._upBlock);
         return root;
     }
 
@@ -109,13 +117,21 @@ export class SystemWidget extends MonitorWidget {
 
     _update(s) {
         const disk = s.disks?.find(d => d.temp !== null)?.temp ?? null;
-        this._tempA.set(s.temp === null ? 'n/a' : `${s.temp} °C`);
+        const unit = this._settings?.get('temp-unit') ?? 'C';
+        const blocks = new Set(this._settings?.get('system-blocks') ?? []);
+        this._tempBlock.visible = blocks.has('temps');
+        this._cpu.actor.visible = this._cpuGraph.actor.visible = blocks.has('cpu');
+        this._memBlock.visible = blocks.has('memory');
+        this._upBlock.visible = blocks.has('uptime');
+        const scale = !!this._settings?.get('graph-scale');
+        [this._cpuGraph, this._gpuGraph, this._memGraph].forEach(g => (g.scale.visible = scale));
+        this._tempA.set(formatTemperature(s.temp, unit));
         if (s.gpu?.temp != null) {
             this._tempB.actor.get_first_child().get_last_child().text = 'GPU';
-            this._tempB.set(`${s.gpu.temp} °C`);
+            this._tempB.set(formatTemperature(s.gpu.temp, unit));
         } else {
             this._tempB.actor.get_first_child().get_last_child().text = 'Disk';
-            this._tempB.set(disk === null ? 'n/a' : `${disk} °C`);
+            this._tempB.set(formatTemperature(disk, unit));
         }
         this._cpu.set(s.cpu, s.cpu >= 90);
         this._cpuGraph.graph.setValues(s.history.cpu);

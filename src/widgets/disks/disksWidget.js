@@ -2,7 +2,7 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 
-import {formatBytes, formatRate} from '../../services/systemService.js';
+import {formatBytes, formatRate, formatTemperature} from '../../services/systemService.js';
 import {menuCard, menuDivider, pillButton, sectionLabel, usageBar, valueRow} from '../../ui/menuKit.js';
 import {setChecked} from '../../ui/menuKit.js';
 import {MonitorWidget} from '../system/monitorWidget.js';
@@ -146,7 +146,7 @@ export class DisksWidget extends MonitorWidget {
         this._freeText.text = `${formatBytes(disk.free)} available`;
         this._sizeText.text = `${formatBytes(disk.total - disk.free)} / ${formatBytes(disk.total)}`;
         this._type.set(disk.type);
-        this._temp.set(disk.temp === null ? 'n/a' : `${disk.temp} °C`);
+        this._temp.set(formatTemperature(disk.temp, this.context.settings?.get('temp-unit') ?? 'C'));
         this._free.set(formatBytes(disk.free));
         this._device.set(disk.device);
         this._toolName.text = disk.name;

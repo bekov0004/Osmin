@@ -63,6 +63,8 @@ export class SystemModule extends Module {
         this._ioTotals = {read: 0, write: 0};
         this._sample = null;
         this._active = new Set();   // alerts that are on now (said once)
+        this._watchedMs = WATCHED_MS;
+        this._limits = {cpu: CPU_ALERT, temp: TEMP_ALERT, disk: DISK_ALERT, battery: BATTERY_ALERT, memory: MEM_ALERT};
         this._busy = 0;             // consecutive busy samples
     }
 
@@ -81,6 +83,16 @@ export class SystemModule extends Module {
         if (this._leaseId)
             GLib.source_remove(this._leaseId);
         this._sampleId = this._leaseId = 0;
+    }
+
+    /** The user's choices: how often to read, and the limits of the alerts (0 is off). */
+    async rpc_configure({interval, limits}) {
+        if (interval >= 1 && interval <= 10 && interval * 1000 !== this._watchedMs) {
+            this._watchedMs = interval * 1000;
+            this._schedule();
+        }
+        if (limits)
+            this._limits = {...this._limits, ...limits};
     }
 
     /** A widget shows the numbers: sample often. It renews the lease every few seconds. */
@@ -109,7 +121,7 @@ export class SystemModule extends Module {
     _schedule() {
         if (this._sampleId)
             GLib.source_remove(this._sampleId);
-        this._sampleId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._watchers > 0 ? WATCHED_MS : IDLE_MS, () => {
+        this._sampleId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._watchers > 0 ? this._watchedMs : IDLE_MS, () => {
             this._take();
             return GLib.SOURCE_CONTINUE;
         });
@@ -470,15 +482,15 @@ export class SystemModule extends Module {
                 this._active.delete(kind);
             }
         };
-        this._busy = sample.cpu >= CPU_ALERT ? this._busy + 1 : 0;
-        const busySeconds = this._busy * (this._watchers > 0 ? WATCHED_MS : IDLE_MS) / 1000;
+        this._busy = this._limits.cpu > 0 && sample.cpu >= this._limits.cpu ? this._busy + 1 : 0;
+        const busySeconds = this._busy * (this._watchers > 0 ? this._watchedMs : IDLE_MS) / 1000;
         check('cpu', busySeconds >= CPU_ALERT_SECONDS, 'The processor is busy', `${sample.cpu}% for ${Math.round(busySeconds)} seconds`);
-        check('temp', sample.temp !== null && sample.temp >= TEMP_ALERT, 'The computer is hot', `${sample.temp}°C`);
-        check('mem', sample.mem.total > 0 && 100 - sample.mem.percent <= MEM_ALERT, 'Memory is nearly full', `${sample.mem.percent}% in use`);
-        check('disk', sample.disk.total > 0 && 100 - sample.disk.percent <= DISK_ALERT, 'The disk is nearly full', `${100 - sample.disk.percent}% free`);
-        check('battery', sample.battery !== null && !sample.battery.charging && sample.battery.percent <= BATTERY_ALERT,
+        check('temp', this._limits.temp > 0 && sample.temp !== null && sample.temp >= this._limits.temp, 'The computer is hot', `${sample.temp}°C`);
+        check('mem', this._limits.memory > 0 && sample.mem.total > 0 && 100 - sample.mem.percent <= this._limits.memory, 'Memory is nearly full', `${sample.mem.percent}% in use`);
+        check('disk', this._limits.disk > 0 && sample.disk.total > 0 && 100 - sample.disk.percent <= this._limits.disk, 'The disk is nearly full', `${100 - sample.disk.percent}% free`);
+        check('battery', this._limits.battery > 0 && sample.battery !== null && !sample.battery.charging && sample.battery.percent <= this._limits.battery,
             'Battery is low', `${sample.battery?.percent}%`);
         for (const device of sample.devices)
-            check(`device:${device.name}`, device.percent <= BATTERY_ALERT, `${device.name}: battery is low`, `${device.percent}%`);
+            check(`device:${device.name}`, this._limits.battery > 0 && device.percent <= this._limits.battery, `${device.name}: battery is low`, `${device.percent}%`);
     }
 }

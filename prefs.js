@@ -2,6 +2,7 @@ import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -158,6 +159,47 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .osmin-btn.destructive { color: #e5484d; }
 .osmin-prefs dropdown > button { background-color: ${p.CONTROL}; color: ${p.TEXT}; border: 1px solid ${p.BORDER};
     border-radius: 8px; box-shadow: none; min-height: 26px; }
+
+.mb-card { background-color: ${p.CARD}; border-radius: 22px; padding: 18px 20px; }
+.mb-title { font-weight: 700; font-size: 16px; }
+.mb-row { padding: 8px 6px; border-radius: 12px; }
+.mb-row.drop { background-color: ${p.ACCENT_SOFT}; }
+.mb-row.off .mb-name, .mb-row.off .mb-desc { color: ${p.TEXT_DISABLED}; }
+.mb-row.off .mb-square { opacity: 0.45; }
+.mb-name { font-weight: 600; font-size: 13px; }
+.mb-desc { color: ${p.TEXT_SECONDARY}; font-size: 12px; }
+.mb-handle { color: ${p.TEXT_SECONDARY}; padding: 0 8px 0 2px; }
+.mb-square { background-color: ${p.ACCENT_SOFT}; border-radius: 10px; min-width: 38px; min-height: 38px; color: ${p.ACCENT}; }
+.mb-square image { color: ${p.ACCENT}; }
+.mb-prev-bar { background-color: ${p.CAPSULE}; border-radius: 8px; padding: 6px 8px; min-height: 22px; }
+.mb-prev-bar image { color: rgba(255, 255, 255, 0.85); }
+.mb-prev-icon { background-color: rgba(255, 255, 255, 0.9); border-radius: 6px; padding: 2px 6px; }
+.mb-prev-icon image { color: #111; }
+.mb-prev-win { background-color: ${p.CAPSULE_BLOCK}; border-radius: 14px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.08); }
+.mb-prev-tab { padding: 3px; border-radius: 6px; }
+.mb-prev-tab image { color: rgba(255, 255, 255, 0.6); }
+.mb-prev-tab.on { background-color: rgba(10, 132, 255, 0.3); }
+.mb-prev-tab.on image { color: #4a9bff; }
+.mb-prev-card { background-color: rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 8px; }
+.mb-prev-line { background-color: rgba(255, 255, 255, 0.18); border-radius: 3px; min-height: 5px; }
+.mb-prev-label { color: rgba(255, 255, 255, 0.55); font-size: 8px; font-weight: 700; }
+.mb-prev-btn { background-color: rgba(255, 255, 255, 0.07); border-radius: 6px; min-height: 18px; }
+.mb-pill { border-radius: 14px; padding: 8px 10px; background-color: ${p.HOVER}; border: 1px solid transparent; }
+.mb-pill:checked { background-color: ${p.ACCENT_SOFT}; }
+.mb-tick { min-width: 16px; min-height: 16px; border-radius: 8px; border: 1px solid ${p.TEXT_DISABLED}; }
+.mb-pill:checked .mb-tick { background-color: ${p.ACCENT}; border-color: ${p.ACCENT}; }
+.mb-pill:checked .mb-tick image { color: white; }
+.th-choice { padding: 8px; border-radius: 14px; border: 2px solid transparent; }
+.th-choice:checked { border-color: ${p.ACCENT}; background-color: ${p.ACCENT_SOFT}; }
+.th-picture { border-radius: 8px; }
+.th-bar { min-height: 12px; border-radius: 8px 8px 0 0; background-color: rgba(128, 128, 128, 0.25); }
+.th-system { background-image: linear-gradient(135deg, #f2f4f8 50%, #2b2b30 50%); }
+.th-light { background-color: #f2f4f8; }
+.th-dark { background-color: #2b2b30; }
+.th-label { font-weight: 600; font-size: 12px; }
+.th-choice:checked .th-label { color: ${p.ACCENT}; }
+.mb-icon-choice { border-radius: 10px; padding: 8px; border: 2px solid transparent; background-color: ${p.HOVER}; }
+.mb-icon-choice:checked { border-color: ${p.ACCENT}; background-color: ${p.ACCENT_SOFT}; }
 `;
 
 const WIDGET_ICONS = {
@@ -198,6 +240,8 @@ export default class OsminPreferences extends ExtensionPreferences {
         window.search_enabled = false;
 
         this._installTheme();
+        this._applyScheme(settings);
+        settings.connect('changed::color-scheme', () => this._applyScheme(settings));
 
         const page = new Adw.PreferencesPage({title: _('Osmin'), icon_name: 'preferences-system-symbolic'});
         const group = new Adw.PreferencesGroup();
@@ -208,8 +252,9 @@ export default class OsminPreferences extends ExtensionPreferences {
 
         const pages = [
             ['general', _('General'), 'preferences-system-symbolic', this._generalPage(settings)],
+            ['monitor', _('Monitor'), 'utilities-system-monitor-symbolic', this._monitorPage(settings)],
             ['osmin', _('Osmin'), 'view-grid-symbolic', this._osminPage(settings)],
-            ['tools', _('Tools window'), 'view-app-grid-symbolic', this._toolsPage(settings)],
+            ['tools', _('Menu bar'), 'window-new-symbolic', this._menuBarPage(settings)],
             ['appearance', _('Appearance'), 'applications-graphics-symbolic', this._appearancePage(settings)],
             ['gestures', _('Gestures'), 'input-touchpad-symbolic', this._gesturesPage(settings)],
             ['tray', _('Tray'), 'folder-download-symbolic', this._trayPage(settings)],
@@ -229,9 +274,10 @@ export default class OsminPreferences extends ExtensionPreferences {
             [_('Essentials'), [
                 ['general', _('General'), 'preferences-system-symbolic', pages.find(p => p[0] === 'general')[3]],
                 ['features', _('Features'), 'view-app-grid-symbolic', featuresPage],
+                ['monitor', _('Monitor'), 'utilities-system-monitor-symbolic', pages.find(p => p[0] === 'monitor')[3]],
             ]],
             [_('Top-bar button'), [
-                ['tools', _('Tools window'), 'view-app-grid-symbolic', pages.find(p => p[0] === 'tools')[3]],
+                ['tools', _('Menu bar'), 'window-new-symbolic', pages.find(p => p[0] === 'tools')[3]],
             ]],
             [_('Capsule'), [
                 ['osmin', _('Widgets'), 'view-grid-symbolic', pages.find(p => p[0] === 'osmin')[3]],
@@ -255,7 +301,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const rowsByName = new Map();
         const INTROS = {
             features: _('Everything Osmin can do. Each line says where it appears: in the window of the top-bar button, or in the capsule (the island).'),
-            tools: _('The button in the top bar opens a window with a tab for each tool. Choose the tabs and their order.'),
+            tools: '',
             osmin: _('Choose the widgets of the capsule (the island), their order and their width.'),
             appearance: _('The look of the capsule and the top bar.'),
             gestures: _('How the capsule opens, closes and reacts to the pointer and the touchpad.'),
@@ -263,6 +309,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             tray: _('The file shelf: drag files to the top of the screen to keep them there.'),
             clipboard: _('The history of what you copy, and how it behaves.'),
             general: _('Size, shortcuts and where Osmin is shown.'),
+            monitor: _('What the top bar and the panel show about this computer, and when to warn you.'),
             about: '',
         };
         for (const [heading, entries] of sections) {
@@ -503,6 +550,13 @@ export default class OsminPreferences extends ExtensionPreferences {
 
     // --- theme --------------------------------------------------------------
 
+    /** The settings window follows the system, or the light or dark choice made under General. */
+    _applyScheme(settings) {
+        const choice = settings.get_string('color-scheme');
+        Adw.StyleManager.get_default().color_scheme = choice === 'light' ? Adw.ColorScheme.FORCE_LIGHT
+            : choice === 'dark' ? Adw.ColorScheme.FORCE_DARK : Adw.ColorScheme.DEFAULT;
+    }
+
     _installTheme() {
         const provider = new Gtk.CssProvider();
         const style = Adw.StyleManager.get_default();
@@ -708,6 +762,35 @@ export default class OsminPreferences extends ExtensionPreferences {
         const body = this._body();
         const form = this._form();
         body.append(form);
+
+        // Appearance: three small pictures, like the reference.
+        form.append(new Gtk.Label({label: _('Appearance'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        const thumbs = new Gtk.Box({spacing: 12, homogeneous: true, margin_top: 8, margin_bottom: 8, margin_start: 12, margin_end: 12});
+        let group = null;
+        const choices = new Map();
+        for (const [id, title] of [['system', _('System')], ['light', _('Light')], ['dark', _('Dark')]]) {
+            const button = new Gtk.ToggleButton({css_classes: ['th-choice', 'flat'], group});
+            group ??= button;
+            const column = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 6});
+            const picture = new Gtk.Box({css_classes: ['th-picture', `th-${id}`], height_request: 74});
+            const bar = new Gtk.Box({css_classes: ['th-bar'], valign: Gtk.Align.START, hexpand: true});
+            picture.append(bar);
+            column.append(picture);
+            column.append(new Gtk.Label({label: title, css_classes: ['th-label']}));
+            button.set_child(column);
+            button.connect('toggled', () => {
+                if (button.active)
+                    settings.set_string('color-scheme', id);
+            });
+            choices.set(id, button);
+            thumbs.append(button);
+        }
+        const syncScheme = () => (choices.get(settings.get_string('color-scheme')) ?? group).set_active(true);
+        syncScheme();
+        settings.connect('changed::color-scheme', syncScheme);
+        form.attach(thumbs);
+        form.append(this._dim(_('Applies to the settings window of Osmin, not to the whole desktop.')));
+        this._rule(form);
 
         this._toggleRow(form, settings, 'open-on-hover', _('Osmin'), _('Open on hover'),
             _('Off: the capsule opens on click only.'));
@@ -1242,6 +1325,305 @@ export default class OsminPreferences extends ExtensionPreferences {
             _('Cards for a busy processor, heat, a full disk or memory and low batteries (also of keyboards and mice).'));
 
         this._resetRow(form, settings, ALL_APPEARANCE_KEYS);
+        return body;
+    }
+
+
+
+    // --- Menu bar -----------------------------------------------------------
+
+    /**
+     * The tabs of the top-bar window as one list: a handle to drag a row, an icon, a name and a
+     * line about it, a switch. On the left a small picture of the button and the window; under
+     * the list the icon of the button.
+     */
+    _menuBarPage(settings) {
+        const body = this._body();
+        const menuInfo = WIDGET_INFO.filter(w => w.menu);
+        const MENU_ORDER = ['awake', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
+        const info = id => menuInfo.find(w => w.id === id);
+        const SHORT = {
+            awake: _('Keeps your computer awake for as long as you want.'), displays: _('Brightness of your screens.'),
+            sound: _('Volume of each app, one slider each.'), system: _('Processor, graphics and memory at a glance.'),
+            network: _('Internet speed and its graph.'), disks: _('Free space and disk activity.'),
+            power: _('Battery, charging and power use.'), utilities: _('Screenshots, colour picker and other tools.'),
+            controls: _('Switches for mouse, keyboard and windows.'), toggles: _('Dark mode, microphone, trash and more.'),
+            windows: _('Live previews, snap and move windows.'), workspaces: _('Create, switch and remove desktops.'),
+            focus: _('A focus timer and a stopwatch.'), input: _('Mouse and keyboard switches.'),
+            downloads: _('Files arriving in Downloads.'), agents: _('Claude Code and Codex at work.'),
+        };
+        const card = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['mb-card'], spacing: 6});
+        body.append(card);
+        card.append(new Gtk.Label({label: _('Menu bar'), css_classes: ['mb-title'], xalign: 0}));
+        card.append(this._dim(_('Click the Osmin icon in the top bar to open the window. Its tabs appear in this order.')));
+
+        const columns = new Gtk.Box({spacing: 20, margin_top: 10});
+        card.append(columns);
+        const left = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 8, valign: Gtk.Align.START, width_request: 250});
+        const right = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true});
+        columns.append(left);
+        columns.append(right);
+
+        const enabledIds = () => settings.get_strv('enabled-widgets');
+        const menuOrder = () => {
+            const on = enabledIds().filter(id => info(id));
+            const off = MENU_ORDER.filter(id => info(id) && !on.includes(id));
+            return {on, off};
+        };
+        const save = on => {
+            const island = enabledIds().filter(id => !info(id));
+            settings.set_strv('enabled-widgets', [...island, ...on]);
+        };
+
+        // The picture.
+        const preview = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 6});
+        left.append(preview);
+        left.append(this._dim(_('Drag to reorder. Switch off anything you do not need.')));
+
+        const fill = () => {
+            for (let child = preview.get_first_child(); child; child = preview.get_first_child())
+                preview.remove(child);
+            const bar = new Gtk.Box({css_classes: ['mb-prev-bar'], spacing: 8, halign: Gtk.Align.FILL});
+            bar.append(new Gtk.Box({hexpand: true}));
+            ['network-wireless-symbolic', 'battery-full-symbolic'].forEach(n => bar.append(new Gtk.Image({icon_name: n, pixel_size: 12})));
+            const mark = new Gtk.Box({css_classes: ['mb-prev-icon']});
+            mark.append(new Gtk.Image({icon_name: settings.get_string('bar-icon'), pixel_size: 12}));
+            bar.append(mark);
+            preview.append(bar);
+            const win = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['mb-prev-win'], spacing: 8, margin_start: 18});
+            const tabs = new Gtk.Box({spacing: 2, halign: Gtk.Align.CENTER});
+            menuOrder().on.forEach((id, i) => {
+                const tab = new Gtk.Box({css_classes: i === 0 ? ['mb-prev-tab', 'on'] : ['mb-prev-tab']});
+                tab.append(new Gtk.Image({icon_name: WIDGET_ICONS[id] ?? 'applications-symbolic', pixel_size: 11}));
+                tabs.append(tab);
+            });
+            win.append(tabs);
+            const first = menuOrder().on[0];
+            const page = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['mb-prev-card'], spacing: 6});
+            page.append(new Gtk.Label({label: (info(first)?.title ?? '').toUpperCase(), css_classes: ['mb-prev-label'], xalign: 0}));
+            for (let i = 0; i < 3; i++)
+                page.append(new Gtk.Box({css_classes: ['mb-prev-line'], margin_end: i * 24}));
+            win.append(page);
+            const footer = new Gtk.Box({spacing: 6, homogeneous: true});
+            footer.append(new Gtk.Box({css_classes: ['mb-prev-btn']}));
+            footer.append(new Gtk.Box({css_classes: ['mb-prev-btn']}));
+            win.append(footer);
+            preview.append(win);
+        };
+
+        // The list.
+        const list = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
+        right.append(list);
+        const build = () => {
+            for (let child = list.get_first_child(); child; child = list.get_first_child())
+                list.remove(child);
+            const {on, off} = menuOrder();
+            [...on, ...off].forEach((id, index) => {
+                const enabled = on.includes(id);
+                const row = new Gtk.Box({css_classes: enabled ? ['mb-row'] : ['mb-row', 'off'], spacing: 10});
+                const handle = new Gtk.Image({icon_name: 'list-drag-handle-symbolic', pixel_size: 14, css_classes: ['mb-handle'], valign: Gtk.Align.CENTER});
+                row.append(handle);
+                const square = new Gtk.Box({css_classes: ['mb-square'], halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER});
+                square.append(new Gtk.Image({icon_name: WIDGET_ICONS[id] ?? 'applications-symbolic', pixel_size: 20, hexpand: true, vexpand: true}));
+                row.append(square);
+                const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER});
+                texts.append(new Gtk.Label({label: info(id).title, css_classes: ['mb-name'], xalign: 0}));
+                texts.append(new Gtk.Label({label: SHORT[id] ?? info(id).subtitle, css_classes: ['mb-desc'], xalign: 0, wrap: true, max_width_chars: 34}));
+                row.append(texts);
+                const toggle = new Gtk.Switch({active: enabled, valign: Gtk.Align.CENTER});
+                toggle.connect('notify::active', () => {
+                    const state = menuOrder();
+                    save(toggle.active ? [...state.on, id] : state.on.filter(i => i !== id));
+                });
+                row.append(toggle);
+
+                if (enabled) {
+                    // Drag a row onto another to put it there.
+                    const drag = new Gtk.DragSource({actions: Gdk.DragAction.MOVE});
+                    drag.connect('prepare', () => Gdk.ContentProvider.new_for_value(id));
+                    drag.connect('drag-begin', (_s, d) => Gtk.DragIcon.get_for_drag(d).set_child(new Gtk.Label({label: info(id).title, css_classes: ['mb-name'], margin_start: 8, margin_end: 8})));
+                    handle.add_controller(drag);
+                    const drop = new Gtk.DropTarget({actions: Gdk.DragAction.MOVE});
+                    drop.set_gtypes([GObject.TYPE_STRING]);
+                    drop.connect('enter', () => {
+                        row.add_css_class('drop');
+                        return Gdk.DragAction.MOVE;
+                    });
+                    drop.connect('leave', () => row.remove_css_class('drop'));
+                    drop.connect('drop', (_t, value) => {
+                        row.remove_css_class('drop');
+                        const state = menuOrder().on.filter(i => i !== value);
+                        state.splice(state.indexOf(id) + (menuOrder().on.indexOf(value) < menuOrder().on.indexOf(id) ? 1 : 0), 0, value);
+                        save(state);
+                        return true;
+                    });
+                    row.add_controller(drop);
+                } else {
+                    handle.opacity = 0.3;
+                }
+                list.append(row);
+                if (index < on.length + off.length - 1)
+                    list.append(new Gtk.Separator({opacity: 0.4}));
+            });
+        };
+        build();
+        fill();
+        settings.connect('changed::enabled-widgets', () => {
+            build();
+            fill();
+        });
+
+        // The icon of the button.
+        const iconCard = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['mb-card'], spacing: 8, margin_top: 4});
+        body.append(iconCard);
+        iconCard.append(new Gtk.Label({label: _('Menu bar icon'), css_classes: ['mb-title'], xalign: 0}));
+        iconCard.append(this._dim(_('The icon of the Osmin button in the top bar.')));
+        const grid = new Gtk.FlowBox({selection_mode: Gtk.SelectionMode.NONE, max_children_per_line: 10, min_children_per_line: 10, homogeneous: true, column_spacing: 6, row_spacing: 6, margin_top: 6});
+        const ICONS = ['view-app-grid-symbolic', 'view-grid-symbolic', 'applications-system-symbolic', 'preferences-system-symbolic', 'weather-clear-night-symbolic', 'starred-symbolic',
+            'emblem-favorite-symbolic', 'input-gaming-symbolic', 'media-playback-start-symbolic', 'camera-photo-symbolic', 'audio-headphones-symbolic', 'utilities-terminal-symbolic',
+            'user-home-symbolic', 'folder-symbolic', 'mail-unread-symbolic', 'network-workgroup-symbolic', 'system-search-symbolic', 'weather-clear-symbolic',
+            'face-smile-symbolic', 'bookmark-new-symbolic', 'dialog-information-symbolic', 'security-high-symbolic', 'view-more-symbolic', 'go-home-symbolic',
+            'tools-symbolic', 'applications-science-symbolic', 'applications-games-symbolic', 'applications-multimedia-symbolic', 'applications-engineering-symbolic', 'applications-graphics-symbolic'];
+        let group = null;
+        const buttons = new Map();
+        ICONS.forEach(name => {
+            const button = new Gtk.ToggleButton({css_classes: ['mb-icon-choice', 'flat'], group});
+            group ??= button;
+            button.set_child(new Gtk.Image({icon_name: name, pixel_size: 18}));
+            button.connect('toggled', () => {
+                if (button.active)
+                    settings.set_string('bar-icon', name);
+            });
+            buttons.set(name, button);
+            grid.append(button);
+        });
+        const syncIcon = () => (buttons.get(settings.get_string('bar-icon')) ?? group).set_active(true);
+        syncIcon();
+        settings.connect('changed::bar-icon', () => {
+            syncIcon();
+            fill();
+        });
+        iconCard.append(grid);
+        return body;
+    }
+
+    // --- Monitor ------------------------------------------------------------
+
+    /** Segmented choice bound to a setting; `items` are [value, label]. */
+    _choice(settings, key, items) {
+        const box = new Gtk.Box({css_classes: ['osmin-seg'], spacing: 2, halign: Gtk.Align.END});
+        let first = null;
+        const buttons = new Map();
+        for (const [value, title] of items) {
+            const button = new Gtk.ToggleButton({label: title, group: first});
+            first ??= button;
+            buttons.set(value, button);
+            button.connect('toggled', () => {
+                if (!button.active)
+                    return;
+                if (settings.get_value(key).get_type_string() === 'i')
+                    settings.set_int(key, Number(value));
+                else
+                    settings.set_string(key, String(value));
+            });
+            box.append(button);
+        }
+        const sync = () => {
+            const current = String(settings.get_value(key).deepUnpack());
+            (buttons.get(items.find(([v]) => String(v) === current)?.[0]) ?? first).set_active(true);
+        };
+        sync();
+        settings.connect(`changed::${key}`, sync);
+        return box;
+    }
+
+    /** A list of ids kept in one setting: a round tick, an icon and a name on each pill. */
+    _idsEditor(settings, key, items, grid, columns = 2) {
+        const flow = new Gtk.FlowBox({selection_mode: Gtk.SelectionMode.NONE, max_children_per_line: columns, min_children_per_line: columns, homogeneous: true,
+            column_spacing: 8, row_spacing: 8, margin_top: 10, margin_bottom: 10, margin_start: 12, margin_end: 12});
+        const current = () => new Set(settings.get_strv(key));
+        for (const [id, title, icon] of items) {
+            const pill = new Gtk.ToggleButton({css_classes: ['mb-pill', 'flat'], active: current().has(id), hexpand: true});
+            const line = new Gtk.Box({spacing: 8});
+            const tick = new Gtk.Box({css_classes: ['mb-tick'], valign: Gtk.Align.CENTER, halign: Gtk.Align.START, width_request: 16, height_request: 16});
+            const mark = new Gtk.Image({icon_name: 'object-select-symbolic', pixel_size: 10, hexpand: true, halign: Gtk.Align.CENTER});
+            tick.append(mark);
+            line.append(tick);
+            line.append(new Gtk.Image({icon_name: icon, pixel_size: 14}));
+            line.append(new Gtk.Label({label: title, xalign: 0, hexpand: true}));
+            pill.set_child(line);
+            const show = () => (mark.visible = pill.active);
+            show();
+            pill.connect('toggled', () => {
+                show();
+                const ids = current();
+                if (pill.active)
+                    ids.add(id);
+                else
+                    ids.delete(id);
+                settings.set_strv(key, items.map(([i]) => i).filter(i => ids.has(i)));
+            });
+            flow.append(pill);
+        }
+        grid.attach(flow);
+    }
+
+    _monitorPage(settings) {
+        const body = this._body();
+        const form = this._form();
+        body.append(form);
+
+        form.append(new Gtk.Label({label: _('In the top bar'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        this._idsEditor(settings, 'bar-metrics', [
+            ['cpu', _('CPU'), 'utilities-system-monitor-symbolic'],
+            ['cputemp', _('CPU temperature'), 'weather-clear-symbolic'],
+            ['gpu', _('GPU'), 'video-display-symbolic'],
+            ['mem', _('Memory'), 'drive-harddisk-symbolic'],
+            ['battery', _('Battery'), 'battery-full-symbolic'],
+            ['net', _('Network'), 'network-wireless-symbolic'],
+            ['disk', _('Disk usage'), 'drive-harddisk-symbolic'],
+            ['diskio', _('Disk activity'), 'drive-harddisk-symbolic'],
+            ['power', _('Power draw'), 'ac-adapter-symbolic'],
+        ], form);
+        form.append(this._dim(_('Choose what is written next to the Osmin icon in the top bar. Nothing chosen: only the icon.')));
+
+        this._rule(form);
+        form.append(new Gtk.Label({label: _('In the panel'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        this._idsEditor(settings, 'system-blocks', [
+            ['temps', _('Temperatures'), 'weather-clear-symbolic'],
+            ['cpu', _('CPU'), 'utilities-system-monitor-symbolic'],
+            ['gpu', _('GPU'), 'video-display-symbolic'],
+            ['memory', _('Memory'), 'drive-harddisk-symbolic'],
+            ['uptime', _('Uptime'), 'preferences-system-time-symbolic'],
+        ], form);
+        this._rule(form);
+        this._toggleRow(form, settings, 'graph-scale', '', _('Show graph scale'), _('Write the highest value on the dotted line of every graph.'));
+
+        this._rule(form);
+        form.append(new Gtk.Label({label: _('Readings and alerts'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        this._row(form, _('Update every'), this._choice(settings, 'monitor-interval', [[1, _('1 second')], [2, _('2 seconds')], [5, _('5 seconds')]]),
+            _('How often the numbers are read while a monitor page or a top-bar value is shown.'));
+        this._row(form, _('Temperatures'), this._choice(settings, 'temp-unit', [['C', '°C'], ['F', '°F']]));
+        this._rule(form);
+
+        form.append(new Gtk.Label({label: _('Alerts'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        this._toggleRow(form, settings, 'system-alerts', '', _('Show alerts'), _('A card in the capsule when one of the limits below is passed. 0 turns a limit off.'));
+        const limits = [
+            ['alert-cpu', _('High CPU'), _('% for 30 seconds'), 0, 100, 5],
+            ['alert-temp', _('High CPU temperature'), '°C', 0, 120, 5],
+            ['alert-memory', _('Memory nearly full'), _('% free'), 0, 50, 1],
+            ['alert-disk', _('Low disk space'), _('% free'), 0, 50, 1],
+            ['alert-battery', _('Low battery'), '%', 0, 50, 5],
+        ];
+        for (const [key, title, unit, lower, upper, step] of limits) {
+            const box = new Gtk.Box({spacing: 8, halign: Gtk.Align.END});
+            box._inline = true;
+            const adjustment = new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 5});
+            settings.bind(key, adjustment, 'value', Gio.SettingsBindFlags.DEFAULT);
+            box.append(new Gtk.SpinButton({adjustment, css_classes: ['osmin-value'], width_chars: 4}));
+            box.append(new Gtk.Label({label: unit, css_classes: ['dim']}));
+            this._row(form, title, box);
+        }
         return body;
     }
 

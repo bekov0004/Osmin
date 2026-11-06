@@ -329,6 +329,93 @@
       <description>While a file is being downloaded the capsule shows it, and a card tells when it is done.</description>
     </key>
 
+    <key name="monitor-interval" type="i">
+      <range min="1" max="10"/>
+      <default>2</default>
+      <summary>Monitor: update every</summary>
+      <description>Seconds between readings while a monitor page or a top-bar metric is shown.</description>
+    </key>
+
+    <key name="temp-unit" type="s">
+      <choices>
+        <choice value="C"/>
+        <choice value="F"/>
+      </choices>
+      <default>'C'</default>
+      <summary>Monitor: temperature unit</summary>
+      <description>C or F.</description>
+    </key>
+
+    <key name="bar-metrics" type="as">
+      <default>[]</default>
+      <summary>Monitor: values in the top bar</summary>
+      <description>What is written next to the Osmin icon in the top bar: cpu, cputemp, gpu, mem, battery, net, disk, diskio, power.</description>
+    </key>
+
+    <key name="alert-cpu" type="i">
+      <range min="0" max="100"/>
+      <default>90</default>
+      <summary>Alert: busy processor (%)</summary>
+      <description>Warn when the processor stays above this for 30 seconds; 0 is off.</description>
+    </key>
+
+    <key name="alert-temp" type="i">
+      <range min="0" max="120"/>
+      <default>85</default>
+      <summary>Alert: hot processor (°C)</summary>
+      <description>Warn above this temperature; 0 is off.</description>
+    </key>
+
+    <key name="alert-disk" type="i">
+      <range min="0" max="50"/>
+      <default>5</default>
+      <summary>Alert: low disk space (%)</summary>
+      <description>Warn when less than this much of the disk is free; 0 is off.</description>
+    </key>
+
+    <key name="alert-battery" type="i">
+      <range min="0" max="50"/>
+      <default>20</default>
+      <summary>Alert: low battery (%)</summary>
+      <description>Warn when the battery falls below this; 0 is off.</description>
+    </key>
+
+    <key name="alert-memory" type="i">
+      <range min="0" max="50"/>
+      <default>8</default>
+      <summary>Alert: memory nearly full (% free)</summary>
+      <description>Warn when less than this much memory is available; 0 is off.</description>
+    </key>
+
+    <key name="system-blocks" type="as">
+      <default>['temps', 'cpu', 'gpu', 'memory', 'uptime']</default>
+      <summary>System page: blocks</summary>
+      <description>Which blocks the System page shows.</description>
+    </key>
+
+    <key name="graph-scale" type="b">
+      <default>true</default>
+      <summary>Monitor: graph scale</summary>
+      <description>Write the highest value on the dotted line of the graphs.</description>
+    </key>
+
+    <key name="color-scheme" type="s">
+      <choices>
+        <choice value="system"/>
+        <choice value="light"/>
+        <choice value="dark"/>
+      </choices>
+      <default>'system'</default>
+      <summary>Settings window: appearance</summary>
+      <description>system, light or dark for the settings window.</description>
+    </key>
+
+    <key name="bar-icon" type="s">
+      <default>'view-app-grid-symbolic'</default>
+      <summary>Top-bar button icon</summary>
+      <description>The icon of the Osmin button in the top bar.</description>
+    </key>
+
     <key name="awake-icon" type="s">
       <default>'weather-clear-night-symbolic'</default>
       <summary>Keep awake: icon</summary>

@@ -15,6 +15,7 @@ export class SystemService extends Signals.EventEmitter {
         this._module = module;
         this._watchers = 0;
         this._renewId = 0;
+        this._config = null;
         module.connect('state-changed', () => this.emit('changed'));
         module.connect('event', (_m, name, payload) => {
             if (name === 'alert')
@@ -42,7 +43,15 @@ export class SystemService extends Signals.EventEmitter {
         }
     }
 
+    /** How often to read and the limits of the alerts (0 is off): {interval, limits}. */
+    configure(config) {
+        this._config = config;
+        this._module.call('configure', config).catch(() => {});
+    }
+
     _send(on) {
+        if (on && this._config)
+            this._module.call('configure', this._config).catch(() => {});
         this._module.call('watch', {on}).catch(() => {});
     }
 
@@ -72,4 +81,28 @@ export function formatBytes(bytes) {
         return `${(bytes / 1024 ** 2).toFixed(bytes < 100 * 1024 ** 2 ? 1 : 0)} MB`;
     const gb = bytes / 1024 ** 3;
     return gb >= 100 ? `${Math.round(gb)} GB` : `${gb.toFixed(1)} GB`;
+}
+
+/** 52 -> "52°C" or "126°F", by the user's choice. */
+export function formatTemperature(celsius, unit = 'C') {
+    if (celsius === null || celsius === undefined)
+        return 'n/a';
+    return unit === 'F' ? `${Math.round(celsius * 9 / 5 + 32)}°F` : `${Math.round(celsius)}°C`;
+}
+
+/** The short readings written in the top bar: [{id, label, value}] for the chosen ids. */
+export function barReadings(state, ids) {
+    const rate = v => formatRate(v).replace(' B/s', 'B').replace(' KB/s', 'K').replace(' MB/s', 'M');
+    const all = {
+        cpu: ['CPU', `${state.cpu}%`],
+        cputemp: ['TMP', state.temp === null ? null : `${state.temp}°`],
+        gpu: ['GPU', state.gpu?.busy == null ? null : `${state.gpu.busy}%`],
+        mem: ['RAM', `${state.mem?.percent}%`],
+        battery: ['BAT', state.battery ? `${state.battery.percent}%` : null],
+        net: ['NET', `↓${rate(state.net.rx)} ↑${rate(state.net.tx)}`],
+        disk: ['DSK', `${state.disk?.percent}%`],
+        diskio: ['I/O', `R${rate(state.io.read)} W${rate(state.io.write)}`],
+        power: ['PWR', state.power ? `${state.power.watts}W` : null],
+    };
+    return ids.filter(id => all[id] && all[id][1] !== null).map(id => ({id, label: all[id][0], value: all[id][1]}));
 }

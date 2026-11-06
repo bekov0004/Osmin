@@ -1,5 +1,6 @@
 import Clutter from 'gi://Clutter';
 import GioUnix from 'gi://GioUnix';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -22,7 +23,9 @@ export class ToolsMenu {
      * @param {OsminWidget[]} widgets the pages, in order (already created with a context)
      * @param {{openSettings: Function}} options
      */
-    constructor(widgets, {openSettings}) {
+    constructor(widgets, {openSettings, baseIcon = 'view-app-grid-symbolic'}) {
+        this._baseIcon = baseIcon;
+        this._lookIcon = null;
         this._widgets = widgets;
         this._openSettings = openSettings;
         this._current = -1;
@@ -39,18 +42,39 @@ export class ToolsMenu {
         this._button?.menu.close();
     }
 
+    /** The icon the button has when nothing special is going on. */
+    setBaseIcon(name) {
+        this._baseIcon = name;
+        this.setLook(this._lookIcon, this._lookColor);
+    }
+
+    /** Writes short readings next to the icon ([] removes them): [{label, value}]. */
+    setReadings(readings) {
+        if (!this._readings)
+            return;
+        const esc = text => GLib.markup_escape_text(text, -1);
+        this._readings.visible = readings.length > 0;
+        this._readings.clutter_text.set_markup(readings.map(r => `<span size="x-small" alpha="60%">${esc(r.label)}</span> <b>${esc(r.value)}</b>`).join('   '));
+    }
+
     /** While the computer is kept awake the icon of the button changes (icon null: back to normal). */
     setLook(icon, color) {
+        this._lookIcon = icon;
+        this._lookColor = color;
         if (!this._icon)
             return;
-        this._icon.icon_name = icon ?? 'view-app-grid-symbolic';
+        this._icon.icon_name = icon ?? this._baseIcon;
         this._icon.style = icon && color ? `color: ${color};` : '';
     }
 
     enable() {
         this._button = new PanelMenu.Button(0.5, 'Osmin', false);
-        this._icon = new St.Icon({icon_name: 'view-app-grid-symbolic', style_class: 'system-status-icon'});
-        this._button.add_child(this._icon);
+        this._icon = new St.Icon({icon_name: this._baseIcon, style_class: 'system-status-icon'});
+        this._readings = new St.Label({style_class: 'osmin-bar-readings', y_align: Clutter.ActorAlign.CENTER, visible: false});
+        const holder = new St.BoxLayout();
+        holder.add_child(this._icon);
+        holder.add_child(this._readings);
+        this._button.add_child(holder);
         this._button.menu.actor.add_style_class_name('osmin-menu');
 
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false, activate: false});

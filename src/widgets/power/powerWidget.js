@@ -1,6 +1,7 @@
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
+import {formatTemperature} from '../../services/systemService.js';
 import {menuCard, menuDivider, meterRow, valueRow} from '../../ui/menuKit.js';
 import {MonitorWidget, formatDuration} from '../system/monitorWidget.js';
 
@@ -97,7 +98,7 @@ export class PowerWidget extends MonitorWidget {
         this._battery.setLabel(`Battery${left}`);
         this._chargeGraph.graph.setValues(s.history.bat);
         this._fillApps(s.apps ?? []);
-        this._temp.set(power?.temp ? `${power.temp} °C` : 'n/a');
+        this._temp.set(power?.temp ? formatTemperature(power.temp, this.context.settings?.get('temp-unit') ?? 'C') : 'n/a');
         this._drawRow.set(power ? `${power.watts} W` : '–');
         this._wattGraph.graph.setValues(s.history.watts);
         this._wattGraph.scale.text = `${Math.max(1, Math.ceil(this._wattGraph.graph.peak))} W`;

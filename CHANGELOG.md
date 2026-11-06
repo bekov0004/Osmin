@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Top-bar window rebuilt after the reference: new tabs Keep awake (timer chips, "until" a time, lid closed, display sleep, icon and colour), Displays (brightness of the screen, external monitors through `ddcutil`, keyboard light, night light), Volume mixer (output, microphone, every app with its own device, reset and mute, boost above 100%), Utilities, Controls (groups with counters) and Quick toggles; customize mode to drag and hide rows.
+- Monitor settings: values written in the top bar, update interval, °C/°F, alert limits, blocks of the System page.
+- Settings: Menu bar page (reorder tabs by dragging, preview, button icon), Appearance choice (System / Light / Dark) under General.
+
 - Top-bar window redesigned after the reference: logo, page title, one card per page with thin dividers; System (CPU/GPU temperature tiles, usage bars with expandable busiest programs, memory pressure, graphs), Network (one graph for both directions, session, speed test), Disks (disk picker, badges, live activity, temperature, eject, open) and Power (battery, heat, draw, adapter, health).
 
 ### Added

@@ -77,7 +77,7 @@ export class ControlsWidget extends OsminWidget {
 
     createView() {
         const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-controls osmin-menu-page', x_expand: true});
-        const pill = (label, action) => () => pillButton({label, icon: 'go-next-symbolic', onClick: action});
+        const pill = (label, action) => () => pillButton({label, icon: 'adw-external-link-symbolic', onClick: action});
 
         this._addGroup(root, 'windows', 'Windows', [
             this._gnome('focus', 'focus-windows-symbolic', 'Focus follows mouse', 'A window gets the keyboard when the pointer is over it.', 'org.gnome.desktop.wm.preferences', 'focus-mode', 'sloppy', 'click'),
@@ -86,8 +86,9 @@ export class ControlsWidget extends OsminWidget {
             this._gnome('edge', 'view-grid-symbolic', 'Snap windows to the screen edges', 'Drag a window to an edge to fill half of the screen.', 'org.gnome.mutter', 'edge-tiling'),
             this._gnome('primary', 'video-display-symbolic', 'Desktops only on the main monitor', 'The other monitors keep showing the same windows.', 'org.gnome.mutter', 'workspaces-only-on-primary'),
             this._gnome('center', 'window-new-symbolic', 'Open new windows in the centre', 'New windows appear in the middle of the screen.', 'org.gnome.mutter', 'center-new-windows'),
-            this._gnome('animations', 'applications-graphics-symbolic', 'Animations', 'Windows and menus move smoothly.', 'org.gnome.desktop.interface', 'enable-animations',
-                null, null, pill('Window layout', () => this.context.ui?.openPage?.('windows'))),
+            this._gnome('animations', 'applications-graphics-symbolic', 'Animations', 'Windows and menus move smoothly.', 'org.gnome.desktop.interface', 'enable-animations'),
+            {id: 'layout', icon: 'view-grid-symbolic', title: 'Window layout', desc: 'Arrange windows into screen sections or tile them.', subtitle: '',
+                getter: () => false, noSwitch: true, extra: pill('Open window layout', () => this.context.ui?.openPage?.('windows'))},
         ].filter(Boolean));
 
         this._addGroup(root, 'mouse', 'Mouse and keyboard', [
@@ -141,13 +142,13 @@ export class ControlsWidget extends OsminWidget {
     _update() {
         for (const {items, count} of this._groups) {
             let on = 0;
-            for (const item of items) {
+            for (const item of items.filter(i => !i.noSwitch)) {
                 const state = !!item.getter();
                 this._switches.get(item.id)?.toggle && (this._switches.get(item.id).toggle.state = state);
                 if (state)
                     on++;
             }
-            count.text = `${on}/${items.length}`;
+            count.text = `${on}/${items.filter(i => !i.noSwitch).length}`;
         }
     }
 

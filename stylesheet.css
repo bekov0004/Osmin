@@ -2193,3 +2193,4 @@
 .osmin-menu .osmin-card { spacing: 0; width: auto; }
 .osmin-group-head { padding: 6px 8px; border-radius: 8px; }
 .osmin-group-title { color: rgba(255, 255, 255, 0.55); font-size: 8.5pt; font-weight: bold; letter-spacing: 1px; }
+.osmin-bar-readings { font-size: 9pt; padding-left: 6px; }

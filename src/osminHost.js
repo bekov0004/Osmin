@@ -27,7 +27,7 @@ import {MediaService} from './services/mediaService.js';
 import {NotesService} from './services/notesService.js';
 import {NotificationsService} from './services/notificationsService.js';
 import {PanelService} from './services/panelService.js';
-import {SystemService} from './services/systemService.js';
+import {SystemService, barReadings} from './services/systemService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
 import {EventType, Priority} from './utils/events.js';
@@ -113,6 +113,8 @@ export class OsminHost {
         };
         this._syncCapsules();
         this._syncMenu();
+        this._syncMonitor();
+        this._syncBarMetrics();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
@@ -314,6 +316,12 @@ export class OsminHost {
             this._syncCapsules();
         else if (key === 'enabled-widgets')
             this._syncMenu();
+        else if (key === 'monitor-interval' || key.startsWith('alert-'))
+            this._syncMonitor();
+        else if (key === 'bar-icon')
+            this._menu?.setBaseIcon(this._settings.get('bar-icon'));
+        else if (key === 'bar-metrics')
+            this._syncBarMetrics();
         else if (key === 'free-super-v')
             this._syncSuperV();
         else if (key === 'localsend-receive')
@@ -348,8 +356,43 @@ export class OsminHost {
             events: this._events, services, settings: this._settings, ui,
         }));
         this._menuWidgets.forEach(widget => widget.start());
-        this._menu = new ToolsMenu(this._menuWidgets, {openSettings: this._openPreferences});
+        this._menu = new ToolsMenu(this._menuWidgets, {openSettings: this._openPreferences, baseIcon: this._settings.get('bar-icon')});
         this._menu.enable();
+        this._showBarMetrics();
+    }
+
+    /** Sends the user's reading interval and alert limits to the service. */
+    _syncMonitor() {
+        const get = key => Number(this._settings.get(key));
+        this._services?.system.configure({
+            interval: get('monitor-interval'),
+            limits: {cpu: get('alert-cpu'), temp: get('alert-temp'), disk: get('alert-disk'), battery: get('alert-battery'), memory: get('alert-memory')},
+        });
+    }
+
+    /** Values written in the top bar next to the button: the service reads often while there are any. */
+    _syncBarMetrics() {
+        const system = this._services?.system;
+        if (!system)
+            return;
+        const ids = this._settings.get('bar-metrics') ?? [];
+        const want = ids.length > 0;
+        if (want && !this._barMetricsOn) {
+            this._barMetricsOn = true;
+            system.watch(true);
+            system.connectObject('changed', () => this._showBarMetrics(), this);
+        } else if (!want && this._barMetricsOn) {
+            this._barMetricsOn = false;
+            system.watch(false);
+            system.disconnectObject(this);
+        }
+        this._showBarMetrics();
+    }
+
+    _showBarMetrics() {
+        const state = this._services?.system.state;
+        const ids = this._settings.get('bar-metrics') ?? [];
+        this._menu?.setReadings(this._barMetricsOn && state?.cpu !== undefined ? barReadings(state, ids) : []);
     }
 
     _destroyMenu() {
