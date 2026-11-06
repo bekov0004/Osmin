@@ -40,7 +40,7 @@ extension off brings the stock GNOME clock back.
 | **Search bar** | Launch apps, calculate, convert units, `kill` a process, see open `ports`, text snippets |
 | **Quick toggles** | Keep awake, dark mode, night light, lock, screenshot, screen recording, colour picker, brightness |
 | **Focus** | Pomodoro timer and stopwatch that live in the capsule |
-| **System** | CPU, memory, temperature, network, disk, battery, with alerts |
+| **System, Network, Disks, Power** | Four monitoring tabs with graphs: processor, memory, temperature, uptime; download and upload speed; every disk with eject and live reading and writing; battery, power draw and health; with alerts |
 | **Sound** | Volume, output, microphone and per-application volume |
 | **Desktops** | Create, switch and remove desktops (workspaces); keep empty ones; give every monitor its own desktops, so switching on one does not move the others |
 | **Windows** | Live window previews, snap buttons (halves, maximize, next monitor), and one-click tiling of *all* open windows: columns, rows, a grid or one main window with the rest beside it |

@@ -20,8 +20,17 @@ follows [Semantic Versioning](https://semver.org/).
   no longer switches the others. Osmin keeps a desktop number per monitor and minimises the windows of
   the other desktops of that monitor.
 
+- **Monitoring tabs** in the tools window: **System** (temperature, processor and memory with graphs,
+  memory state, swap, uptime), **Network** (download and upload with graphs, connection, local address,
+  this session's traffic), **Disks** (every disk with how full it is, eject for removable ones, live
+  reading and writing) and **Power** (charge with history, power draw, adapter, battery health, cycles,
+  batteries of connected devices).
+- Quick Toggles: **Mute mic** and **Screen off**.
+
 ### Changed
 
+- Settings: **Features** now says what each tool costs while it is on ("Nothing at rest", "Checks every
+  10 s" ...).
 - Settings: **Features** now has a count and one-click bundles (Everything, Essentials, Light island), and
   every line says where it appears (*Top-bar button* or *Island*). New **Tools window** page for the
   tabs and their order; the **Widgets** page is only for the island.

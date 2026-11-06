@@ -82,6 +82,7 @@ preferencespage { background-color: ${p.BACKGROUND}; }
 .s-row-title { font-size: 13px; }
 .s-card separator { background-color: ${p.BORDER}; min-height: 1px; margin: 0; }
 .s-badge { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 8px; background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
+.s-cost { font-size: 11px; margin-right: 6px; }
 .s-badge.island { background-color: rgba(191, 90, 242, 0.16); color: #bf5af2; }
 .s-preset { background-color: ${p.SURFACE}; border-radius: 14px; padding: 12px 14px; }
 .s-tile { border-radius: 7px; min-width: 26px; min-height: 26px; background-color: ${p.ACCENT_SOFT}; color: ${p.ACCENT}; }
@@ -357,6 +358,16 @@ export default class OsminPreferences extends ExtensionPreferences {
             key(_('System'), _('Free Super+V from GNOME'), _('Lets you use Super+V for the Clipboard shortcut'), 'preferences-desktop-keyboard-shortcuts-symbolic', 'free-super-v'),
         ];
 
+        // What a feature costs while it is on, said plainly (like "Nothing at rest").
+        const COST = {
+            windows: _('Nothing at rest'), workspaces: _('Nothing at rest'), tools: _('Nothing at rest'),
+            focus: _('Nothing at rest'), input: _('Nothing at rest'), timer: _('Nothing at rest'),
+            todo: _('Nothing at rest'), notes: _('Nothing at rest'), shortcuts: _('Nothing at rest'),
+            system: _('Checks every 10 s'), network: _('Checks every 10 s'), disks: _('Checks every 10 s'), power: _('Checks every 10 s'),
+            sound: _('Listens to the sound system'), downloads: _('Watches the folder'), agents: _('Checks on an interval'),
+            media: _('Listens to players'), calendar: _('Checks on an interval'), mirror: _('Camera only while open'),
+            companion: _('Follows the pointer'),
+        };
         // Where a feature shows up, as a small badge after its name.
         const WHERE = {
             [TOOLS]: [_('Top-bar button'), ''],
@@ -439,6 +450,8 @@ export default class OsminPreferences extends ExtensionPreferences {
                 texts.append(titleLine);
                 texts.append(this._dim(feature.subtitle));
                 row.append(texts);
+                if (feature.widget && COST[feature.widget])
+                    row.append(new Gtk.Label({label: COST[feature.widget], css_classes: ['dim-label', 's-cost'], valign: Gtk.Align.CENTER}));
                 const toggle = new Gtk.Switch({valign: Gtk.Align.CENTER});
                 if (feature.widget) {
                     const sync = () => {
