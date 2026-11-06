@@ -11,6 +11,9 @@ import {WorkspacesWidget} from './workspaces/workspacesWidget.js';
 import {InputWidget} from './input/inputWidget.js';
 import {DownloadsWidget} from './downloads/downloadsWidget.js';
 import {SoundWidget} from './sound/soundWidget.js';
+import {NetworkWidget} from './network/networkWidget.js';
+import {DisksWidget} from './disks/disksWidget.js';
+import {PowerWidget} from './power/powerWidget.js';
 import {SystemWidget} from './system/systemWidget.js';
 import {TimerWidget} from './timer/timerWidget.js';
 import {ToolsWidget} from './tools/toolsWidget.js';
@@ -28,6 +31,9 @@ export const WIDGET_CLASSES = [
     ToolsWidget,
     FocusWidget,
     SystemWidget,
+    NetworkWidget,
+    DisksWidget,
+    PowerWidget,
     SoundWidget,
     DownloadsWidget,
     InputWidget,

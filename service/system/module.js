@@ -55,14 +55,17 @@ export class SystemModule extends Module {
         this._sampleId = 0;
         this._previousCpu = null;
         this._previousNet = null;
-        this._history = {cpu: [], mem: [], rx: [], tx: []};
+        this._history = {cpu: [], mem: [], rx: [], tx: [], bat: [], watts: [], diskRead: [], diskWrite: []};
+        this._totals = {rx: 0, tx: 0};
+        this._ip = {text: '', at: 0};
+        this._previousDisk = null;
         this._sample = null;
         this._active = new Set();   // alerts that are on now (said once)
         this._busy = 0;             // consecutive busy samples
     }
 
     get state() {
-        return {...(this._sample ?? {}), history: this._history, watched: this._watchers > 0};
+        return {...(this._sample ?? {}), history: this._history, totals: this._totals, watched: this._watchers > 0};
     }
 
     start() {
@@ -122,13 +125,30 @@ export class SystemModule extends Module {
         push(this._history.mem, sample.mem.percent);
         push(this._history.rx, sample.net.rx);
         push(this._history.tx, sample.net.tx);
+        push(this._history.bat, sample.battery?.percent ?? 0);
+        push(this._history.watts, sample.power?.watts ?? 0);
+        push(this._history.diskRead, sample.io.read);
+        push(this._history.diskWrite, sample.io.write);
+        // The bytes since the service started (a session total).
+        this._totals.rx += sample.net.rx * sample.dt;
+        this._totals.tx += sample.net.tx * sample.dt;
         this._evaluate(sample);
         if (this._watchers > 0)
             this.emitState();
     }
 
     _read() {
+        const now = GLib.get_monotonic_time() / 1e6;
+        const dt = this._lastRead ? Math.max(0, now - this._lastRead) : 0;
+        this._lastRead = now;
         return {
+            dt,
+            uptime: this._readUptime(),
+            power: this._readPower(),
+            disks: this._readDisks(),
+            io: this._readIo(),
+            interfaces: this._readInterfaces(),
+            ip: this._readIp(),
             cpu: this._readCpu(),
             mem: this._readMemory(),
             swap: this._readSwap(),
@@ -138,6 +158,119 @@ export class SystemModule extends Module {
             battery: this._readBattery(),
             devices: this._readDevices(),
         };
+    }
+
+    _readUptime() {
+        return Math.round(Number((readText('/proc/uptime') ?? '0').split(' ')[0]) || 0);
+    }
+
+    /** Battery details: watts, health, cycles, temperature and the adapter. null without a battery. */
+    _readPower() {
+        for (const name of listDir('/sys/class/power_supply')) {
+            const base = `/sys/class/power_supply/${name}`;
+            if (readText(`${base}/type`) !== 'Battery' || readText(`${base}/scope`) === 'Device')
+                continue;
+            const micro = key => readNumber(`${base}/${key}`);
+            let watts = micro('power_now');
+            if (watts === null && micro('current_now') !== null && micro('voltage_now') !== null)
+                watts = micro('current_now') * micro('voltage_now') / 1e6;
+            const full = micro('energy_full') ?? micro('charge_full');
+            const design = micro('energy_full_design') ?? micro('charge_full_design');
+            const temp = micro('temp');
+            const now = micro('energy_now') ?? micro('charge_now');
+            let minutes = null;
+            if (watts && watts > 0 && now !== null && full !== null && micro('power_now') !== null) {
+                const status = readText(`${base}/status`);
+                const energy = status === 'Charging' ? full - now : now;
+                minutes = Math.round(energy / watts * 60);
+            }
+            return {
+                watts: watts === null ? 0 : Math.round(Math.abs(watts) / 1e5) / 10,
+                health: full && design ? Math.round(100 * full / design) : null,
+                cycles: micro('cycle_count'),
+                temp: temp === null ? null : Math.round(temp) / 10,
+                minutes,
+                status: readText(`${base}/status`) ?? '',
+                mains: listDir('/sys/class/power_supply').some(n => readText(`/sys/class/power_supply/${n}/type`) === 'Mains' && readText(`/sys/class/power_supply/${n}/online`) === '1'),
+            };
+        }
+        return null;
+    }
+
+    /** Mounted disks that hold files (not the system's virtual ones). */
+    _readDisks() {
+        const disks = [];
+        const seen = new Set();
+        for (const line of (readText('/proc/mounts') ?? '').split('\n')) {
+            const [device, mount, type] = line.split(' ');
+            if (!device?.startsWith('/dev/') || seen.has(device) || /^\/(boot|snap|var\/lib\/snapd)/.test(mount) || type === 'squashfs')
+                continue;
+            seen.add(device);
+            const path = mount.replace(/\\040/g, ' ');
+            try {
+                const info = Gio.File.new_for_path(path).query_filesystem_info('filesystem::size,filesystem::free', null);
+                const total = info.get_attribute_uint64('filesystem::size');
+                const free = info.get_attribute_uint64('filesystem::free');
+                const removable = /^\/(media|run\/media)\//.test(path);
+                disks.push({device, mount: path, type, total, free, percent: total > 0 ? Math.round(100 * (total - free) / total) : 0, removable,
+                    name: path === '/' ? 'System' : path.split('/').pop() || device});
+            } catch (e) {
+                // unreadable: skip
+            }
+        }
+        return disks;
+    }
+
+    /** Bytes per second read from and written to the disks (whole disks only). */
+    _readIo() {
+        const now = GLib.get_monotonic_time() / 1e6;
+        let read = 0, write = 0;
+        for (const line of (readText('/proc/diskstats') ?? '').split('\n')) {
+            const f = line.trim().split(/\s+/);
+            if (f.length < 10 || !/^(sd[a-z]+|vd[a-z]+|nvme\d+n\d+|mmcblk\d+)$/.test(f[2]))
+                continue;
+            read += Number(f[5]) * 512;
+            write += Number(f[9]) * 512;
+        }
+        const previous = this._previousDisk;
+        this._previousDisk = {read, write, at: now};
+        if (!previous || now <= previous.at)
+            return {read: 0, write: 0};
+        return {read: Math.max(0, (read - previous.read) / (now - previous.at)), write: Math.max(0, (write - previous.write) / (now - previous.at))};
+    }
+
+    /** The network interfaces that are up, with their addresses. */
+    _readInterfaces() {
+        const names = [];
+        for (const line of (readText('/proc/net/dev') ?? '').split('\n').slice(2)) {
+            const name = line.split(':')[0]?.trim();
+            if (name && !/^(lo|docker|br-|veth|virbr)/.test(name) && readText(`/sys/class/net/${name}/operstate`) === 'up')
+                names.push(name);
+        }
+        return names;
+    }
+
+    /** The addresses of this computer on the network (refreshed every half minute). */
+    _readIp() {
+        const now = GLib.get_monotonic_time() / 1e6;
+        if (now - this._ip.at > 30 || !this._ip.at) {
+            this._ip.at = now;
+            try {
+                const [ok, out] = GLib.spawn_command_line_sync('ip -4 -o addr show up scope global');
+                const addresses = [];
+                if (ok) {
+                    for (const line of new TextDecoder().decode(out).split('\n')) {
+                        const m = line.match(/^\d+:\s+(\S+)\s+inet\s+(\d+\.\d+\.\d+\.\d+)/);
+                        if (m && !/^(docker|br-|veth|virbr)/.test(m[1]))
+                            addresses.push(m[2]);
+                    }
+                }
+                this._ip.text = addresses.join(', ');
+            } catch (e) {
+                this._ip.text = '';
+            }
+        }
+        return this._ip.text;
     }
 
     _readCpu() {

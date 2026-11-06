@@ -2071,3 +2071,17 @@
 .osmin-card-row:checked {
     background-color: rgba(53, 132, 228, 0.16);
 }
+
+/* Monitoring tabs (System, Network, Disks, Power) */
+.osmin-stat { spacing: 2px; padding: 8px 12px; }
+.osmin-stat-label { color: rgba(255, 255, 255, 0.55); font-size: 11px; }
+.osmin-stat-value { color: white; font-size: 17px; font-weight: 600; }
+.osmin-stat-big { font-size: 22px; font-weight: 600; }
+.osmin-sparkline { margin: 2px 14px 6px 14px; }
+.osmin-graph-scale { color: rgba(255, 255, 255, 0.4); font-size: 10px; margin: 0 14px; }
+.osmin-pill { border-radius: 99px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+.osmin-pill-good { background-color: rgba(48, 209, 88, 0.2); color: #30d158; }
+.osmin-pill-warn { background-color: rgba(255, 214, 10, 0.2); color: #ffd60a; }
+.osmin-pill-bad { background-color: rgba(255, 69, 58, 0.2); color: #ff453a; }
+.osmin-monitor-note { color: rgba(255, 255, 255, 0.45); font-size: 11px; padding: 6px 14px 10px 14px; }
+.osmin-disk-bar { margin: 0 14px 10px 14px; }

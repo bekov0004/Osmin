@@ -115,3 +115,55 @@ export function setChecked(actor, on) {
     else
         actor.remove_style_pseudo_class('checked');
 }
+
+/** A thin bar that fills from the left. @returns {{actor: St.Widget, set: (fraction: number, warn?: boolean) => void}} */
+export function usageBar() {
+    const track = new St.Widget({style_class: 'osmin-system-bar', x_expand: true, layout_manager: new Clutter.BinLayout()});
+    const fill = new St.Widget({style_class: 'osmin-system-fill', x_align: Clutter.ActorAlign.START, x_expand: true});
+    track.add_child(fill);
+    let fraction = 0;
+    let warning = false;
+    const apply = () => {
+        if (!track.mapped)
+            return;
+        fill.set_width(Math.round(track.width * Math.min(Math.max(fraction, 0), 1)));
+        if (warning)
+            fill.add_style_pseudo_class('warn');
+        else
+            fill.remove_style_pseudo_class('warn');
+    };
+    track.connect('notify::width', apply);
+    track.connect('notify::mapped', apply);
+    return {
+        actor: track,
+        set: (value, warn = false) => {
+            fraction = value;
+            warning = warn;
+            if (track.mapped) {
+                if (warn)
+                    fill.add_style_pseudo_class('warn');
+                else
+                    fill.remove_style_pseudo_class('warn');
+            }
+            apply();
+        },
+    };
+}
+
+/** A number with a small label above it: "CPU" / "45°C". @returns {{actor: St.BoxLayout, set: (text: string) => void}} */
+export function statTile(label, value = '–') {
+    const actor = new St.BoxLayout({vertical: true, style_class: 'osmin-stat', x_expand: true});
+    actor.add_child(new St.Label({text: label, style_class: 'osmin-stat-label'}));
+    const valueLabel = new St.Label({text: value, style_class: 'osmin-stat-value'});
+    actor.add_child(valueLabel);
+    return {actor, set: text => (valueLabel.text = text)};
+}
+
+/** A small rounded status pill ("Normal"); `tone` is 'good', 'warn' or 'bad'. */
+export function statusPill(text, tone = 'good') {
+    const label = new St.Label({text, style_class: `osmin-pill osmin-pill-${tone}`, y_align: Clutter.ActorAlign.CENTER});
+    return {actor: label, set: (value, newTone = tone) => {
+        label.text = value;
+        label.style_class = `osmin-pill osmin-pill-${newTone}`;
+    }};
+}

@@ -103,13 +103,13 @@
     </key>
 
     <key name="enabled-widgets" type="as">
-      <default>['media', 'calendar', 'mirror', 'windows', 'workspaces', 'tools', 'focus', 'system', 'sound', 'input', 'downloads']</default>
+      <default>['media', 'calendar', 'mirror', 'windows', 'workspaces', 'tools', 'focus', 'system', 'network', 'disks', 'power', 'sound', 'input', 'downloads']</default>
       <summary>Widgets and their order</summary>
       <description>The widgets shown in the expanded capsule and in the window of the top-bar button, in display order.</description>
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'workspaces': 4, 'agents': 4, 'companion': 2}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'focus': 3, 'system': 4, 'network': 4, 'disks': 4, 'power': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'workspaces': 4, 'agents': 4, 'companion': 2}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>

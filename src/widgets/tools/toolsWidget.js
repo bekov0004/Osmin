@@ -83,6 +83,8 @@ export class ToolsWidget extends OsminWidget {
             {id: 'clean', label: 'Clean screen', icon: 'edit-clear-all-symbolic'},
             {id: 'eject', label: 'Eject', icon: 'media-eject-symbolic'},
             {id: 'trash', label: 'Empty trash', icon: 'user-trash-symbolic'},
+            {id: 'mic', label: 'Mute mic', icon: 'microphone-sensitivity-muted-symbolic'},
+            {id: 'screenoff', label: 'Screen off', icon: 'video-display-symbolic'},
         ], id => this._action(id), {perRow: 3});
         actions.actor.add_style_class_name('osmin-card-pad');
         actionsCard.add_child(actions.actor);
@@ -105,6 +107,8 @@ export class ToolsWidget extends OsminWidget {
             clean: () => this._cleaningMode(),
             eject: () => this._ejectAll(),
             trash: () => this._emptyTrash(),
+            mic: () => this._toggleMic(),
+            screenoff: () => this._screenOff(),
         }[id];
         run?.();
     }
@@ -189,6 +193,25 @@ export class ToolsWidget extends OsminWidget {
 
     _say(icon, title, description = '') {
         this._events.emit({type: EventType.CUSTOM, icon, title, description, duration: 3000});
+    }
+
+    /** Mutes or unmutes the microphone for every application (PipeWire / PulseAudio). */
+    _toggleMic() {
+        try {
+            GLib.spawn_command_line_async('pactl set-source-mute @DEFAULT_SOURCE@ toggle');
+            this._say('microphone-sensitivity-muted-symbolic', 'Microphone', 'Muted or unmuted');
+        } catch (e) {
+            this._say('dialog-warning-symbolic', 'Microphone', e.message);
+        }
+    }
+
+    /** Turns the display off until a key is pressed or the mouse moves. */
+    _screenOff() {
+        try {
+            GLib.spawn_command_line_async('gdbus call --session --dest org.gnome.Mutter.DisplayConfig --object-path /org/gnome/Mutter/DisplayConfig --method org.freedesktop.DBus.Properties.Set org.gnome.Mutter.DisplayConfig PowerSaveMode "<int32 1>"');
+        } catch (e) {
+            this._say('dialog-warning-symbolic', 'Screen off', e.message);
+        }
     }
 
     _toggleDark() {

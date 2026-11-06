@@ -9,6 +9,9 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'timer', title: 'Timer', subtitle: 'A countdown that shows in the capsule', cells: 3, minCells: 3},
     {id: 'focus', title: 'Focus', subtitle: 'A Pomodoro focus timer and a stopwatch with laps', cells: 3, minCells: 3, menu: true},
     {id: 'system', title: 'System', subtitle: 'Processor, memory, temperature, network, disk and battery, with alerts', cells: 4, minCells: 4, menu: true},
+    {id: 'network', title: 'Network', subtitle: 'Download and upload speed with a graph, the connection, this session\'s traffic', cells: 4, minCells: 4, menu: true},
+    {id: 'disks', title: 'Disks', subtitle: 'How full each disk is, eject removable ones, live reading and writing', cells: 4, minCells: 4, menu: true},
+    {id: 'power', title: 'Power', subtitle: 'Battery charge and history, power draw, battery health, batteries of connected devices', cells: 4, minCells: 4, menu: true},
     {id: 'sound', title: 'Sound', subtitle: 'Volume, output, microphone mute and the volume of each application', cells: 4, minCells: 4, menu: true},
     {id: 'downloads', title: 'Downloads', subtitle: 'Files arriving in the Downloads folder, with progress in the capsule', cells: 4, minCells: 3, menu: true},
     {id: 'input', title: 'Input', subtitle: 'Mouse and keyboard switches: scrolling, acceleration, tap to click, focus follows mouse', cells: 4, minCells: 4, menu: true},
@@ -22,7 +25,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'tools', title: 'Quick Toggles', subtitle: 'Keep awake, dark mode, screenshot, colour picker, cleaning mode', cells: 5, minCells: 4, menu: true},
 ]);
 
-export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror', 'windows', 'workspaces', 'tools', 'focus', 'system', 'sound', 'input', 'downloads']);
+export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror', 'windows', 'workspaces', 'tools', 'focus', 'system', 'network', 'disks', 'power', 'sound', 'input', 'downloads']);
 
 /** Widgets with `menu: true` live in the pages of the top-bar button's window; the others in the capsule. */
 export const MENU_WIDGET_IDS = Object.freeze(WIDGET_INFO.filter(w => w.menu).map(w => w.id));

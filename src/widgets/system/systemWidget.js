@@ -1,29 +1,24 @@
-import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
-import {formatBytes, formatRate} from '../../services/systemService.js';
+import {formatBytes} from '../../services/systemService.js';
 import {EventType, Priority} from '../../utils/events.js';
-import {menuCard, menuDivider, menuHeader} from '../../ui/menuKit.js';
-import {OsminWidget} from '../widget.js';
+import {menuCard, menuDivider, menuHeader, menuRow, statTile, statusPill} from '../../ui/menuKit.js';
+import {MonitorWidget, formatDuration} from './monitorWidget.js';
 
 /**
- * The computer at a glance: processor, memory, temperature, network, disk and battery, each with a
- * little bar. The numbers come from the Osmin service, which also raises the alerts (a busy
- * processor, heat, a full disk or memory, a low battery); the alerts show as cards.
+ * The computer at a glance: the temperature, the processor and the memory with a graph of the last
+ * minutes, and how long it has been on. The numbers come from the Osmin service, which also raises
+ * the alerts (a busy processor, heat, a full disk or memory, a low battery); the alerts show as cards.
  */
-export class SystemWidget extends OsminWidget {
+export class SystemWidget extends MonitorWidget {
     static id = 'system';
     static title = 'System';
     static iconName = 'utilities-system-monitor-symbolic';
-    static menuNative = true; // laid out with the menu kit: the menu does not wrap it
 
     constructor(context) {
         super(context);
-        this._system = context.services.system;
         this._events = context.events;
         this._settings = context.settings;
-        this._cells = new Map();
-        this._watching = false;
     }
 
     start() {
@@ -44,90 +39,56 @@ export class SystemWidget extends OsminWidget {
         });
     }
 
-    createView() {
+    createPage() {
         const root = new St.BoxLayout({vertical: true, style_class: 'osmin-widget osmin-system osmin-menu-page', x_expand: true});
-        root.add_child(menuHeader('This computer'));
-        const card = menuCard();
-        const rows = [['cpu', 'Processor'], ['mem', 'Memory'], ['temp', 'Temperature'], ['net', 'Network'], ['disk', 'Disk'], ['battery', 'Battery']];
-        rows.forEach(([id, label], index) => {
-            if (index > 0)
-                card.add_child(menuDivider());
-            card.add_child(this._createCell(id, label));
-        });
-        root.add_child(card);
-        this._system.connectObject('changed', () => this._update(), this);
+
+        root.add_child(menuHeader('Temperatures'));
+        const temps = menuCard();
+        const tiles = new St.BoxLayout({x_expand: true});
+        this._temp = statTile('Processor');
+        this._load = statTile('Load');
+        tiles.add_child(this._temp.actor);
+        tiles.add_child(this._load.actor);
+        temps.add_child(tiles);
+        root.add_child(temps);
+
+        root.add_child(menuHeader('Hardware usage'));
+        const usage = menuCard();
+        this._cpu = menuRow({title: 'Processor', control: new St.Label({text: '–', style_class: 'osmin-stat-value'})});
+        usage.add_child(this._cpu.row);
+        this._cpuGraph = this.graphBlock({color: [0.04, 0.52, 1], max: 100});
+        this._cpuGraph.scale.text = '100%';
+        usage.add_child(this._cpuGraph.actor);
+        root.add_child(usage);
+
+        root.add_child(menuHeader('Memory'));
+        const memory = menuCard();
+        this._pressure = statusPill('Normal');
+        this._mem = menuRow({title: 'Memory', subtitle: ' ', control: this._pressure.actor});
+        memory.add_child(this._mem.row);
+        this._memGraph = this.graphBlock({color: [0.19, 0.82, 0.35], max: 100});
+        this._memGraph.scale.text = '100%';
+        memory.add_child(this._memGraph.actor);
+        memory.add_child(menuDivider());
+        this._swap = menuRow({title: 'Swap used', control: new St.Label({text: '–', style_class: 'osmin-stat-value'})});
+        memory.add_child(this._swap.row);
+        root.add_child(memory);
+
+        this._uptime = new St.Label({text: '', style_class: 'osmin-monitor-note'});
+        root.add_child(this._uptime);
         return root;
     }
 
-    _createCell(id, label) {
-        const cell = new St.BoxLayout({vertical: true, style_class: 'osmin-system-cell osmin-card-row', x_expand: true});
-        const head = new St.BoxLayout({x_expand: true});
-        head.add_child(new St.Label({text: label, style_class: 'osmin-system-label', x_expand: true}));
-        const value = new St.Label({text: '–', style_class: 'osmin-system-value'});
-        head.add_child(value);
-        cell.add_child(head);
-        const track = new St.Widget({style_class: 'osmin-system-bar', x_expand: true, layout_manager: new Clutter.BinLayout()});
-        const fill = new St.Widget({style_class: 'osmin-system-fill', x_align: Clutter.ActorAlign.START});
-        track.add_child(fill);
-        track.connect('notify::width', () => this._update());
-        cell.add_child(track);
-        this._cells.set(id, {value, track, fill});
-        return cell;
-    }
-
-    onViewCreated() {
-        this._update();
-    }
-
-    onPageShown() {
-        if (!this._watching) {
-            this._watching = true;
-            this._system.watch(true);
-        }
-        this._update();
-    }
-
-    onPageHidden() {
-        if (this._watching) {
-            this._watching = false;
-            this._system.watch(false);
-        }
-    }
-
-    _set(id, text, fraction, warn = false) {
-        const cell = this._cells.get(id);
-        if (!cell)
-            return;
-        cell.value.text = text;
-        if (warn)
-            cell.fill.add_style_pseudo_class('warn');
-        else
-            cell.fill.remove_style_pseudo_class('warn');
-        const width = cell.track.mapped ? cell.track.width : 0;
-        cell.fill.set_width(Math.round(width * Math.min(Math.max(fraction, 0), 1)));
-    }
-
-    _update() {
-        if (!this._view)
-            return;
-        const s = this._system.state;
-        if (s.cpu === undefined)
-            return;
-        this._set('cpu', `${s.cpu}%`, s.cpu / 100, s.cpu >= 90);
-        this._set('mem', `${formatBytes(s.mem.used)}`, s.mem.percent / 100, s.mem.percent >= 92);
-        this._set('temp', s.temp === null ? 'n/a' : `${s.temp}°C`, s.temp === null ? 0 : s.temp / 100, s.temp !== null && s.temp >= 85);
-        const net = Math.max(s.net.rx, s.net.tx);
-        this._set('net', `↓${formatRate(s.net.rx)} ↑${formatRate(s.net.tx)}`, Math.min(1, Math.log10(1 + net / 1024) / 4));
-        this._set('disk', `${formatBytes(s.disk.free)} free`, s.disk.percent / 100, s.disk.percent >= 95);
-        if (s.battery)
-            this._set('battery', `${s.battery.percent}%${s.battery.charging ? ' ⚡' : ''}`, s.battery.percent / 100, !s.battery.charging && s.battery.percent <= 20);
-        else
-            this._set('battery', 'no battery', 0);
-    }
-
-    destroy() {
-        this._system.disconnectObject(this);
-        this.onPageHidden();
-        super.destroy();
+    _update(s) {
+        this._temp.set(s.temp === null ? 'n/a' : `${s.temp}°C`);
+        this._load.set(`${s.cpu}%`);
+        this._cpu.row.get_first_child().get_last_child().text = `${s.cpu}%`;
+        this._cpuGraph.graph.setValues(s.history.cpu);
+        const level = s.mem.percent >= 92 ? 'bad' : s.mem.percent >= 80 ? 'warn' : 'good';
+        this._pressure.set(level === 'good' ? 'Normal' : level === 'warn' ? 'High' : 'Critical', level);
+        this._mem.subtitle.text = `${formatBytes(s.mem.used)} of ${formatBytes(s.mem.total)} (${s.mem.percent}%)`;
+        this._memGraph.graph.setValues(s.history.mem);
+        this._swap.row.get_first_child().get_last_child().text = `${s.swap}%`;
+        this._uptime.text = s.uptime ? `Up for ${formatDuration(s.uptime)}` : '';
     }
 }
