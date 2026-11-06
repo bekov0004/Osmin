@@ -329,6 +329,12 @@
       <description>While a file is being downloaded the capsule shows it, and a card tells when it is done.</description>
     </key>
 
+    <key name="desktops-per-monitor" type="b">
+      <default>false</default>
+      <summary>Separate desktops for every monitor</summary>
+      <description>Each monitor has its own desktops: switching on one monitor does not change the others.</description>
+    </key>
+
     <key name="activity-timer" type="b">
       <default>true</default>
       <summary>Timer activity</summary>

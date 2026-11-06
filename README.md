@@ -42,7 +42,7 @@ extension off brings the stock GNOME clock back.
 | **Focus** | Pomodoro timer and stopwatch that live in the capsule |
 | **System** | CPU, memory, temperature, network, disk, battery, with alerts |
 | **Sound** | Volume, output, microphone and per-application volume |
-| **Desktops** | Create, switch and remove desktops (workspaces); keep empty ones; make desktops work on every monitor |
+| **Desktops** | Create, switch and remove desktops (workspaces); keep empty ones; give every monitor its own desktops, so switching on one does not move the others |
 | **Windows** | Live window previews, snap buttons (halves, maximize, next monitor), and one-click tiling of *all* open windows: columns, rows, a grid or one main window with the rest beside it |
 | **Downloads** | Progress, size and speed of what lands in your Downloads folder |
 | **Mirror** | A round webcam preview, the camera is on only while you look |

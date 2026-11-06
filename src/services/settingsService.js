@@ -54,6 +54,7 @@ export const DEFAULTS = Object.freeze({
     'agents-alerts': true,
     'activity-downloads': true,
     'activity-timer': true,
+    'desktops-per-monitor': false,
     'activity-calendar': true,
     'activity-files': true,
     'peek-media-seconds': 1.5,

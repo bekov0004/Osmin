@@ -16,6 +16,9 @@ follows [Semantic Versioning](https://semver.org/).
 
 - **Desktops tab:** list, switch, create and remove desktops (workspaces), send the current window to a new
   desktop, and two switches for GNOME's *dynamic desktops* and *desktops on every monitor*.
+- **Separate desktops for every monitor** (Desktops tab, off by default): switching desktops on one monitor
+  no longer switches the others. Osmin keeps a desktop number per monitor and minimises the windows of
+  the other desktops of that monitor.
 
 ### Changed
 
