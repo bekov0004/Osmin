@@ -160,7 +160,7 @@ export class PhoneCardActivity extends LiveActivity {
             if (now.kind === 'window' && shape.kind === 'phone') {
                 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                     if (!gone)
-                        this._onDismiss();
+                        this._ui.openMain();
                     return GLib.SOURCE_REMOVE;
                 });
             } else if (now.kind !== shape.kind || now.serial !== shape.serial) {
@@ -235,7 +235,7 @@ export class PhoneCardActivity extends LiveActivity {
             const serial = this.device?.serial;
             stream.stop();
             this._phone.call('mirror', {serial}).catch(() => {});
-            this._onDismiss();   // the capsule closes; the phone lives in its window now
+            this._ui.openMain();   // the panel goes back to its main section and closes by itself in a moment
         }));
         top.add_child(small('go-up-symbolic', () => this._onDismiss()));
 

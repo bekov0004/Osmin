@@ -103,6 +103,7 @@ export class Osmin {
         this._knownActivities = new Set();
         this._hoverCard = false;     // the card on screen was brought by hovering the collapsed capsule
         this._openPage = null;
+        this._closeSoon = 0;
         this._destroying = false;
         this._grab = null;
         this._onTextInputEnd = null;
@@ -348,6 +349,11 @@ export class Osmin {
                     closeCapsule: () => this._settle(),
                     showCard: (activity, options) => this._services.activities.peek(activity, {...options, force: true, target: this}),
                     hideCard: activity => this._cards.hide(`activity:${activity.id}`),
+                    // Back to the main section of the panel, which then closes by itself after a few seconds.
+                    openMain: ({closeAfter = 3000} = {}) => {
+                        this._closeSoon = closeAfter;
+                        this.open();
+                    },
                 },
             }));
     }
@@ -1272,8 +1278,12 @@ export class Osmin {
                 this._panelView.showWidget(page);
             this._panelView.setOpen(true);
             this._closedView.setActivity(false);
-            if (!this._actor.hover && !this._pinned && this._settings.get('auto-collapse'))
+            if (this._closeSoon) {
+                this._timers.set('leave', this._closeSoon, () => this._settle());
+                this._closeSoon = 0;
+            } else if (!this._actor.hover && !this._pinned && this._settings.get('auto-collapse')) {
                 this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
+            }
         } else {
             this._pinned = false;
         }
