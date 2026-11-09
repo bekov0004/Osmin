@@ -40,9 +40,9 @@ export class PhoneViewer {
         const provider = new Gtk.CssProvider();
         provider.load_from_string(`
             window.osmin-phone-window { background: transparent; box-shadow: none; }
-            .osmin-phone-body { background-color: #000; border-radius: 34px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.1); }
-            .osmin-phone-screen { border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.16); background-color: #000; }
-            .osmin-phone-picture { border-radius: 24px; }
+            .osmin-phone-body { background: transparent; padding: 0; border: none; }
+            .osmin-phone-screen { border-radius: 28px; border: none; background-color: #000; }
+            .osmin-phone-picture { border-radius: 28px; }
             .osmin-phone-status { color: rgba(255, 255, 255, 0.65); font-size: 13px; }
             .osmin-phone-controls { opacity: 0; transition: opacity 140ms ease; }
             .osmin-phone-controls.shown { opacity: 1; }
@@ -100,7 +100,7 @@ export class PhoneViewer {
         // No title bar: the window is the phone, as in the capsule's card: a black body with round corners,
         // the picture with a thin frame inside, and buttons that show while the pointer is over it.
         PhoneViewer.installStyle();
-        const window = new Gtk.Window({title, decorated: false, resizable: false, default_width: 330, default_height: 739});
+        const window = new Gtk.Window({title, decorated: false, resizable: false, default_width: 310, default_height: 689});
         window.add_css_class('osmin-phone-window');
         this._window = window;
 
@@ -233,12 +233,23 @@ export class PhoneViewer {
         });
         this._picture.add_controller(secondary);
 
-        // The black body: dragging it (not the picture) moves the window.
+        // No frame at all: the window is the phone's screen with round corners. It is moved by holding Alt (or
+        // Super) and dragging, as every window, or by dragging with the middle button.
         const body = new Gtk.Box({hexpand: true, vexpand: true});
         body.add_css_class('osmin-phone-body');
         body.append(screen);
-        const handle = new Gtk.WindowHandle({child: body});
-        window.set_child(handle);
+        window.set_child(body);
+        const mover = new Gtk.GestureDrag({button: 2});
+        mover.connect('drag-begin', (gesture, x, y) => {
+            try {
+                const [ok, wx, wy] = this._picture.translate_coordinates(this._window, x, y);
+                const event = gesture.get_last_event(null);
+                this._window.get_surface().begin_move(gesture.get_device(), 2, ok ? wx : x, ok ? wy : y, event ? event.get_time() : Gdk.CURRENT_TIME);
+            } catch (e) {
+                // the window manager moves it with Alt-drag anyway
+            }
+        });
+        this._picture.add_controller(mover);
 
         // Mouse: the finger follows the pointer (down, moves, up), so a click is a tap and a drag is a swipe.
         const drag = new Gtk.GestureDrag({button: 1});
@@ -356,16 +367,16 @@ export class PhoneViewer {
                 this._fail('Could not read the screen size of the phone. Is it still connected and unlocked?');
                 return;
             }
-            // The same size as the card in the capsule: 310 wide picture (as tall as the phone), 10 px of body around it.
+            // The picture is the whole window: 310 wide as in the capsule's card, as tall as the phone.
             const monitor = Gdk.Display.get_default()?.get_monitors().get_item(0)?.get_geometry();
             let pictureW = 310;
             let pictureH = pictureW * this._screen.h / this._screen.w;
-            const max = (monitor?.height ?? 1080) * 0.9 - 20;
+            const max = (monitor?.height ?? 1080) * 0.9;
             if (pictureH > max) {
                 pictureH = max;
                 pictureW = Math.max(pictureH * this._screen.w / this._screen.h, 200);
             }
-            this._window.set_size_request(Math.round(pictureW) + 20, Math.round(pictureH) + 20);
+            this._window.set_size_request(Math.round(pictureW), Math.round(pictureH));
             this._startVideo();
         });
     }
