@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Phone: the picture is requested again (up to six times) when the phone's encoder refuses right while its screen changes state; before, the card stayed empty with "The phone did not send a picture" when the screen was darkened at the moment of opening.
 - Phone: the dark screen now works on Android 14 and newer, tested on an HONOR phone with Android 16 (MagicOS 10): the display control library is loaded from the right class, together with the vendor's additions to services.jar (services-magic.jar), once per run; the helper no longer crashes on exit.
 - Phone: the phone's own screen stays dark while you use it from the computer (on by default; Settings > Phone, and a moon button for one session). The phone stays awake and unlocked but its panel is off, through Osmin's helper on the phone (the same way as scrcpy's --turn-screen-off); if the phone does not allow that, Osmin says so and changes nothing else. The light is given back when the card or window closes. Fixed: the helper was not found, so touches always used the slower `input` commands.
 - Phone: taking the phone out into a window sends the panel back to its main section, which closes by itself after three seconds; the cards without a phone (QR code, install adb, "in its own window") are only as tall as what they say.

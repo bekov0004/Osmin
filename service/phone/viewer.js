@@ -71,6 +71,7 @@ export class PhoneViewer {
         this._pollId = 0;
         this._restartId = 0;
         this._frames = 0;
+        this._attempts = 0;
         // The service is a plain Gio.Application: GTK is started by hand before the first window.
         GLib.set_prgname('dev.osmin.Osmin');
         Adw.init();
@@ -338,18 +339,28 @@ export class PhoneViewer {
             if (this._closed || this._video !== video)
                 return;
             this._stopVideo();
-            // Normal after three minutes. When it ends at once, say why.
+            // Normal after three minutes. When it ends at once the phone's encoder refused: try again a few times.
             if (this._frames === 0 || GLib.get_monotonic_time() - startedAt < 4000000) {
-                const err = video.get_stderr_pipe();
-                err.read_bytes_async(2000, GLib.PRIORITY_DEFAULT, null, (_s, result) => {
-                    try {
-                        const text = new TextDecoder().decode(err.read_bytes_finish(result).toArray()).trim();
-                        this._fail(text ? `The phone did not send a picture:\n${text.split('\n')[0]}` : 'The phone did not send a picture.');
-                    } catch (e) {
-                        this._fail('The phone did not send a picture.');
-                    }
+                if (++this._attempts > 6) {
+                    const err = video.get_stderr_pipe();
+                    err.read_bytes_async(2000, GLib.PRIORITY_DEFAULT, null, (_s, result) => {
+                        try {
+                            const text = new TextDecoder().decode(err.read_bytes_finish(result).toArray()).trim();
+                            this._fail(text ? `The phone did not send a picture:\n${text.split('\n')[0]}` : 'The phone did not send a picture.');
+                        } catch (e) {
+                            this._fail('The phone did not send a picture.');
+                        }
+                    });
+                    return;
+                }
+                this._restartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1200, () => {
+                    this._restartId = 0;
+                    this._startVideo();
+                    return GLib.SOURCE_REMOVE;
                 });
+                return;
             }
+            this._attempts = 0;
             this._restartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RESTART_MS, () => {
                 this._restartId = 0;
                 this._startVideo();

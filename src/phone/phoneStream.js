@@ -10,6 +10,8 @@ const TARGET_WIDTH = 540;
 const BIT_RATE = 5000000;
 const POLL_MS = 16;
 const RESTART_MS = 800;
+const RETRIES = 6;            // the phone's encoder may refuse right while its screen changes state: try again
+const RETRY_MS = 1200;
 // One decoding thread and no queues: a frame that arrives is shown at once.
 const pipeline = fd => `fdsrc fd=${fd} blocksize=16384 ! h264parse ! avdec_h264 max-threads=1 ! videoconvert ! ` +
     'video/x-raw,format=BGRA ! appsink name=sink max-buffers=1 drop=true sync=false';
@@ -46,6 +48,7 @@ export class PhoneStream extends Signals.EventEmitter {
         this._pollId = 0;
         this._restartId = 0;
         this._size = null;           // the size of the picture in this.content
+        this._attempts = 0;
     }
 
     get state() {
@@ -84,6 +87,7 @@ export class PhoneStream extends Signals.EventEmitter {
             return;
         }
         this.screen = screen;
+        this._attempts = 0;
         this.control = new PhoneControl({adb, serial, dark, onDark: () => this.emit('dark-changed')});
         this.control.keepAwake();
         this._startVideo(generation);
@@ -158,21 +162,32 @@ export class PhoneStream extends Signals.EventEmitter {
             if (generation !== this._generation || this._video !== video)
                 return;
             this._stopVideo();
-            // Normal after three minutes. If it ended at once, say why.
+            // Normal after three minutes. If it ended at once, the phone's encoder refused: try again a few times.
             if (this.frames === 0 || GLib.get_monotonic_time() - startedAt < 4000000) {
-                const err = video.get_stderr_pipe();
-                err.read_bytes_async(2000, GLib.PRIORITY_DEFAULT, null, (_s, result) => {
-                    let text = '';
-                    try {
-                        text = new TextDecoder().decode(err.read_bytes_finish(result).toArray()).trim().split('\n')[0];
-                    } catch (e) {
-                        // ignore
-                    }
-                    if (generation === this._generation && this.frames === 0)
-                        this._fail(generation, text ? `The phone did not send a picture: ${text}` : 'The phone did not send a picture.');
+                if (this.frames > 0)
+                    this._attempts = 0;
+                if (++this._attempts > RETRIES) {
+                    const err = video.get_stderr_pipe();
+                    err.read_bytes_async(2000, GLib.PRIORITY_DEFAULT, null, (_s, result) => {
+                        let text = '';
+                        try {
+                            text = new TextDecoder().decode(err.read_bytes_finish(result).toArray()).trim().split('\n')[0];
+                        } catch (e) {
+                            // ignore
+                        }
+                        if (generation === this._generation)
+                            this._fail(generation, text ? `The phone did not send a picture: ${text}` : 'The phone did not send a picture.');
+                    });
+                    return;
+                }
+                this._restartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RETRY_MS, () => {
+                    this._restartId = 0;
+                    this._startVideo(generation);
+                    return GLib.SOURCE_REMOVE;
                 });
                 return;
             }
+            this._attempts = 0;
             this._restartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RESTART_MS, () => {
                 this._restartId = 0;
                 this._startVideo(generation);
