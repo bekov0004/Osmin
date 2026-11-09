@@ -105,6 +105,7 @@ export class PhoneCardActivity extends LiveActivity {
         });
         root.margin_top = scaled(TOP - 8);   // the card's own top is about 8 px below the screen's edge
         const stream = phoneMode ? new PhoneStream() : null;
+        this._lastStream = stream;   // for the tests
         let renew = 0;
         let touching = false;
         let grab = null;
@@ -219,10 +220,41 @@ export class PhoneCardActivity extends LiveActivity {
         bottom.add_child(small('view-grid-symbolic', () => control()?.key(187)));
         bottom.add_child(small('preferences-system-notifications-symbolic', () => control()?.shell('cmd statusbar expand-notifications')));
 
+        // Unlock: a PIN or password is typed here once and goes to the phone; it is not kept.
+        const pinBox = new St.BoxLayout({style_class: 'osmin-phone-pin', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true, visible: false});
+        const entry = new St.PasswordEntry({style_class: 'osmin-phone-pin-entry', hint_text: 'PIN or password', can_focus: true, x_expand: true});
+        pinBox.add_child(entry);
+        const closePin = () => {
+            entry.set_text('');
+            pinBox.hide();
+            this._ui.endTextInput();
+        };
+        entry.clutter_text.connect('activate', () => {
+            const secret = entry.get_text();
+            closePin();
+            control()?.unlock(secret, stream.screen);
+        });
+        entry.clutter_text.connect('key-press-event', (_a, event) => {
+            if (event.get_key_symbol() !== Clutter.KEY_Escape)
+                return Clutter.EVENT_PROPAGATE;
+            closePin();
+            return Clutter.EVENT_STOP;
+        });
+        bottom.add_child(small('system-lock-screen-symbolic', () => {
+            if (pinBox.visible) {
+                closePin();
+                return;
+            }
+            pinBox.show();
+            this._ui.beginTextInput(() => {});
+            entry.grab_key_focus();
+        }));
+
         for (const actor of [top, bottom]) {
             actor.opacity = 0;
             root.add_child(actor);
         }
+        root.add_child(pinBox);
         root.connect('notify::hover', () => {
             for (const actor of [top, bottom])
                 actor.ease({opacity: root.hover ? 255 : 0, duration: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD});

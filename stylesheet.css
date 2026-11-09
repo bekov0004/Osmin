@@ -2238,3 +2238,6 @@
 .osmin-phone-pill:hover { background-color: rgba(255, 255, 255, 0.18); }
 .osmin-phone-pill-primary { background-color: #0a84ff; color: white; }
 .osmin-phone-pill-primary:hover { background-color: #3a9bff; }
+
+.osmin-phone-pin { background-color: rgba(20, 20, 24, 0.85); border-radius: 20px; padding: 6px 10px; margin: 0 24px 58px 24px; }
+.osmin-phone-pin-entry { background-color: transparent; color: white; border: none; box-shadow: none; padding: 6px 8px; min-width: 160px; }

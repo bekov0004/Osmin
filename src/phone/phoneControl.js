@@ -106,6 +106,27 @@ export class PhoneControl {
         }
     }
 
+    /**
+     * Wakes the phone, swipes the lock screen up and types the PIN or password. Nothing is kept: the code
+     * goes to the phone once and is forgotten. (A pattern is drawn with the mouse instead.)
+     * @param {string} secret @param {{w: number, h: number}} screen
+     */
+    unlock(secret, screen) {
+        if (this._closed || !screen)
+            return;
+        const later = (ms, fn) => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
+            if (!this._closed)
+                fn();
+            return GLib.SOURCE_REMOVE;
+        });
+        this.key(WAKE_CODE);
+        later(700, () => this.swipe(Math.round(screen.w / 2), Math.round(screen.h * 0.85), Math.round(screen.w / 2), Math.round(screen.h * 0.3), 250));
+        if (secret) {
+            later(1700, () => this.text(secret));
+            later(2200, () => this.key(66));
+        }
+    }
+
     /** Wakes the phone's screen now and every few seconds, so it does not sleep while it is being used. */
     keepAwake() {
         if (this._awakeId || this._closed)

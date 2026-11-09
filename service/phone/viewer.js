@@ -125,6 +125,17 @@ export class PhoneViewer {
         bottom.append(button('go-home-symbolic', 'Home', () => this._key(3)));
         bottom.append(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));
         bottom.append(button('preferences-system-notifications-symbolic', 'Notifications', () => this._control?.shell('cmd statusbar expand-notifications')));
+        // Unlock: a PIN or password is typed here once and goes to the phone; it is not kept.
+        const unlock = button('system-lock-screen-symbolic', 'Unlock with a PIN or password', () => pin.popup());
+        const pin = new Gtk.Popover({child: new Gtk.PasswordEntry({placeholder_text: 'PIN or password', show_peek_icon: true, width_chars: 18}), position: Gtk.PositionType.TOP});
+        pin.set_parent(unlock);
+        pin.get_child().connect('activate', entry => {
+            const secret = entry.get_text();
+            entry.set_text('');
+            pin.popdown();
+            this._control?.unlock(secret, this._screen);
+        });
+        bottom.append(unlock);
         for (const box of [top, bottom]) {
             box.add_css_class('osmin-phone-controls');
             box.set_can_target(true);
