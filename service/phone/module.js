@@ -37,19 +37,18 @@ export function parseDevices(text) {
 /**
  * Phone: see and control an Android phone from the computer. The phone is paired with a QR code
  * (Developer options > Wireless debugging > Pair device with QR code), found by adb over mDNS and
- * connected; scrcpy then shows its screen in a window and sends the mouse and keyboard to it.
- * state: {adb, scrcpy, devices: [{serial, state, model}], mirroring: serial|null,
+ * connected; viewer.js then shows its screen in a window and sends the mouse and keyboard to it.
+ * state: {adb, devices: [{serial, state, model}], mirroring: serial|null,
  *         pairing: null | {text, status: 'waiting'|'pairing'|'connecting'|'failed', message}}
  */
 export class PhoneModule extends Module {
     constructor() {
         super('Phone');
         this._adb = GLib.getenv('OSMIN_ADB') || GLib.find_program_in_path('adb') || ADB_PATHS.find(p => GLib.file_test(p, GLib.FileTest.IS_EXECUTABLE)) || null;
-        this._scrcpy = GLib.getenv('OSMIN_SCRCPY') || GLib.find_program_in_path('scrcpy');
         this._devices = [];
         this._pairing = null;
         this._pairingInfo = null;      // {name, password}
-        this._mirror = null;           // {serial, process}
+        this._viewer = null;           // {serial, window}
         this._until = 0;
         this._timer = 0;
         this._busy = false;
@@ -58,9 +57,8 @@ export class PhoneModule extends Module {
     get state() {
         return {
             adb: !!this._adb,
-            scrcpy: !!this._scrcpy,
             devices: this._devices,
-            mirroring: this._mirror?.serial ?? null,
+            mirroring: this._viewer?.serial ?? null,
             pairing: this._pairing,
         };
     }
@@ -72,15 +70,14 @@ export class PhoneModule extends Module {
 
     stop() {
         this._stopTimer();
-        this._mirror?.process.force_exit();
-        this._mirror = null;
+        this._viewer?.window.close();
+        this._viewer = null;
     }
 
     /** The page is shown: keep looking at the phones (the lease ends by itself). */
     rpc_watch({on}) {
         this._until = on ? Date.now() + LEASE_MS : 0;
         if (on) {
-            this._scrcpy = GLib.getenv('OSMIN_SCRCPY') || GLib.find_program_in_path('scrcpy');
             this._startTimer();
             this._tick();
         }
@@ -109,34 +106,40 @@ export class PhoneModule extends Module {
         return {};
     }
 
-    /** Opens the phone's screen (scrcpy). */
-    rpc_mirror({serial}) {
-        if (!this._scrcpy)
-            throw new Error('scrcpy is not installed');
-        if (this._mirror?.serial === serial)
+    /** Opens the phone's screen in a window of its own, where it can be controlled. */
+    async rpc_mirror({serial}) {
+        if (!this._adb)
+            throw new Error('adb is not installed');
+        if (this._viewer?.serial === serial) {
+            this._viewer.window.present();
             return {};
-        this._mirror?.process.force_exit();
-        const process = Gio.Subprocess.new([this._scrcpy, '-s', serial, '--window-title', 'Osmin Phone', '--stay-awake'],
-            Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
-        const entry = {serial, process};
-        this._mirror = entry;
-        process.wait_async(null, () => {
-            if (this._mirror === entry)
-                this._mirror = null;
-            this.emitState();
+        }
+        this._viewer?.window.close();
+        const {PhoneViewer} = await import('./viewer.js');
+        const device = this._devices.find(d => d.serial === serial);
+        const entry = {serial, window: null};
+        entry.window = new PhoneViewer({
+            adb: this._adb, serial, title: device?.model || 'Phone',
+            onClose: () => {
+                if (this._viewer === entry)
+                    this._viewer = null;
+                this.emitState();
+            },
         });
+        this._viewer = entry;
+        entry.window.present();
         this.emitState();
         return {};
     }
 
     rpc_stopMirror() {
-        this._mirror?.process.force_exit();
+        this._viewer?.window.close();
         return {};
     }
 
     async rpc_disconnect({serial}) {
-        if (this._mirror?.serial === serial)
-            this._mirror.process.force_exit();
+        if (this._viewer?.serial === serial)
+            this._viewer.window.close();
         await this._run(['disconnect', serial]);
         await this._refreshDevices();
         return {};
@@ -224,8 +227,7 @@ export class PhoneModule extends Module {
             await this._refreshDevices();
             this.emitEvent('connected', {serial: entry.address});
             this.emitState();
-            if (this._scrcpy)
-                this.rpc_mirror({serial: entry.address});
+            this.rpc_mirror({serial: entry.address}).catch(e => console.warn(`[osmin-service] Phone: ${e.message}`));
         }
     }
 
