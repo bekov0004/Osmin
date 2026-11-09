@@ -57,6 +57,7 @@ export class PhoneModule extends Module {
     get state() {
         return {
             adb: !!this._adb,
+            adbPath: this._adb,
             devices: this._devices,
             mirroring: this._viewer?.serial ?? null,
             pairing: this._pairing,
@@ -124,6 +125,11 @@ export class PhoneModule extends Module {
                 if (this._viewer === entry)
                     this._viewer = null;
                 this.emitState();
+            },
+            // The window's own button: close it and ask the capsule to show the phone again.
+            onDock: () => {
+                entry.window.close();
+                this.emitEvent('dock');
             },
         });
         this._viewer = entry;
@@ -227,7 +233,6 @@ export class PhoneModule extends Module {
             await this._refreshDevices();
             this.emitEvent('connected', {serial: entry.address});
             this.emitState();
-            this.rpc_mirror({serial: entry.address}).catch(e => console.warn(`[osmin-service] Phone: ${e.message}`));
         }
     }
 

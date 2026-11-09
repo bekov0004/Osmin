@@ -9,6 +9,7 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 import {CameraState} from './services/cameraService.js';
 import {LocalSendSession} from './localsend/localSendSession.js';
 import {LocalSendView} from './localsend/localSendView.js';
+import {PhoneView} from './phone/phoneView.js';
 import {LocalSendReceiveActivity} from './localsend/localSendReceiveActivity.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
@@ -169,6 +170,13 @@ export class Osmin {
             },
         });
         this._notificationsView = new NotificationsView({service: this._services.notifications});
+        this._phoneView = new PhoneView({
+            phone: this._services.backend?.phone ?? null,
+            ui: {
+                beginTextInput: onEnd => this._beginTextInput(onEnd),
+                endTextInput: () => this._endTextInput(),
+            },
+        });
         this._commandView = new CommandView({
             clipboard: this._services.clipboard,
             ui: {
@@ -200,6 +208,7 @@ export class Osmin {
             },
         });
         this._localSendView.onContentChanged = () => this._onListChanged();
+        this._phoneView.onContentChanged = () => this._onListChanged();
         this._widgets = this._createWidgets();
         this._buildActor();
         this._applyAppearance();
@@ -270,6 +279,8 @@ export class Osmin {
         this._notificationsView = null;
         this._commandView?.destroy();
         this._commandView = null;
+        this._phoneView?.destroy();
+        this._phoneView = null;
         this._dragOut?.destroy();
         this._dragOut = null;
         this._drag?.destroy();
@@ -316,7 +327,7 @@ export class Osmin {
     }
 
     /**
-     * Opens the panel on a section ('osmin', 'tray', 'localsend', 'clipboard', 'notifications' or 'command'); when that
+     * Opens the panel on a section ('osmin', 'tray', 'localsend', 'clipboard', 'notifications', 'command' or 'phone'); when that
      * section is already shown, closes it (a shortcut pressed twice).
      */
     openSection(section) {
@@ -461,6 +472,7 @@ export class Osmin {
             clipboard: this._clipboardView,
             notifications: this._notificationsView,
             command: this._commandView,
+            phone: this._phoneView,
             // A list pulled taller is only for its own tab: the others go back to the normal height.
             onModeChanged: () => {
                 this._expanded = false;
@@ -1063,7 +1075,7 @@ export class Osmin {
 
     /** The items of an open list changed: a grown panel follows the new count. */
     _onListChanged() {
-        if (this._state === State.OPEN && ((this._expanded && this._panelView.growable) || this._panelView.mode === PanelMode.LOCALSEND))
+        if (this._state === State.OPEN && ((this._expanded && this._panelView.growable) || this._panelView.mode === PanelMode.LOCALSEND || this._panelView.mode === PanelMode.PHONE))
             this._applyGeometry({duration: 150, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
@@ -1310,7 +1322,8 @@ export class Osmin {
         });
         this._panelView.applyLayout(layout, {scale, headerHeight: geo.height});
         const width = Math.round(layout.widthCss * scale);
-        const normalCap = Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO);
+        // The phone section is as tall as a phone: it may use more of the screen than the lists do.
+        const normalCap = Math.round(geo.monitor.height * (this._panelView.mode === PanelMode.PHONE ? 0.86 : Layout.OPEN_MAX_HEIGHT_RATIO));
         if (!this._panelView.growable)
             this._expanded = false;
         // A list grown to fit its items (the size is measured with the panel at its normal height).

@@ -6,16 +6,16 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 import Gst from 'gi://Gst?version=1.0';
 import Gtk from 'gi://Gtk?version=4.0';
 
+import {PhoneControl} from '../../src/phone/phoneControl.js';
+
 const TARGET_WIDTH = 720;        // the picture is asked at about this width: sharp enough, light on Wi-Fi
 const BIT_RATE = 6000000;
-const POLL_MS = 50;
+const POLL_MS = 16;
 const RESTART_MS = 1200;         // screenrecord stops by itself after three minutes: start it again
-const TAP_MAX_PX = 10;
-const TAP_MAX_MS = 350;
-const LONG_PRESS_MS = 500;
 
 // The phone's video comes in on a pipe (fdsrc) and the last decoded picture is read from gdkpixbufsink.
-const pipeline = fd => `fdsrc fd=${fd} ! h264parse ! avdec_h264 ! videoconvert ! gdkpixbufsink name=sink`;
+// One decoding thread and no queues: every frame that arrives is shown at once.
+const pipeline = fd => `fdsrc fd=${fd} blocksize=16384 ! h264parse ! avdec_h264 max-threads=1 ! videoconvert ! gdkpixbufsink name=sink sync=false qos=false`;
 
 /** "Physical size: 1080x2400" (and "Override size:") -> {w, h} */
 export function parseSize(text) {
@@ -23,11 +23,6 @@ export function parseSize(text) {
     const physical = /Physical size:\s*(\d+)x(\d+)/.exec(text);
     const match = override ?? physical;
     return match ? {w: Number(match[1]), h: Number(match[2])} : null;
-}
-
-/** What `adb input text` needs: spaces as %s and the shell's special characters escaped. */
-export function escapeInputText(text) {
-    return text.replace(/[^A-Za-z0-9._,@:/+=-]/g, ch => (ch === ' ' ? '%s' : `\\${ch}`));
 }
 
 /**
@@ -40,14 +35,15 @@ export class PhoneViewer {
     /**
      * @param {{adb: string, serial: string, title?: string, onClose?: () => void}} options
      */
-    constructor({adb, serial, title = 'Phone', onClose = () => {}}) {
+    constructor({adb, serial, title = 'Phone', onClose = () => {}, onDock = null}) {
         this._adb = adb;
         this._serial = serial;
         this._onClose = onClose;
+        this._onDock = onDock;
         this._closed = false;
         this._screen = null;        // the phone's real screen size
         this._video = null;
-        this._shell = null;
+        this._control = null;
         this._pipeline = null;
         this._pollId = 0;
         this._restartId = 0;
@@ -84,11 +80,13 @@ export class PhoneViewer {
             b.connect('clicked', action);
             return b;
         };
+        if (this._onDock)
+            header.pack_end(button('view-restore-symbolic', 'Put the phone back in the Osmin panel', () => this._onDock()));
         header.pack_start(button('go-previous-symbolic', 'Back', () => this._key(4)));
         header.pack_start(button('go-home-symbolic', 'Home', () => this._key(3)));
         header.pack_start(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));
         header.pack_end(button('system-shutdown-symbolic', 'Lock or wake the screen', () => this._key(26)));
-        header.pack_end(button('preferences-system-notifications-symbolic', 'Notifications', () => this._run('cmd statusbar expand-notifications')));
+        header.pack_end(button('preferences-system-notifications-symbolic', 'Notifications', () => this._control?.shell('cmd statusbar expand-notifications')));
 
         this._picture = new Gtk.Picture({content_fit: Gtk.ContentFit.CONTAIN, can_shrink: true, hexpand: true, vexpand: true});
         this._picture.add_css_class('osmin-phone-picture');
@@ -99,27 +97,31 @@ export class PhoneViewer {
         this._status.valign = Gtk.Align.CENTER;
         window.set_child(overlay);
 
-        // Mouse: a click is a tap, a drag is a swipe, a click that stays is a long press.
+        // Mouse: the finger follows the pointer (down, moves, up), so a click is a tap and a drag is a swipe.
         const drag = new Gtk.GestureDrag({button: 1});
-        let begun = 0;
-        let start = null;
+        let origin = null;
+        let touching = false;
         drag.connect('drag-begin', (_g, x, y) => {
-            begun = GLib.get_monotonic_time();
-            start = [x, y];
+            origin = [x, y];
+            const point = this._toPhone(x, y);
+            touching = !!point;
+            if (point)
+                this._control?.down(point[0], point[1]);
+        });
+        drag.connect('drag-update', (_g, dx, dy) => {
+            if (!touching || !origin)
+                return;
+            const point = this._toPhone(origin[0] + dx, origin[1] + dy, true);
+            if (point)
+                this._control?.move(point[0], point[1]);
         });
         drag.connect('drag-end', (_g, dx, dy) => {
-            if (!start)
+            if (!touching || !origin)
                 return;
-            const ms = Math.round((GLib.get_monotonic_time() - begun) / 1000);
-            const a = this._toPhone(start[0], start[1]);
-            const b = this._toPhone(start[0] + dx, start[1] + dy);
-            start = null;
-            if (!a || !b)
-                return;
-            if (Math.hypot(dx, dy) <= TAP_MAX_PX)
-                this._run(ms >= LONG_PRESS_MS ? `input swipe ${a[0]} ${a[1]} ${a[0]} ${a[1]} ${Math.max(ms, 600)}` : `input tap ${a[0]} ${a[1]}`);
-            else
-                this._run(`input swipe ${a[0]} ${a[1]} ${b[0]} ${b[1]} ${Math.min(Math.max(ms, 80), TAP_MAX_MS * 3)}`);
+            const point = this._toPhone(origin[0] + dx, origin[1] + dy, true);
+            touching = false;
+            if (point)
+                this._control?.up(point[0], point[1]);
         });
         this._picture.add_controller(drag);
 
@@ -128,13 +130,13 @@ export class PhoneViewer {
         let lastScroll = 0;
         scroll.connect('scroll', (_c, _dx, dy) => {
             const now = GLib.get_monotonic_time();
-            if (!this._screen || now - lastScroll < 250000)
+            if (!this._screen || now - lastScroll < 200000)
                 return true;
             lastScroll = now;
             const x = Math.round(this._screen.w / 2);
             const y = Math.round(this._screen.h / 2);
             const d = Math.round(this._screen.h * 0.25) * (dy > 0 ? -1 : 1);
-            this._run(`input swipe ${x} ${y} ${x} ${y + d} 220`);
+            this._control?.swipe(x, y, x, y + d, 220);
             return true;
         });
         this._picture.add_controller(scroll);
@@ -153,7 +155,7 @@ export class PhoneViewer {
             }
             const unicode = Gdk.keyval_to_unicode(keyval);
             if (unicode >= 32 && unicode < 127) {
-                this._run(`input text ${escapeInputText(String.fromCodePoint(unicode))}`);
+                this._control?.text(String.fromCodePoint(unicode));
                 return true;
             }
             return false;
@@ -167,7 +169,7 @@ export class PhoneViewer {
     }
 
     /** A point of the window -> a pixel of the phone (null outside the picture). */
-    _toPhone(x, y) {
+    _toPhone(x, y, clamp = false) {
         if (!this._screen)
             return null;
         const width = this._picture.get_width();
@@ -177,6 +179,8 @@ export class PhoneViewer {
         const top = (height - this._screen.h * scale) / 2;
         const px = (x - left) / scale;
         const py = (y - top) / scale;
+        if (clamp)
+            return [Math.round(Math.min(Math.max(px, 0), this._screen.w - 1)), Math.round(Math.min(Math.max(py, 0), this._screen.h - 1))];
         if (px < 0 || py < 0 || px > this._screen.w || py > this._screen.h)
             return null;
         return [Math.round(px), Math.round(py)];
@@ -191,8 +195,7 @@ export class PhoneViewer {
             this._fail(`GStreamer is not available: ${e.message}`);
             return;
         }
-        this._shell = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell'],
-            Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
+        this._control = new PhoneControl({adb: this._adb, serial: this._serial});
         const size = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', 'wm', 'size'],
             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
         size.communicate_utf8_async(null, null, (_p, result) => {
@@ -281,18 +284,8 @@ export class PhoneViewer {
 
     // --- control -----------------------------------------------------------------------------------
 
-    _run(command) {
-        if (this._closed || !this._shell)
-            return;
-        try {
-            this._shell.get_stdin_pipe().write_all(`${command}\n`, null);
-        } catch (e) {
-            this._fail(`Lost the phone: ${e.message}`);
-        }
-    }
-
     _key(code) {
-        this._run(`input keyevent ${code}`);
+        this._control?.key(code);
     }
 
     // --- the end --------------------------------------------------------------------------------------
@@ -305,7 +298,7 @@ export class PhoneViewer {
             GLib.source_remove(this._restartId);
         this._stopVideo();
         this._video?.force_exit();
-        this._shell?.force_exit();
+        this._control?.destroy();
         this._onClose();
     }
 }

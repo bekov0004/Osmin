@@ -56,7 +56,7 @@ rm -rf "$DATA/gnome-shell/extensions/osmin@bekov0004.github.io" "$DATA/applicati
 rm -rf "$DEST"
 mkdir -p "$DEST"
 cp -r "$SRC/extension.js" "$SRC/prefs.js" "$SRC/prefsUtilities.js" "$SRC/metadata.json" "$SRC/stylesheet.css" \
-      "$SRC/src" "$SRC/service" "$SRC/schemas" "$DEST/"
+      "$SRC/src" "$SRC/service" "$SRC/phone-helper" "$SRC/schemas" "$DEST/"
 glib-compile-schemas "$DEST/schemas"
 echo "Installed to $DEST"
 

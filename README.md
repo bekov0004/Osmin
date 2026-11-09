@@ -39,7 +39,7 @@ extension off brings the stock GNOME clock back.
 | **LocalSend** | Send files to phones and computers running [LocalSend](https://localsend.org), or receive them |
 | **Search bar** | Launch apps, calculate, convert units, `kill` a process, see open `ports`, text snippets |
 | **Quick toggles** | Keep awake, dark mode, night light, lock, screenshot, screen recording, colour picker, brightness |
-| **Phone** | See an Android phone's screen on the computer and control it. Scan the QR code in Developer options > Wireless debugging > Pair device with QR code. Needs only `adb` (`sudo apt install adb`); the picture and the control are Osmin's own |
+| **Phone** | See an Android phone's screen on the computer and control it. Scan the QR code in Developer options > Wireless debugging > Pair device with QR code. Shown in the capsule (a Phone tab, as tall as the phone, round corners) or in a window of its own, and moved between the two with one click. Needs only `adb` (`sudo apt install adb`); the picture and the control are Osmin's own |
 | **Focus** | Pomodoro timer and stopwatch that live in the capsule |
 | **System, Network, Disks, Power** | Four monitoring tabs with graphs: processor, memory, temperature, uptime; download and upload speed; every disk with eject and live reading and writing; battery, power draw and health; with alerts |
 | **Sound** | Volume, output, microphone and per-application volume |
@@ -214,7 +214,7 @@ Osmin is two parts that talk over D-Bus (`dev.osmin.Osmin`), and both ship insid
 | Artwork, Lyrics | Cover art and lyrics downloads |
 | Downloads, System, Agents | Watching the Downloads folder, the computer, the AI agents' logs |
 | Power, Tools, Processes, Cleaner | Keep awake, small jobs, processes and ports, the cache cleaner |
-| Phone | Pairing of an Android phone (adb over mDNS); its screen (screenrecord + GStreamer) and control (`input`) in a window of Osmin |
+| Phone | Pairing of an Android phone (adb over mDNS); its screen (screenrecord + GStreamer) in the capsule or a window; control through `phone-helper/osmin-input.jar` (Osmin's own tiny helper that runs on the phone; rebuild with `scripts/build-phone-helper.sh`), or the phone's `input` commands when the helper cannot start |
 
 Without the service the extension still runs; only the features that live in the service are unavailable.
 

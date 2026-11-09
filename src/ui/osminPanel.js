@@ -6,8 +6,8 @@ import St from 'gi://St';
 import {animDuration} from '../utils/animation.js';
 import {createButton} from './button.js';
 
-export const PanelMode = Object.freeze({OSMIN: 'osmin', TRAY: 'tray', LOCALSEND: 'localsend', CLIPBOARD: 'clipboard', NOTIFICATIONS: 'notifications', COMMAND: 'command'});
-const MODE_ORDER = [PanelMode.OSMIN, PanelMode.TRAY, PanelMode.LOCALSEND, PanelMode.CLIPBOARD, PanelMode.NOTIFICATIONS, PanelMode.COMMAND];
+export const PanelMode = Object.freeze({OSMIN: 'osmin', TRAY: 'tray', LOCALSEND: 'localsend', CLIPBOARD: 'clipboard', NOTIFICATIONS: 'notifications', COMMAND: 'command', PHONE: 'phone'});
+const MODE_ORDER = [PanelMode.OSMIN, PanelMode.TRAY, PanelMode.LOCALSEND, PanelMode.CLIPBOARD, PanelMode.NOTIFICATIONS, PanelMode.COMMAND, PanelMode.PHONE];
 
 const px = (css, scale) => Math.round(css * scale);
 
@@ -27,7 +27,7 @@ export class OsminPanel extends St.BoxLayout {
     }
 
     /** @param {{widgets: OsminWidget[], tray: TrayView, clipboard: ClipboardView, notifications: NotificationsView, onOpenSettings: Function}} params */
-    constructor({widgets, tray, localsend, clipboard, notifications, command, onOpenSettings, onModeChanged = () => {}}) {
+    constructor({widgets, tray, localsend, clipboard, notifications, command, phone, onOpenSettings, onModeChanged = () => {}}) {
         super({
             vertical: true,
             style_class: 'osmin-panel',
@@ -40,6 +40,7 @@ export class OsminPanel extends St.BoxLayout {
         this._clipboard = clipboard;
         this._notifications = notifications;
         this._command = command;
+        this._phone = phone;
         this._onModeChanged = onModeChanged;
         this._pages = [];
         this._signature = '';
@@ -48,6 +49,7 @@ export class OsminPanel extends St.BoxLayout {
         this._headerHidden = false;
         this._modeBeforeDrop = null;
         this._opened = false;
+        this._capsuleOpen = false;   // the capsule itself is open (this._opened is only about the widgets' pages)
         this._shown = new Set();
         this._scale = 1;
 
@@ -80,6 +82,9 @@ export class OsminPanel extends St.BoxLayout {
         this._body.add_child(this._clipboard);
         this._body.add_child(this._notifications);
         this._body.add_child(this._command);
+        this._phone.opacity = 0;
+        this._phone.hide();
+        this._body.add_child(this._phone);
         this.add_child(this._body);
     }
 
@@ -110,6 +115,7 @@ export class OsminPanel extends St.BoxLayout {
         this._body.remove_child(this._clipboard);
         this._body.remove_child(this._notifications);
         this._body.remove_child(this._command);
+        this._body.remove_child(this._phone);
     }
 
     _viewFor(mode) {
@@ -124,6 +130,8 @@ export class OsminPanel extends St.BoxLayout {
             return this._notifications;
         case PanelMode.COMMAND:
             return this._command;
+        case PanelMode.PHONE:
+            return this._phone;
         default:
             return this._osminView;
         }
@@ -179,15 +187,15 @@ export class OsminPanel extends St.BoxLayout {
 
     /** px the section on screen needs beyond the normal body height to show all its content (LocalSend). */
     contentExtra(width) {
-        if (this._mode !== PanelMode.LOCALSEND || !this._baseBodyHeight)
+        if ((this._mode !== PanelMode.LOCALSEND && this._mode !== PanelMode.PHONE) || !this._baseBodyHeight)
             return 0;
-        return Math.max(0, this._localsend.get_preferred_height(width)[1] - this._baseBodyHeight);
+        return Math.max(0, this._viewFor(this._mode).get_preferred_height(width)[1] - this._baseBodyHeight);
     }
 
     /** Makes the body (and the list in it) `extra` px taller than the widgets' row (0 = back to normal). */
     setExtraHeight(extra) {
         if (this._baseBodyHeight)
-            this._body.set_height(this._baseBodyHeight + (this.growable || this._mode === PanelMode.LOCALSEND ? Math.max(0, extra) : 0));
+            this._body.set_height(this._baseBodyHeight + (this.growable || this._mode === PanelMode.LOCALSEND || this._mode === PanelMode.PHONE ? Math.max(0, extra) : 0));
         // The new height must reach the cached size request of the panel before it is asked for it.
         this.queue_relayout();
     }
@@ -208,7 +216,9 @@ export class OsminPanel extends St.BoxLayout {
     /** The capsule finished opening or closing; tells the visible widgets. */
     setOpen(open) {
         this._opened = open;
+        this._capsuleOpen = open;
         this._syncShown();
+        this._phone.setActive(open && this._mode === PanelMode.PHONE);
     }
 
     /**
@@ -244,8 +254,12 @@ export class OsminPanel extends St.BoxLayout {
         const to = this._viewFor(mode);
         const forward = MODE_ORDER.indexOf(mode) > MODE_ORDER.indexOf(this._mode);
 
-        if (this._mode === PanelMode.OSMIN)
-            this.setOpen(false);
+        if (this._mode === PanelMode.OSMIN) {
+            this._opened = false;
+            this._syncShown();
+        }
+        if (this._mode === PanelMode.PHONE)
+            this._phone.setActive(false);
         if (this._mode === PanelMode.CLIPBOARD)
             this._clipboard.stopTyping();
         if (this._mode === PanelMode.COMMAND)
@@ -261,8 +275,12 @@ export class OsminPanel extends St.BoxLayout {
         }
         if (mode === PanelMode.NOTIFICATIONS)
             this._notifications.refresh();
-        if (mode === PanelMode.OSMIN)
-            this.setOpen(true);
+        if (mode === PanelMode.OSMIN) {
+            this._opened = true;
+            this._syncShown();
+        }
+        if (mode === PanelMode.PHONE)
+            this._phone.setActive(this._capsuleOpen);
         this._updateTabs();
         this._updateDots();
         this._onModeChanged();
@@ -322,7 +340,7 @@ export class OsminPanel extends St.BoxLayout {
 
     /** Shows what the widget with this id has to offer (a page or the tray). */
     showWidget(id) {
-        const section = {tray: PanelMode.TRAY, localsend: PanelMode.LOCALSEND, clipboard: PanelMode.CLIPBOARD, notifications: PanelMode.NOTIFICATIONS, command: PanelMode.COMMAND}[id];
+        const section = {tray: PanelMode.TRAY, localsend: PanelMode.LOCALSEND, clipboard: PanelMode.CLIPBOARD, notifications: PanelMode.NOTIFICATIONS, command: PanelMode.COMMAND, phone: PanelMode.PHONE}[id];
         if (section) {
             this.setMode(section, {animate: false});
             return;
@@ -447,6 +465,7 @@ export class OsminPanel extends St.BoxLayout {
             [PanelMode.CLIPBOARD, 'Clipboard', 'edit-paste-symbolic'],
             [PanelMode.NOTIFICATIONS, 'Alerts', 'preferences-system-notifications-symbolic'],
             [PanelMode.COMMAND, 'Search', 'system-search-symbolic'],
+            [PanelMode.PHONE, 'Phone', 'phone-symbolic'],
         ]) {
             const tab = createButton({
                 label,

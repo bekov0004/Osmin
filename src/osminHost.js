@@ -129,6 +129,7 @@ export class OsminHost {
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
+        this._backend?.phone.connectObject('event', (_m, name) => name === 'dock' && this.openSection('phone'), this);
         this._offerNewTabs();
         this._syncSuperV();
         this._syncReceiving();
@@ -159,6 +160,7 @@ export class OsminHost {
         this._server?.destroy();
         this._server = null;
         this._backend?.localSend.disconnectObject(this);
+        this._backend?.phone.disconnectObject(this);
         this._inputSources?.disconnectObject(this);
         this._inputSources = null;
         this._keymap?.disconnectObject(this);

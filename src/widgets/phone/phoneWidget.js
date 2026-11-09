@@ -105,10 +105,16 @@ export class PhoneWidget extends OsminWidget {
         for (const device of devices) {
             const showing = state.mirroring === device.serial;
             const title = device.model || device.serial;
-            const subtitle = device.state !== 'device' ? device.state : showing ? 'Showing on this screen' : 'Connected';
+            const subtitle = device.state !== 'device' ? device.state : showing ? 'Open in a window' : 'Connected';
             const controls = new St.BoxLayout({style_class: 'osmin-phone-actions'});
             if (device.state === 'device') {
-                controls.add_child(pillButton({label: showing ? 'Stop' : 'Show screen', icon: showing ? 'media-playback-stop-symbolic' : 'video-display-symbolic',
+                controls.add_child(pillButton({label: 'In the panel', icon: 'video-display-symbolic', onClick: () => {
+                    if (showing)
+                        this._call('stopMirror');
+                    this.context.ui?.closeCapsule?.();
+                    this.context.ui?.openSection?.('phone');
+                }}));
+                controls.add_child(pillButton({label: showing ? 'Close window' : 'In a window', icon: 'window-new-symbolic',
                     onClick: () => this._call(showing ? 'stopMirror' : 'mirror', {serial: device.serial})}));
             }
             controls.add_child(pillButton({label: 'Disconnect', onClick: () => this._call('disconnect', {serial: device.serial})}));
