@@ -76,6 +76,20 @@ export class PhoneCardActivity extends LiveActivity {
         return {width: Math.round(width), height: Math.round(height)};
     }
 
+    /** What the card is about now: 'phone', 'adb' (missing), 'window' (the phone is in its own window), 'opening', 'pairing' or 'start'. */
+    get kind() {
+        const state = this._phone?.state ?? {};
+        if (!state.adb)
+            return 'adb';
+        if (state.mirroring)
+            return 'window';
+        if (this.showsPhone)
+            return 'phone';
+        if (this.device)
+            return 'opening';
+        return state.pairing ? 'pairing' : 'start';
+    }
+
     get peekSize() {
         if (this.showsPhone) {
             const {width, height} = this.screenSize;
@@ -83,7 +97,9 @@ export class PhoneCardActivity extends LiveActivity {
             return {width: width + INSET, height: height + TOP + BOTTOM};
         }
         this.peekInset = 32;
-        return {width: WIDTH, height: 430};
+        // Without a phone the card is only as tall as what it says.
+        const height = {adb: 250, window: 170, opening: 150, pairing: 470, start: 300}[this.kind] ?? 300;
+        return {width: WIDTH, height};
     }
 
     createCompactParts() {
@@ -111,7 +127,7 @@ export class PhoneCardActivity extends LiveActivity {
         let grab = null;
         let last = null;
         let gone = false;
-        const shape = {phoneMode, serial: this.device?.serial ?? null};
+        const shape = {kind: this.kind, serial: this.device?.serial ?? null};
 
         const lease = () => phone?.call('watch', {on: true}).catch(() => {});
         lease();
@@ -136,19 +152,26 @@ export class PhoneCardActivity extends LiveActivity {
             this._buildMessage(root);
         }
 
-        // The card has to change size when the phone comes or goes.
+        // The card has to change size when the phone comes or goes, and goes away when the phone leaves for its window.
         const check = () => {
             if (gone)
                 return;
-            const now = {phoneMode: this.showsPhone, serial: this.device?.serial ?? null};
-            if (now.phoneMode !== shape.phoneMode || now.serial !== shape.serial)
+            const now = {kind: this.kind, serial: this.device?.serial ?? null};
+            if (now.kind === 'window' && shape.kind === 'phone') {
+                GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    if (!gone)
+                        this._onDismiss();
+                    return GLib.SOURCE_REMOVE;
+                });
+            } else if (now.kind !== shape.kind || now.serial !== shape.serial) {
                 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                     if (!gone)
                         this._onResize();
                     return GLib.SOURCE_REMOVE;
                 });
-            else if (!phoneMode)
+            } else if (!phoneMode) {
                 this._buildMessage(root);
+            }
         };
         phone?.connectObject('state-changed', check, root);
 
@@ -209,8 +232,10 @@ export class PhoneCardActivity extends LiveActivity {
 
         const top = new St.BoxLayout({style_class: 'osmin-phone-controls', x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true});
         top.add_child(small('window-new-symbolic', () => {
+            const serial = this.device?.serial;
             stream.stop();
-            this._phone.call('mirror', {serial: this.device?.serial}).catch(() => {});
+            this._phone.call('mirror', {serial}).catch(() => {});
+            this._onDismiss();   // the capsule closes; the phone lives in its window now
         }));
         top.add_child(small('go-up-symbolic', () => this._onDismiss()));
 
