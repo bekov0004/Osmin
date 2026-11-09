@@ -140,6 +140,8 @@ export class PhoneViewer {
                 dark.remove_css_class('on');
         };
         bottom.append(dark);
+        // Wakes a sleeping phone (nothing happens when it is awake); with the dark screen on, the panel stays dark.
+        bottom.append(button('weather-clear-symbolic', 'Wake the phone', () => this._control?.wake()));
         bottom.append(button('go-previous-symbolic', 'Back', () => this._key(4)));
         bottom.append(button('go-home-symbolic', 'Home', () => this._key(3)));
         bottom.append(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));

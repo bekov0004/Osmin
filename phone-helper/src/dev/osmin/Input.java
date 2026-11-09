@@ -20,7 +20,11 @@ import java.lang.reflect.Method;
  * new process per tap. Lines (coordinates are pixels of the screen):
  *   d x y   finger down      m x y   finger moves      u x y   finger up
  *   k code  a key (press and release)                  t text  type ASCII text
- *   p mode  the screen panel: 0 dark (the phone stays awake and unlocked), 2 normal
+ *   p mode  the screen panel: 0 dark (the phone stays awake and unlocked; kept dark here, the panel is
+ *           switched off again every 400 ms in case something lit it), 2 lit again,
+ *           3 stop keeping it dark and leave the panel as the system has it
+ *   w 1/0   keep the phone awake without lighting it (a user-activity signal every 8 s) / stop
+ *   z       wake the phone only if it is asleep (and keep the panel dark while it wakes, if it is dark)
  * It says READY when it can inject, or ERR and the reason; for "p" it says POWER OK or POWER ERR reason.
  */
 public final class Input {
@@ -28,6 +32,9 @@ public final class Input {
     private static Method inject;
     private static long downTime;
     private static IBinder displayToken;      // found once: the library of the display control can be loaded only once
+    private static Object power;              // the system's power manager
+    private static volatile boolean keepDark;
+    private static volatile boolean keepAwake;
 
     public static void main(String[] args) throws Exception {
         try {
@@ -69,6 +76,8 @@ public final class Input {
             case 'k': key(Integer.parseInt(rest.trim())); break;
             case 't': type(rest); break;
             case 'p': power(Integer.parseInt(rest.trim())); break;
+            case 'w': stayAwake(rest.trim().equals("1")); break;
+            case 'z': wakeIfAsleep(); break;
             default: break;
         }
     }
@@ -115,21 +124,136 @@ public final class Input {
      * display token of SurfaceControl (found differently on different Android versions).
      */
     private static void power(int mode) {
+        if (mode == 0) {
+            String error = setPanel(0);
+            if (error == null) {
+                startKeepingDark();
+                System.out.println("POWER OK 0");
+            } else {
+                System.out.println("POWER ERR " + error);
+            }
+        } else if (mode == 3) {
+            keepDark = false;          // the system decides from here on (it is asleep, or will be)
+            System.out.println("POWER OK 3");
+        } else {
+            keepDark = false;
+            String error = setPanel(mode);
+            System.out.println(error == null ? "POWER OK " + mode : "POWER ERR " + error);
+        }
+        System.out.flush();
+    }
+
+    /** Sets the panel's power mode. @return null when it worked, otherwise the reason */
+    private static synchronized String setPanel(int mode) {
         try {
             Class<?> surfaceControl = Class.forName("android.view.SurfaceControl");
             if (displayToken == null)
                 displayToken = displayToken(surfaceControl);
-            IBinder token = displayToken;
-            if (token == null) {
-                System.out.println("POWER ERR no display token");
-            } else {
-                surfaceControl.getMethod("setDisplayPowerMode", IBinder.class, int.class).invoke(null, token, mode);
-                System.out.println("POWER OK " + mode);
-            }
+            if (displayToken == null)
+                return "no display token";
+            surfaceControl.getMethod("setDisplayPowerMode", IBinder.class, int.class).invoke(null, displayToken, mode);
+            return null;
         } catch (Throwable t) {
-            System.out.println("POWER ERR " + t);
+            return String.valueOf(t);
         }
-        System.out.flush();
+    }
+
+    /** Something may light the panel (a notification, a call, a wake): switch it off again a moment later. */
+    private static void startKeepingDark() {
+        if (keepDark)
+            return;
+        keepDark = true;
+        Thread thread = new Thread(() -> {
+            while (keepDark) {
+                try {
+                    Thread.sleep(400);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                if (keepDark)
+                    setPanel(0);
+            }
+        }, "osmin-dark");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private static Object powerManager() throws Exception {
+        if (power == null) {
+            Class<?> serviceManager = Class.forName("android.os.ServiceManager");
+            IBinder binder = (IBinder) serviceManager.getMethod("getService", String.class).invoke(null, "power");
+            power = Class.forName("android.os.IPowerManager$Stub").getMethod("asInterface", IBinder.class).invoke(null, binder);
+        }
+        return power;
+    }
+
+    private static boolean interactive() {
+        try {
+            return (Boolean) powerManager().getClass().getMethod("isInteractive").invoke(powerManager());
+        } catch (Throwable t) {
+            return false;   // unknown: treat as asleep, so a wake that was asked for is not lost
+        }
+    }
+
+    /** Wakes the phone only when it is asleep; while it wakes the panel is switched off again and again. */
+    private static void wakeIfAsleep() throws Exception {
+        if (interactive())
+            return;
+        key(224);
+        if (keepDark) {
+            for (int i = 0; i < 25; i++) {
+                try {
+                    Thread.sleep(40);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                setPanel(0);
+            }
+        }
+    }
+
+    /** Tells the system the user is active, so the phone does not go to sleep, without lighting anything. */
+    private static void userActivity() {
+        try {
+            Object manager = powerManager();
+            long now = SystemClock.uptimeMillis();
+            for (Method method : manager.getClass().getMethods()) {
+                if (!method.getName().equals("userActivity"))
+                    continue;
+                int count = method.getParameterTypes().length;
+                if (count == 4)
+                    method.invoke(manager, 0, now, 0, 0);      // displayId, time, event (other), flags
+                else if (count == 3)
+                    method.invoke(manager, now, 0, 0);
+                else
+                    continue;
+                return;
+            }
+        } catch (Throwable ignored) {
+            // the phone will go to sleep by its own timeout, which is also fine
+        }
+    }
+
+    private static void stayAwake(boolean on) {
+        if (!on) {
+            keepAwake = false;
+            return;
+        }
+        if (keepAwake)
+            return;
+        keepAwake = true;
+        Thread thread = new Thread(() -> {
+            while (keepAwake) {
+                userActivity();
+                try {
+                    Thread.sleep(8000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }, "osmin-awake");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private static IBinder displayToken(Class<?> surfaceControl) throws Exception {

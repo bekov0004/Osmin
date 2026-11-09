@@ -261,6 +261,8 @@ export class PhoneCardActivity extends LiveActivity {
         stream.connectObject('dark-changed', syncDark, root);
         stream.connectObject('state-changed', syncDark, root);
         bottom.add_child(dark);
+        // Wakes a sleeping phone (nothing happens when it is awake); with the dark screen on, the panel stays dark.
+        bottom.add_child(small('weather-clear-symbolic', () => control()?.wake()));
         bottom.add_child(small('go-previous-symbolic', () => control()?.key(4)));
         bottom.add_child(small('go-home-symbolic', () => control()?.key(3)));
         bottom.add_child(small('view-grid-symbolic', () => control()?.key(187)));

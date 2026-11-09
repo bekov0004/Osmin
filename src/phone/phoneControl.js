@@ -4,8 +4,9 @@ import GLib from 'gi://GLib';
 const HELPER_REMOTE = '/data/local/tmp/osmin-input.jar';
 const READY_TIMEOUT_S = 5;
 const MAX_QUEUE = 120;
-const WAKE_CODE = 224;            // KEYCODE_WAKEUP: turns the screen on, and does nothing when it is on
-const KEEP_AWAKE_S = 15;
+const WAKE_CODE = 224;            // KEYCODE_WAKEUP (only used without the helper)
+const SLEEP_CODE = 223;           // KEYCODE_SLEEP: when the session ends in the dark, the phone goes to sleep by itself
+const EXIT_WAIT_S = 2;            // the helper gets this long to say its last lines before it is stopped
 const POWER_REPLY_S = 3;
 const TAP_MAX_PX = 12;
 const TAP_MAX_MS = 350;
@@ -50,7 +51,6 @@ export class PhoneControl {
         this._writing = false;
         this._closed = false;
         this._down = null;
-        this._awakeId = 0;
         this._start();
     }
 
@@ -148,8 +148,7 @@ export class PhoneControl {
                 fn();
             return GLib.SOURCE_REMOVE;
         });
-        this.key(WAKE_CODE);
-        this._darkSoon();
+        this.wake();
         later(700, () => this.swipe(Math.round(screen.w / 2), Math.round(screen.h * 0.85), Math.round(screen.w / 2), Math.round(screen.h * 0.3), 250));
         if (secret) {
             later(1700, () => this.text(secret));
@@ -157,33 +156,52 @@ export class PhoneControl {
         }
     }
 
-    /** Wakes the phone's screen now and every few seconds, so it does not sleep while it is being used. */
+    /**
+     * Keeps the phone from going to sleep while it is used here, without lighting anything: the helper
+     * tells the system the user is active every few seconds. (Without the helper this does nothing: the
+     * phone sleeps by its own timeout, and the Wake button wakes it.)
+     */
     keepAwake() {
-        if (this._awakeId || this._closed)
+        if (this._closed || this._mode === 'input')
             return;
-        this.key(WAKE_CODE);
-        this._darkSoon();
-        this._awakeId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, KEEP_AWAKE_S, () => {
-            this.key(WAKE_CODE);
-            // The system may light the panel again: say it once more.
-            if (this._wantDark && this._darkVia === 'display')
-                this._send('p 0');
-            return GLib.SOURCE_CONTINUE;
-        });
+        this._send('w 1');
+    }
+
+    /**
+     * Wakes the phone, but only if it is asleep, and never lights the panel more than a moment while it does
+     * when the dark screen is on. Used by the Wake button and by the unlock.
+     */
+    wake() {
+        if (this._closed)
+            return;
+        this._send(this._mode === 'input' ? `input keyevent ${WAKE_CODE}` : 'z');
     }
 
     destroy() {
-        if (this._awakeId)
-            GLib.source_remove(this._awakeId);
-        this._awakeId = 0;
         if (this._powerTimer)
             GLib.source_remove(this._powerTimer);
         this._powerTimer = 0;
-        this._giveBackLight();
+        const process = this._process;
         this._closed = true;
-        this._process?.force_exit();
         this._process = null;
         this._queue = [];
+        if (!process)
+            return;
+        // A session that ends while the screen is dark ends dark: the phone is put to sleep, so nothing lights up
+        // when the panel closes. (A session in the light leaves the phone as it is.)
+        const stdin = process.get_stdin_pipe();
+        try {
+            if (this._darkVia === 'display')
+                stdin.write_all(`k ${SLEEP_CODE}\np 3\n`, null);
+            stdin.close(null);
+        } catch (e) {
+            // the phone is gone
+        }
+        // The helper ends by itself when its input ends; this is only for one that is stuck.
+        GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, EXIT_WAIT_S, () => {
+            process.force_exit();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     // --- start ---------------------------------------------------------------------------------------
@@ -299,17 +317,6 @@ export class PhoneControl {
                 this._applyDark();
             }
             this._readHelper(reader);
-        });
-    }
-
-    /** After a wake the panel may be lit: put the dark back a moment later. */
-    _darkSoon() {
-        if (!this._wantDark)
-            return;
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 900, () => {
-            if (!this._closed && this._wantDark)
-                this._applyDark();
-            return GLib.SOURCE_REMOVE;
         });
     }
 
