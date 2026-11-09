@@ -27,6 +27,7 @@ public final class Input {
     private static Object inputManager;
     private static Method inject;
     private static long downTime;
+    private static IBinder displayToken;      // found once: the library of the display control can be loaded only once
 
     public static void main(String[] args) throws Exception {
         try {
@@ -51,6 +52,9 @@ public final class Input {
                 System.out.flush();
             }
         }
+        // Leave at once: shutting the virtual machine down normally crashes once the display library is loaded.
+        System.out.flush();
+        Runtime.getRuntime().halt(0);
     }
 
     private static void run(String line) throws Exception {
@@ -113,7 +117,9 @@ public final class Input {
     private static void power(int mode) {
         try {
             Class<?> surfaceControl = Class.forName("android.view.SurfaceControl");
-            IBinder token = displayToken(surfaceControl);
+            if (displayToken == null)
+                displayToken = displayToken(surfaceControl);
+            IBinder token = displayToken;
             if (token == null) {
                 System.out.println("POWER ERR no display token");
             } else {
@@ -133,16 +139,31 @@ public final class Input {
                 Class<?> factory = Class.forName("com.android.internal.os.ClassLoaderFactory");
                 Method create = factory.getDeclaredMethod("createClassLoader", String.class, String.class, String.class,
                     ClassLoader.class, int.class, boolean.class, String.class);
-                ClassLoader loader = (ClassLoader) create.invoke(null, "/system/framework/services.jar", null, null,
+                // services.jar and the vendor's additions to it (services-magic.jar and the like): the library
+                // looks for classes of both when it is loaded.
+                StringBuilder jars = new StringBuilder("/system/framework/services.jar");
+                String[] names = new java.io.File("/system/framework").list();
+                if (names != null) {
+                    java.util.Arrays.sort(names);
+                    for (String name : names) {
+                        if (name.startsWith("services") && name.endsWith(".jar") && !name.equals("services.jar"))
+                            jars.append(':').append("/system/framework/").append(name);
+                    }
+                }
+                ClassLoader loader = (ClassLoader) create.invoke(null, jars.toString(), null, null,
                     ClassLoader.getSystemClassLoader(), 0, true, null);
                 Class<?> control = loader.loadClass("com.android.server.display.DisplayControl");
                 Method load = Runtime.class.getDeclaredMethod("loadLibrary0", Class.class, String.class);
                 load.setAccessible(true);
-                load.invoke(Runtime.getRuntime(), ClassLoader.class, "android_servers");
+                load.invoke(Runtime.getRuntime(), control, "android_servers");
                 long[] ids = (long[]) control.getMethod("getPhysicalDisplayIds").invoke(null);
                 return (IBinder) control.getMethod("getPhysicalDisplayToken", long.class).invoke(null, ids[0]);
-            } catch (Throwable ignored) {
-                // fall through to the older ways
+            } catch (Throwable t) {
+                // fall through to the older ways, but say why this one did not work
+                Throwable root = t;
+                while (root.getCause() != null)
+                    root = root.getCause();
+                System.out.println("POWER DBG new way: " + root);
             }
         }
         try {
