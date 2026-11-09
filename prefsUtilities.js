@@ -555,7 +555,7 @@ export const utilityMethods = {
         body.append(form);
         this._title(form, _('Phone'));
         this._row(form, _('Keep the phone\'s screen dark'), this._switch(settings, 'phone-dark-screen'));
-        this._hint(form, _('While you use the phone from the computer, its own screen stays dark: it is awake and unlocked, but nothing is lit, so nobody next to it sees what you do and the screen does not burn while it charges. The button with the moon in the phone\'s buttons turns it on and off for one session.'));
+        this._hint(form, _('While you use the phone from the computer, its own screen stays dark: it is awake and unlocked, but its panel is off (the same way as scrcpy's --turn-screen-off), so nobody next to it sees what you do and the screen does not burn while it charges. The button with the moon in the phone\'s buttons turns it on and off for one session.'));
         this._hint(form, _('Osmin needs only adb. When the phone connects, scan the QR code in Developer options > Wireless debugging > Pair device with QR code (not with the camera app).'));
         return body;
     },

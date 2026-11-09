@@ -43,7 +43,7 @@ export class PhoneControl {
         this._darkVia = null;        // 'display' (panel off, phone awake) or 'brightness' (lowest light) while it is dark
         this._powerFailed = false;
         this._powerTimer = 0;
-        this._saved = null;          // brightness to give back
+        this.darkError = '';
         this._mode = null;
         this._process = null;
         this._queue = [];
@@ -291,6 +291,7 @@ export class PhoneControl {
             }
             if (line.startsWith('POWER OK')) {
                 this._darkVia = line.trim().endsWith(' 0') ? 'display' : null;
+                this.darkError = '';
                 this._onDark({dark: this._darkVia !== null, via: this._darkVia});
             } else if (line.startsWith('POWER ERR')) {
                 this._powerFailed = true;
@@ -328,48 +329,17 @@ export class PhoneControl {
                     });
                 }
             } else {
-                this._dimToDark();
+                // The phone does not let the panel be switched off: say so, change nothing else.
+                this._wantDark = false;
+                this.darkError = this._mode === 'helper' ? 'This phone does not allow turning its screen off from here' : 'Turning the screen off needs the Osmin helper on the phone, which could not start';
+                this._onDark({dark: false, via: null, error: this.darkError});
             }
         } else {
             this._giveBackLight();
         }
     }
 
-    /** The fallback: the lowest brightness (what it was is given back afterwards). */
-    _dimToDark() {
-        if (this._saved || this._darkVia === 'brightness')
-            return;
-        this._saved = {mode: null, level: null};
-        const run = args => new Promise(resolve => {
-            try {
-                const p = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', ...args], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
-                p.communicate_utf8_async(null, null, (_p, r) => {
-                    try {
-                        resolve(p.communicate_utf8_finish(r)[1]?.trim() ?? '');
-                    } catch (e) {
-                        resolve('');
-                    }
-                });
-            } catch (e) {
-                resolve('');
-            }
-        });
-        (async () => {
-            const mode = await run(['settings', 'get', 'system', 'screen_brightness_mode']);
-            const level = await run(['settings', 'get', 'system', 'screen_brightness']);
-            if (this._closed || !this._wantDark) {
-                this._saved = null;
-                return;
-            }
-            this._saved = {mode, level};
-            await run(['settings', 'put', 'system', 'screen_brightness_mode', '0']);
-            await run(['settings', 'put', 'system', 'screen_brightness', '0']);
-            this._darkVia = 'brightness';
-            this._onDark({dark: true, via: 'brightness'});
-        })();
-    }
-
-    /** Lights the screen again, the way it was darkened. */
+    /** Lights the screen again. */
     _giveBackLight() {
         if (this._darkVia === 'display') {
             // Written at once: the control may be destroyed right after this.
@@ -378,22 +348,7 @@ export class PhoneControl {
             } catch (e) {
                 // the phone is gone: nothing to give back
             }
-        } else if (this._darkVia === 'brightness' && this._saved) {
-            const {mode, level} = this._saved;
-            const put = (key, value) => {
-                if (value === '' || value === 'null')
-                    return;
-                try {
-                    Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', 'settings', 'put', 'system', key, value],
-                        Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
-                } catch (e) {
-                    // ignore
-                }
-            };
-            put('screen_brightness', level);
-            put('screen_brightness_mode', mode);
         }
-        this._saved = null;
         if (this._darkVia !== null) {
             this._darkVia = null;
             if (!this._closed)

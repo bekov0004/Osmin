@@ -130,6 +130,9 @@ export class PhoneViewer {
             this._syncDark();
         });
         this._syncDark = () => {
+            const error = this._control?.darkError;
+            if (error && this._status && !this._frames)
+                this._status.label = error;
             if (this._control?.wantDark)
                 dark.add_css_class('on');
             else
