@@ -6,12 +6,15 @@ const READY_TIMEOUT_S = 5;
 const MAX_QUEUE = 120;
 const WAKE_CODE = 224;            // KEYCODE_WAKEUP: turns the screen on, and does nothing when it is on
 const KEEP_AWAKE_S = 15;
+const POWER_REPLY_S = 3;
 const TAP_MAX_PX = 12;
 const TAP_MAX_MS = 350;
 
 /** Where the helper jar is: next to src/ in the extension's folder. */
 export function helperPath() {
-    return Gio.File.new_for_uri(new URL('../../phone-helper/osmin-input.jar', import.meta.url).href).get_path();
+    // import.meta.url is .../src/phone/phoneControl.js (there is no URL class to resolve against).
+    const root = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
+    return root.get_child('phone-helper').get_child('osmin-input.jar').get_path();
 }
 
 /** What `adb input text` needs: spaces as %s and the shell's special characters escaped. */
@@ -26,11 +29,21 @@ export function escapeInputText(text) {
  * per action: slower, taps and swipes only). Coordinates are pixels of the phone's screen.
  */
 export class PhoneControl {
-    /** @param {{adb: string, serial: string, onMode?: (mode: 'helper'|'input') => void}} options */
-    constructor({adb, serial, onMode = () => {}}) {
+    /**
+     * @param {{adb: string, serial: string, dark?: boolean, onMode?: (mode: 'helper'|'input') => void,
+     *   onDark?: (state: {dark: boolean, via: string|null}) => void}} options
+     *   dark: keep the phone's screen dark while it is used from here
+     */
+    constructor({adb, serial, dark = false, onMode = () => {}, onDark = () => {}}) {
         this._adb = adb;
         this._serial = serial;
         this._onMode = onMode;
+        this._onDark = onDark;
+        this._wantDark = dark;
+        this._darkVia = null;        // 'display' (panel off, phone awake) or 'brightness' (lowest light) while it is dark
+        this._powerFailed = false;
+        this._powerTimer = 0;
+        this._saved = null;          // brightness to give back
         this._mode = null;
         this._process = null;
         this._queue = [];
@@ -44,6 +57,22 @@ export class PhoneControl {
     /** 'helper', 'input', or null while it starts. */
     get mode() {
         return this._mode;
+    }
+
+    /** Whether it was asked to keep the screen dark. */
+    get wantDark() {
+        return this._wantDark;
+    }
+
+    /** Whether the phone's screen is being kept dark now: null, 'display' or 'brightness'. */
+    get darkVia() {
+        return this._darkVia;
+    }
+
+    /** Keeps the phone's screen dark (true) or lights it again (false) while the phone stays awake. */
+    setDark(on) {
+        this._wantDark = on;
+        this._applyDark();
     }
 
     down(x, y) {
@@ -120,6 +149,7 @@ export class PhoneControl {
             return GLib.SOURCE_REMOVE;
         });
         this.key(WAKE_CODE);
+        this._darkSoon();
         later(700, () => this.swipe(Math.round(screen.w / 2), Math.round(screen.h * 0.85), Math.round(screen.w / 2), Math.round(screen.h * 0.3), 250));
         if (secret) {
             later(1700, () => this.text(secret));
@@ -132,8 +162,12 @@ export class PhoneControl {
         if (this._awakeId || this._closed)
             return;
         this.key(WAKE_CODE);
+        this._darkSoon();
         this._awakeId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, KEEP_AWAKE_S, () => {
             this.key(WAKE_CODE);
+            // The system may light the panel again: say it once more.
+            if (this._wantDark && this._darkVia === 'display')
+                this._send('p 0');
             return GLib.SOURCE_CONTINUE;
         });
     }
@@ -142,6 +176,10 @@ export class PhoneControl {
         if (this._awakeId)
             GLib.source_remove(this._awakeId);
         this._awakeId = 0;
+        if (this._powerTimer)
+            GLib.source_remove(this._powerTimer);
+        this._powerTimer = 0;
+        this._giveBackLight();
         this._closed = true;
         this._process?.force_exit();
         this._process = null;
@@ -196,6 +234,8 @@ export class PhoneControl {
                 this._process = process;
                 this._setMode('helper');
                 this._flush();
+                this._readHelper(reader);
+                this._applyDark();
             } else {
                 process.force_exit();
                 this._fallback();
@@ -229,6 +269,136 @@ export class PhoneControl {
         }
         this._setMode('input');
         this._flush();
+        this._applyDark();
+    }
+
+    // --- the dark screen ------------------------------------------------------------------------------
+
+    /** What the helper says after READY: the answers to "p". */
+    _readHelper(reader) {
+        reader.read_line_async(GLib.PRIORITY_DEFAULT, null, (_s, result) => {
+            let line = null;
+            try {
+                [line] = reader.read_line_finish_utf8(result);
+            } catch (e) {
+                line = null;
+            }
+            if (line === null || this._closed)
+                return;
+            if (this._powerTimer) {
+                GLib.source_remove(this._powerTimer);
+                this._powerTimer = 0;
+            }
+            if (line.startsWith('POWER OK')) {
+                this._darkVia = line.trim().endsWith(' 0') ? 'display' : null;
+                this._onDark({dark: this._darkVia !== null, via: this._darkVia});
+            } else if (line.startsWith('POWER ERR')) {
+                this._powerFailed = true;
+                console.warn(`[osmin] phone: ${line}`);
+                this._applyDark();
+            }
+            this._readHelper(reader);
+        });
+    }
+
+    /** After a wake the panel may be lit: put the dark back a moment later. */
+    _darkSoon() {
+        if (!this._wantDark)
+            return;
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 900, () => {
+            if (!this._closed && this._wantDark)
+                this._applyDark();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _applyDark() {
+        if (this._closed || !this._mode)
+            return;
+        if (this._wantDark) {
+            if (this._mode === 'helper' && !this._powerFailed) {
+                this._send('p 0');
+                if (!this._powerTimer) {
+                    // No answer: the helper cannot do it on this phone.
+                    this._powerTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, POWER_REPLY_S, () => {
+                        this._powerTimer = 0;
+                        this._powerFailed = true;
+                        this._applyDark();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
+            } else {
+                this._dimToDark();
+            }
+        } else {
+            this._giveBackLight();
+        }
+    }
+
+    /** The fallback: the lowest brightness (what it was is given back afterwards). */
+    _dimToDark() {
+        if (this._saved || this._darkVia === 'brightness')
+            return;
+        this._saved = {mode: null, level: null};
+        const run = args => new Promise(resolve => {
+            try {
+                const p = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', ...args], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
+                p.communicate_utf8_async(null, null, (_p, r) => {
+                    try {
+                        resolve(p.communicate_utf8_finish(r)[1]?.trim() ?? '');
+                    } catch (e) {
+                        resolve('');
+                    }
+                });
+            } catch (e) {
+                resolve('');
+            }
+        });
+        (async () => {
+            const mode = await run(['settings', 'get', 'system', 'screen_brightness_mode']);
+            const level = await run(['settings', 'get', 'system', 'screen_brightness']);
+            if (this._closed || !this._wantDark) {
+                this._saved = null;
+                return;
+            }
+            this._saved = {mode, level};
+            await run(['settings', 'put', 'system', 'screen_brightness_mode', '0']);
+            await run(['settings', 'put', 'system', 'screen_brightness', '0']);
+            this._darkVia = 'brightness';
+            this._onDark({dark: true, via: 'brightness'});
+        })();
+    }
+
+    /** Lights the screen again, the way it was darkened. */
+    _giveBackLight() {
+        if (this._darkVia === 'display') {
+            // Written at once: the control may be destroyed right after this.
+            try {
+                this._process?.get_stdin_pipe()?.write_all('p 2\n', null);
+            } catch (e) {
+                // the phone is gone: nothing to give back
+            }
+        } else if (this._darkVia === 'brightness' && this._saved) {
+            const {mode, level} = this._saved;
+            const put = (key, value) => {
+                if (value === '' || value === 'null')
+                    return;
+                try {
+                    Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', 'settings', 'put', 'system', key, value],
+                        Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
+                } catch (e) {
+                    // ignore
+                }
+            };
+            put('screen_brightness', level);
+            put('screen_brightness_mode', mode);
+        }
+        this._saved = null;
+        if (this._darkVia !== null) {
+            this._darkVia = null;
+            if (!this._closed)
+                this._onDark({dark: false, via: null});
+        }
     }
 
     _setMode(mode) {

@@ -37,10 +37,11 @@ const pill = (label, onClick, primary = false) => {
  */
 export class PhoneCardActivity extends LiveActivity {
     /** @param {{phone: ModuleClient, ui: {beginTextInput: Function, endTextInput: Function}, onDismiss: Function, onResize: Function}} params */
-    constructor({phone, ui, onDismiss, onResize}) {
+    constructor({phone, ui, settings = null, onDismiss, onResize}) {
         super({id: 'phone-card', widgetId: 'phonecard'});
         this._phone = phone;
         this._ui = ui;
+        this._settings = settings;
         this._onDismiss = onDismiss;
         this._onResize = onResize;
         this.peekInset = 32;
@@ -147,7 +148,7 @@ export class PhoneCardActivity extends LiveActivity {
                     return {touching, grab, last};
                 },
             });
-            stream.start(phone.state.adbPath, this.device.serial);
+            stream.start(phone.state.adbPath, this.device.serial, {dark: !!this._settings?.get('phone-dark-screen')});
         } else {
             this._buildMessage(root);
         }
@@ -234,12 +235,26 @@ export class PhoneCardActivity extends LiveActivity {
         top.add_child(small('window-new-symbolic', () => {
             const serial = this.device?.serial;
             stream.stop();
-            this._phone.call('mirror', {serial}).catch(() => {});
+            this._phone.call('mirror', {serial, dark: !!stream.control?.wantDark}).catch(() => {});
             this._ui.openMain();   // the panel goes back to its main section and closes by itself in a moment
         }));
         top.add_child(small('go-up-symbolic', () => this._onDismiss()));
 
         const bottom = new St.BoxLayout({style_class: 'osmin-phone-controls', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true});
+        // Keeps the phone's own screen dark (the phone stays awake) while it is used from here.
+        const dark = createButton({iconName: 'weather-clear-night-symbolic', styleClass: 'osmin-phone-control', onClick: () => {
+            const c = control();
+            if (c)
+                c.setDark(!c.wantDark);
+            syncDark();
+        }});
+        const syncDark = () => {
+            const on = !!control()?.wantDark;
+            dark.set_style_class_name(`osmin-button osmin-phone-control${on ? ' osmin-phone-control-on' : ''}`);
+        };
+        stream.connectObject('dark-changed', syncDark, root);
+        stream.connectObject('state-changed', syncDark, root);
+        bottom.add_child(dark);
         bottom.add_child(small('go-previous-symbolic', () => control()?.key(4)));
         bottom.add_child(small('go-home-symbolic', () => control()?.key(3)));
         bottom.add_child(small('view-grid-symbolic', () => control()?.key(187)));

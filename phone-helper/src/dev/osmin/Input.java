@@ -10,6 +10,8 @@ import android.view.MotionEvent;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import android.os.Build;
+
 import java.lang.reflect.Method;
 
 /**
@@ -18,7 +20,8 @@ import java.lang.reflect.Method;
  * new process per tap. Lines (coordinates are pixels of the screen):
  *   d x y   finger down      m x y   finger moves      u x y   finger up
  *   k code  a key (press and release)                  t text  type ASCII text
- * It says READY when it can inject, or ERR and the reason.
+ *   p mode  the screen panel: 0 dark (the phone stays awake and unlocked), 2 normal
+ * It says READY when it can inject, or ERR and the reason; for "p" it says POWER OK or POWER ERR reason.
  */
 public final class Input {
     private static Object inputManager;
@@ -61,6 +64,7 @@ public final class Input {
             case 'u': touch(MotionEvent.ACTION_UP, rest); break;
             case 'k': key(Integer.parseInt(rest.trim())); break;
             case 't': type(rest); break;
+            case 'p': power(Integer.parseInt(rest.trim())); break;
             default: break;
         }
     }
@@ -99,6 +103,54 @@ public final class Input {
             return;
         for (KeyEvent e : events)
             send(e);
+    }
+
+    /**
+     * Turns the panel of the screen off or on while the phone stays awake, so the picture and the touches
+     * keep working but nothing is lit. The same way as the rest of the platform does it: through the
+     * display token of SurfaceControl (found differently on different Android versions).
+     */
+    private static void power(int mode) {
+        try {
+            Class<?> surfaceControl = Class.forName("android.view.SurfaceControl");
+            IBinder token = displayToken(surfaceControl);
+            if (token == null) {
+                System.out.println("POWER ERR no display token");
+            } else {
+                surfaceControl.getMethod("setDisplayPowerMode", IBinder.class, int.class).invoke(null, token, mode);
+                System.out.println("POWER OK " + mode);
+            }
+        } catch (Throwable t) {
+            System.out.println("POWER ERR " + t);
+        }
+        System.out.flush();
+    }
+
+    private static IBinder displayToken(Class<?> surfaceControl) throws Exception {
+        // Android 14 and newer: the token comes from DisplayControl, which is in the system server's jar.
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                Class<?> factory = Class.forName("com.android.internal.os.ClassLoaderFactory");
+                Method create = factory.getDeclaredMethod("createClassLoader", String.class, String.class, String.class,
+                    ClassLoader.class, int.class, boolean.class, String.class);
+                ClassLoader loader = (ClassLoader) create.invoke(null, "/system/framework/services.jar", null, null,
+                    ClassLoader.getSystemClassLoader(), 0, true, null);
+                Class<?> control = loader.loadClass("com.android.server.display.DisplayControl");
+                Method load = Runtime.class.getDeclaredMethod("loadLibrary0", Class.class, String.class);
+                load.setAccessible(true);
+                load.invoke(Runtime.getRuntime(), ClassLoader.class, "android_servers");
+                long[] ids = (long[]) control.getMethod("getPhysicalDisplayIds").invoke(null);
+                return (IBinder) control.getMethod("getPhysicalDisplayToken", long.class).invoke(null, ids[0]);
+            } catch (Throwable ignored) {
+                // fall through to the older ways
+            }
+        }
+        try {
+            long[] ids = (long[]) surfaceControl.getMethod("getPhysicalDisplayIds").invoke(null);
+            return (IBinder) surfaceControl.getMethod("getPhysicalDisplayToken", long.class).invoke(null, ids[0]);
+        } catch (Throwable ignored) {
+            return (IBinder) surfaceControl.getMethod("getBuiltInDisplay", int.class).invoke(null, 0);
+        }
     }
 
     private static void send(InputEvent event) throws Exception {

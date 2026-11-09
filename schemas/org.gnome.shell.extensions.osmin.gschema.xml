@@ -167,6 +167,11 @@
       <summary>The Phone tile was added to the capsule once</summary>
       <description>Set by Osmin after it added the Phone tile to the capsule; turning it off afterwards is respected.</description>
     </key>
+    <key name="phone-dark-screen" type="b">
+      <default>true</default>
+      <summary>Keep the phone's screen dark while it is used from the computer</summary>
+      <description>The phone stays awake and unlocked, but its own screen is not lit, so nobody next to it sees what you do.</description>
+    </key>
     <key name="action-request" type="s">
       <default>''</default>
       <summary>Run an action (written by the settings window)</summary>

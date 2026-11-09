@@ -115,7 +115,7 @@ export class PhoneWidget extends OsminWidget {
                     this.context.ui?.openSection?.('phone');
                 }}));
                 controls.add_child(pillButton({label: showing ? 'Close window' : 'In a window', icon: 'window-new-symbolic',
-                    onClick: () => this._call(showing ? 'stopMirror' : 'mirror', {serial: device.serial})}));
+                    onClick: () => this._call(showing ? 'stopMirror' : 'mirror', {serial: device.serial, dark: !!this.context.settings?.get('phone-dark-screen')})}));
             }
             controls.add_child(pillButton({label: 'Disconnect', onClick: () => this._call('disconnect', {serial: device.serial})}));
             const {row} = iconRow({icon: 'phone-symbolic', title, subtitle, extra: controls});

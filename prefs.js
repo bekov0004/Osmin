@@ -304,6 +304,7 @@ export default class OsminPreferences extends ExtensionPreferences {
                 ['toggles', _('Quick toggles'), 'emblem-system-symbolic', this._togglesPage(settings)],
                 ['cleaning', _('Cleaning Mode'), 'input-keyboard-symbolic', this._cleaningPage(settings)],
                 ['screenshot', _('Screenshot'), 'applets-screenshooter-symbolic', this._screenshotPage(settings)],
+                ['phone', _('Phone'), 'phone-symbolic', this._phoneSettingsPage(settings)],
                 ['camera', _('Camera preview'), 'camera-web-symbolic', this._cameraPage(settings)],
                 ['scratchpad', _('Scratchpad'), 'accessories-text-editor-symbolic', this._scratchpadPage(settings)],
                 ['color', _('Color picker'), 'color-select-symbolic', this._colorPage(settings)],

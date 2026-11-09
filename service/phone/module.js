@@ -109,7 +109,7 @@ export class PhoneModule extends Module {
     }
 
     /** Opens the phone's screen in a window of its own, where it can be controlled. */
-    async rpc_mirror({serial}) {
+    async rpc_mirror({serial, dark = false}) {
         if (!this._adb)
             throw new Error('adb is not installed');
         if (this._viewer?.serial === serial) {
@@ -121,7 +121,7 @@ export class PhoneModule extends Module {
         const device = this._devices.find(d => d.serial === serial);
         const entry = {serial, window: null};
         entry.window = new PhoneViewer({
-            adb: this._adb, serial, title: device?.model || 'Phone',
+            adb: this._adb, serial, dark, title: device?.model || 'Phone',
             onClose: () => {
                 if (this._viewer === entry)
                     this._viewer = null;

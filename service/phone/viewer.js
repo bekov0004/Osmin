@@ -49,6 +49,7 @@ export class PhoneViewer {
             button.osmin-phone-control { min-width: 34px; min-height: 34px; padding: 0; border-radius: 17px; border: none; box-shadow: none;
                 background-color: rgba(20, 20, 24, 0.62); color: white; background-image: none; }
             button.osmin-phone-control:hover { background-color: rgba(60, 60, 68, 0.8); }
+            button.osmin-phone-control.on { background-color: #0a84ff; }
         `);
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
@@ -56,11 +57,12 @@ export class PhoneViewer {
     /**
      * @param {{adb: string, serial: string, title?: string, onClose?: () => void}} options
      */
-    constructor({adb, serial, title = 'Phone', onClose = () => {}, onDock = null}) {
+    constructor({adb, serial, dark = false, title = 'Phone', onClose = () => {}, onDock = null}) {
         this._adb = adb;
         this._serial = serial;
         this._onClose = onClose;
         this._onDock = onDock;
+        this._dark = dark;
         this._closed = false;
         this._screen = null;        // the phone's real screen size
         this._video = null;
@@ -121,6 +123,19 @@ export class PhoneViewer {
             top.append(button('view-restore-symbolic', 'Put the phone back in the Osmin panel', () => this._onDock()));
         top.append(button('window-close-symbolic', 'Close', () => this._window.close()));
         const bottom = new Gtk.Box({spacing: 6, halign: Gtk.Align.CENTER, valign: Gtk.Align.END, margin_bottom: 10});
+        // Keeps the phone's own screen dark (the phone stays awake) while it is used from here.
+        const dark = button('weather-clear-night-symbolic', 'Keep the phone\'s own screen dark', () => {
+            if (this._control)
+                this._control.setDark(!this._control.wantDark);
+            this._syncDark();
+        });
+        this._syncDark = () => {
+            if (this._control?.wantDark)
+                dark.add_css_class('on');
+            else
+                dark.remove_css_class('on');
+        };
+        bottom.append(dark);
         bottom.append(button('go-previous-symbolic', 'Back', () => this._key(4)));
         bottom.append(button('go-home-symbolic', 'Home', () => this._key(3)));
         bottom.append(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));
@@ -257,8 +272,9 @@ export class PhoneViewer {
             this._fail(`GStreamer is not available: ${e.message}`);
             return;
         }
-        this._control = new PhoneControl({adb: this._adb, serial: this._serial});
+        this._control = new PhoneControl({adb: this._adb, serial: this._serial, dark: this._dark, onDark: () => this._syncDark?.()});
         this._control.keepAwake();
+        this._syncDark?.();
         const size = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', 'wm', 'size'],
             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
         size.communicate_utf8_async(null, null, (_p, result) => {

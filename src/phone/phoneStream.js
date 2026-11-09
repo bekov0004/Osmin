@@ -56,7 +56,8 @@ export class PhoneStream extends Signals.EventEmitter {
         return this._serial;
     }
 
-    async start(adb, serial) {
+    /** @param {{dark?: boolean}} [options] dark: keep the phone's own screen dark while it is shown here */
+    async start(adb, serial, {dark = false} = {}) {
         if (this._serial === serial && this._state !== StreamState.OFF && this._state !== StreamState.ERROR)
             return;
         this.stop();
@@ -83,7 +84,7 @@ export class PhoneStream extends Signals.EventEmitter {
             return;
         }
         this.screen = screen;
-        this.control = new PhoneControl({adb, serial});
+        this.control = new PhoneControl({adb, serial, dark, onDark: () => this.emit('dark-changed')});
         this.control.keepAwake();
         this._startVideo(generation);
     }

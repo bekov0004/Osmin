@@ -28,6 +28,7 @@ export class PhoneCardWidget extends OsminWidget {
         this._big = new PhoneCardActivity({
             phone: this._phone,
             ui: this._ui,
+            settings: context.settings,
             onDismiss: () => this._shrink(),
             onResize: () => this._reopen(),
         });

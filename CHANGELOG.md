@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Phone: the phone's own screen stays dark while you use it from the computer (on by default; Settings > Phone, and a moon button for one session). The phone stays awake and unlocked but its panel is off, through Osmin's helper on the phone; if the phone does not allow that, the lowest brightness is used instead. The light is given back when the card or window closes. Fixed: the helper was not found, so touches always used the slower `input` commands.
 - Phone: taking the phone out into a window sends the panel back to its main section, which closes by itself after three seconds; the cards without a phone (QR code, install adb, "in its own window") are only as tall as what they say.
 - Phone: an Unlock button (a lock icon among the buttons that show on hover, in the card and in the window): type the PIN or password once; Osmin wakes the phone, swipes the lock screen up and types the code. The code is not kept anywhere.
 - Phone: the window the phone is taken out into has the card's look (no title bar, a black rounded body, the picture with a thin frame, buttons that show on hover; drag the black edge to move it). The phone's screen is woken when the picture opens and every 15 seconds while it is shown, so a sleeping phone no longer gives a black picture.
