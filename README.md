@@ -39,6 +39,7 @@ extension off brings the stock GNOME clock back.
 | **LocalSend** | Send files to phones and computers running [LocalSend](https://localsend.org), or receive them |
 | **Search bar** | Launch apps, calculate, convert units, `kill` a process, see open `ports`, text snippets |
 | **Quick toggles** | Keep awake, dark mode, night light, lock, screenshot, screen recording, colour picker, brightness |
+| **Phone** | See an Android phone's screen on the computer and control it. Scan the QR code in Developer options > Wireless debugging > Pair device with QR code. Needs `adb` and `scrcpy` (`sudo apt install adb scrcpy`) |
 | **Focus** | Pomodoro timer and stopwatch that live in the capsule |
 | **System, Network, Disks, Power** | Four monitoring tabs with graphs: processor, memory, temperature, uptime; download and upload speed; every disk with eject and live reading and writing; battery, power draw and health; with alerts |
 | **Sound** | Volume, output, microphone and per-application volume |
@@ -213,6 +214,7 @@ Osmin is two parts that talk over D-Bus (`dev.osmin.Osmin`), and both ship insid
 | Artwork, Lyrics | Cover art and lyrics downloads |
 | Downloads, System, Agents | Watching the Downloads folder, the computer, the AI agents' logs |
 | Power, Tools, Processes, Cleaner | Keep awake, small jobs, processes and ports, the cache cleaner |
+| Phone | Pairing of an Android phone (adb over mDNS) and scrcpy for its screen |
 
 Without the service the extension still runs; only the features that live in the service are unavailable.
 

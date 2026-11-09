@@ -129,6 +129,7 @@ export class OsminHost {
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
+        this._offerNewTabs();
         this._syncSuperV();
         this._syncReceiving();
         this._watchInputSource();
@@ -204,6 +205,20 @@ export class OsminHost {
     /** The shortcut (Super+V): the capsule on the monitor the pointer is on, otherwise the first one. */
     toggle() {
         this._capsuleAtPointer()?.toggle();
+    }
+
+    /** A tab that came with an update is added to the window once (after Keep awake); later the user decides. */
+    _offerNewTabs() {
+        const gsettings = this._settings.gsettings;
+        if (!gsettings || this._settings.get('phone-offered'))
+            return;
+        const list = [...this._settings.get('enabled-widgets')];
+        if (!list.includes('phone')) {
+            const at = list.indexOf('awake');
+            list.splice(at >= 0 ? at + 1 : list.length, 0, 'phone');
+            gsettings.set_strv('enabled-widgets', list);
+        }
+        gsettings.set_boolean('phone-offered', true);
     }
 
     /** A shortcut or a request of the settings window: a tool, the search or one of the window's pages. */

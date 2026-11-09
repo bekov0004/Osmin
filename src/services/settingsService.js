@@ -25,6 +25,7 @@ export const DEFAULTS = Object.freeze({
     'shortcut-mic': [],
     'shortcut-awake': [],
     'awake-on-start': false,
+    'phone-offered': false,
     'shortcut-radial': [],
     'shortcut-quickpanel': [],
     'shortcut-output': [],

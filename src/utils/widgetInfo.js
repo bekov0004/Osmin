@@ -22,6 +22,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},
     {id: 'todo', title: 'To-do', subtitle: 'A simple local task list', cells: 4, minCells: 3},
     {id: 'notes', title: 'Notes', subtitle: 'Quick notes you can copy later', cells: 4, minCells: 3},
+    {id: 'phone', title: 'Phone', subtitle: 'See the screen of an Android phone on the computer and control it: scan a QR code to connect', cells: 4, minCells: 4, menu: true},
     {id: 'awake', title: 'Keep awake', subtitle: 'Stop the computer from sleeping for a while or until you turn it off, even with the lid closed', cells: 4, minCells: 4, menu: true},
     {id: 'displays', title: 'Displays', subtitle: 'Brightness of the screen and the keyboard light, night light, automatic brightness', cells: 4, minCells: 4, menu: true},
     {id: 'utilities', title: 'Utilities', subtitle: 'Screenshot, recording, colour picker, cleaning mode and the other tools in one list', cells: 4, minCells: 4, menu: true},
@@ -29,7 +30,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'toggles', title: 'Quick toggles', subtitle: 'Dark mode, mute the microphone, empty the trash, eject disks, lock and turn off the screen', cells: 4, minCells: 4, menu: true},
 ]);
 
-export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror', 'awake', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces']);
+export const DEFAULT_WIDGETS = Object.freeze(['media', 'calendar', 'mirror', 'awake', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces']);
 
 /** Widgets with `menu: true` live in the pages of the top-bar button's window; the others in the capsule. */
 export const MENU_WIDGET_IDS = Object.freeze(WIDGET_INFO.filter(w => w.menu).map(w => w.id));

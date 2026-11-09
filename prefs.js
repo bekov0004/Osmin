@@ -229,6 +229,7 @@ const WIDGET_ICONS = {
     notes: 'document-edit-symbolic',
     shortcuts: 'view-app-grid-symbolic',
     awake: 'weather-clear-night-symbolic',
+    phone: 'phone-symbolic',
     displays: 'video-display-symbolic',
     utilities: 'applications-utilities-symbolic',
     controls: 'preferences-other-symbolic',
@@ -462,7 +463,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const TOOLS = _('Tools window (top-bar button)');
         const ISLAND = _('Island widgets (the capsule)');
         // The tools in the order of the tabs of their window, then the capsule's widgets.
-        const MENU_ORDER = ['awake', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
+        const MENU_ORDER = ['awake', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
         const rank = w => (w.menu ? MENU_ORDER.indexOf(w.id) : 100 + WIDGET_INFO.indexOf(w));
         const widgetRows = [...WIDGET_INFO].sort((a, b) => rank(a) - rank(b)).map(w => ({
             group: w.menu ? TOOLS : ISLAND,
@@ -500,7 +501,7 @@ export default class OsminPreferences extends ExtensionPreferences {
 
         // What a feature costs while it is on, said plainly (like "Nothing at rest").
         const COST = {
-            windows: _('Nothing at rest'), workspaces: _('Nothing at rest'), awake: _('Nothing at rest'), displays: _('Nothing at rest'),
+            windows: _('Nothing at rest'), workspaces: _('Nothing at rest'), awake: _('Nothing at rest'), phone: _('Checks while its tab is open'), displays: _('Nothing at rest'),
             utilities: _('Nothing at rest'), controls: _('Nothing at rest'), toggles: _('Nothing at rest'),
             focus: _('Nothing at rest'), input: _('Nothing at rest'), timer: _('Nothing at rest'),
             todo: _('Nothing at rest'), notes: _('Nothing at rest'), shortcuts: _('Nothing at rest'),
@@ -1435,10 +1436,10 @@ export default class OsminPreferences extends ExtensionPreferences {
     _menuBarPage(settings) {
         const body = this._body();
         const menuInfo = WIDGET_INFO.filter(w => w.menu);
-        const MENU_ORDER = ['awake', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
+        const MENU_ORDER = ['awake', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
         const info = id => menuInfo.find(w => w.id === id);
         const SHORT = {
-            awake: _('Keeps your computer awake for as long as you want.'), displays: _('Brightness of your screens.'),
+            awake: _('Keeps your computer awake for as long as you want.'), phone: _('Phone screen on the computer, with control.'), displays: _('Brightness of your screens.'),
             sound: _('Volume of each app, one slider each.'), system: _('Processor, graphics and memory at a glance.'),
             network: _('Internet speed and its graph.'), disks: _('Free space and disk activity.'),
             power: _('Battery, charging and power use.'), utilities: _('Screenshots, colour picker and other tools.'),

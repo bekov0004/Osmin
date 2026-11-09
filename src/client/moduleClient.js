@@ -200,6 +200,7 @@ export class OsminBackend {
         this.agents = new ModuleClient('Agents', ensure);
         this.snippets = new ModuleClient('Snippets', ensure);
         this.cleaner = new ModuleClient('Cleaner', ensure);
+        this.phone = new ModuleClient('Phone', ensure);
     }
 
     /** Makes sure the service runs (starts it from the extension's folder if nobody has), once at a time. */
@@ -292,6 +293,7 @@ export class OsminBackend {
         this.agents.start();
         this.snippets.start();
         this.cleaner.start();
+        this.phone.start();
     }
 
     /** The extension is being disabled: the service has nothing left to do. */
@@ -324,6 +326,7 @@ export class OsminBackend {
         this.agents.destroy();
         this.snippets.destroy();
         this.cleaner.destroy();
+        this.phone.destroy();
         this.service.destroy();
     }
 }

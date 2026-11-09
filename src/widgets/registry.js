@@ -17,6 +17,7 @@ import {PowerWidget} from './power/powerWidget.js';
 import {SystemWidget} from './system/systemWidget.js';
 import {TimerWidget} from './timer/timerWidget.js';
 import {AwakeWidget} from './awake/awakeWidget.js';
+import {PhoneWidget} from './phone/phoneWidget.js';
 import {ControlsWidget} from './controls/controlsWidget.js';
 import {DisplaysWidget} from './displays/displaysWidget.js';
 import {TogglesWidget} from './toggles/togglesWidget.js';
@@ -33,6 +34,7 @@ export const WIDGET_CLASSES = [
     NotesWidget,
     ShortcutsWidget,
     AwakeWidget,
+    PhoneWidget,
     DisplaysWidget,
     UtilitiesWidget,
     ControlsWidget,

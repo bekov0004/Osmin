@@ -23,6 +23,7 @@ import {ToolsModule} from './tools/module.js';
 import {NotesModule} from './notes/module.js';
 import {TimerModule} from './timer/module.js';
 import {TodoModule} from './todo/module.js';
+import {PhoneModule} from './phone/module.js';
 
 export const APPLICATION_ID = 'dev.osmin.Osmin';
 const VERSION = '1';
@@ -68,7 +69,7 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         super({application_id: APPLICATION_ID, flags: Gio.ApplicationFlags.DEFAULT_FLAGS});
         // Started by the extension (OSMIN_SERVICE=1): no window at the first activation.
         this._quiet = GLib.getenv('OSMIN_SERVICE') === '1';
-        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule(), new CalendarModule(), new FilesModule(), new ArtworkModule(), new ClipboardModule(), new PowerModule(), new ToolsModule(), new FocusModule(), new SystemModule(), new DownloadsModule(), new LyricsModule(), new ProcessesModule(), new AgentsModule(), new SnippetsModule(), new CleanerModule()];
+        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule(), new CalendarModule(), new FilesModule(), new ArtworkModule(), new ClipboardModule(), new PowerModule(), new ToolsModule(), new FocusModule(), new SystemModule(), new DownloadsModule(), new LyricsModule(), new ProcessesModule(), new AgentsModule(), new SnippetsModule(), new CleanerModule(), new PhoneModule()];
         this._clients = new Map(); // unique bus name -> watch id
         this._idleId = 0;
     }

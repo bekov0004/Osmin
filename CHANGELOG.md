@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Phone tab in the top-bar window: a QR code pairs an Android phone over Wi-Fi (Developer options > Wireless debugging > Pair device with QR code); Osmin connects it with adb and opens its screen with scrcpy, with mouse and keyboard control. Needs `adb` and `scrcpy`; the tab says so and offers the command. USB-cabled phones appear too.
 - Top-bar window: blue-grey palette, flat tab icons with a blue selected tab, round colour dots, small option lines; Keep awake: "Keep awake when Osmin opens".
 - Settings: Quick panel page (shortcut that opens the top-bar window from anywhere; quick toggles with keyboard light and excluded drives, microphone, camera, scratchpad and cleaning mode in one place).
 - Radial menu: a wheel of favourite actions around the pointer (shortcut, editable list); Output switcher (next sound output, outputs to skip); Camera preview and Scratchpad pages.

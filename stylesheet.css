@@ -2210,3 +2210,10 @@
 .osmin-option-line .osmin-card-title { font-size: 9.5pt; }
 .osmin-option-line { padding: 4px 14px; }
 .osmin-option-line .osmin-icon-square { width: 20px; margin-right: 8px; }
+
+/* Phone tab */
+.osmin-code { font-family: monospace; font-size: 9.5pt; color: rgba(255, 255, 255, 0.85); background-color: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 7px 10px; margin: 0 14px 6px 14px; }
+.osmin-qr-box { padding: 14px 0 6px 0; }
+.osmin-phone-status { color: white; font-size: 10pt; text-align: center; padding: 4px 14px 8px 14px; }
+.osmin-phone-step { color: rgba(255, 255, 255, 0.55); font-size: 9pt; padding: 1px 14px; }
+.osmin-phone-actions { spacing: 8px; padding-top: 6px; }
