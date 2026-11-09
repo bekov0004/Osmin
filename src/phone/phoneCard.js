@@ -222,51 +222,19 @@ export class PhoneCardActivity extends LiveActivity {
         stream.connectObject('content-changed', update, root);
         update();
 
-        this._buildControls(root, stream);
+        this._buildControls(root, stream, screen);
         this._wirePointer(screen, stream, state);
     }
 
-    /** Buttons that appear while the pointer is over the card: the phone's own keys, a window, close. */
-    _buildControls(root, stream) {
+    /**
+     * The screen is always clean: no buttons over it. A right click opens a small ring of round buttons around the
+     * pointer (Back, Home, Recent apps, Notifications, Dark screen, Wake, Unlock, Open in a window, Close); a click
+     * anywhere else closes it. The left button is the finger.
+     */
+    _buildControls(root, stream, screen) {
         const control = () => stream.control;
-        const small = (icon, onClick) => createButton({iconName: icon, styleClass: 'osmin-phone-control', onClick});
-
-        const top = new St.BoxLayout({style_class: 'osmin-phone-controls', x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true});
-        top.add_child(small('window-new-symbolic', () => {
-            const serial = this.device?.serial;
-            stream.stop();
-            this._phone.call('mirror', {serial, dark: !!stream.control?.wantDark}).catch(() => {});
-            this._ui.openMain();   // the panel goes back to its main section and closes by itself in a moment
-        }));
-        top.add_child(small('go-up-symbolic', () => this._onDismiss()));
-
-        const bottom = new St.BoxLayout({style_class: 'osmin-phone-controls', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true});
-        // Keeps the phone's own screen dark (the phone stays awake) while it is used from here.
-        let shownError = '';
-        const dark = createButton({iconName: 'weather-clear-night-symbolic', styleClass: 'osmin-phone-control', onClick: () => {
-            const c = control();
-            if (c)
-                c.setDark(!c.wantDark);
-            syncDark();
-        }});
-        const syncDark = () => {
-            const error = control()?.darkError ?? '';
-            if (error && error !== shownError) {
-                shownError = error;
-                Main.notify('Phone', error);
-            }
-            const on = !!control()?.wantDark;
-            dark.set_style_class_name(`osmin-button osmin-phone-control${on ? ' osmin-phone-control-on' : ''}`);
-        };
-        stream.connectObject('dark-changed', syncDark, root);
-        stream.connectObject('state-changed', syncDark, root);
-        bottom.add_child(dark);
-        // Wakes a sleeping phone (nothing happens when it is awake); with the dark screen on, the panel stays dark.
-        bottom.add_child(small('weather-clear-symbolic', () => control()?.wake()));
-        bottom.add_child(small('go-previous-symbolic', () => control()?.key(4)));
-        bottom.add_child(small('go-home-symbolic', () => control()?.key(3)));
-        bottom.add_child(small('view-grid-symbolic', () => control()?.key(187)));
-        bottom.add_child(small('preferences-system-notifications-symbolic', () => control()?.shell('cmd statusbar expand-notifications')));
+        const RADIUS = scaled(74);
+        const SIZE = scaled(36);
 
         // Unlock: a PIN or password is typed here once and goes to the phone; it is not kept.
         const pinBox = new St.BoxLayout({style_class: 'osmin-phone-pin', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true, visible: false});
@@ -288,25 +256,108 @@ export class PhoneCardActivity extends LiveActivity {
             closePin();
             return Clutter.EVENT_STOP;
         });
-        bottom.add_child(small('system-lock-screen-symbolic', () => {
-            if (pinBox.visible) {
-                closePin();
+        const showPin = () => {
+            if (pinBox.visible)
                 return;
-            }
             pinBox.show();
             this._ui.beginTextInput(() => {});
             entry.grab_key_focus();
-        }));
+        };
 
-        for (const actor of [top, bottom]) {
-            actor.opacity = 0;
-            root.add_child(actor);
-        }
-        root.add_child(pinBox);
-        root.connect('notify::hover', () => {
-            for (const actor of [top, bottom])
-                actor.ease({opacity: root.hover ? 255 : 0, duration: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        const ring = new St.Widget({reactive: true, x_expand: true, y_expand: true, visible: false});
+        let shownError = '';
+        const closeRing = () => {
+            ring.hide();
+            ring.destroy_all_children();
+        };
+        ring.connect('button-press-event', (_a, event) => {
+            // Only a click on the empty layer closes it: a click on a button is that button's.
+            if (event.get_source() !== ring)
+                return Clutter.EVENT_PROPAGATE;
+            closeRing();
+            return Clutter.EVENT_STOP;
         });
+
+        const items = () => {
+            const dark = !!control()?.wantDark;
+            return [
+                ['go-previous-symbolic', 'Back', () => control()?.key(4)],
+                ['go-home-symbolic', 'Home', () => control()?.key(3)],
+                ['view-grid-symbolic', 'Recent apps', () => control()?.key(187)],
+                ['preferences-system-notifications-symbolic', 'Notifications', () => control()?.shell('cmd statusbar expand-notifications')],
+                ['weather-clear-night-symbolic', dark ? 'Dark screen: on' : 'Dark screen: off', () => {
+                    const c = control();
+                    if (!c)
+                        return;
+                    c.setDark(!c.wantDark);
+                    if (c.darkError && c.darkError !== shownError) {
+                        shownError = c.darkError;
+                        Main.notify('Phone', c.darkError);
+                    }
+                }, dark],
+                ['weather-clear-symbolic', 'Wake the phone', () => control()?.wake()],
+                ['system-lock-screen-symbolic', 'Unlock with a PIN', () => showPin()],
+                ['window-new-symbolic', 'Open in a window', () => {
+                    const serial = this.device?.serial;
+                    stream.stop();
+                    this._phone.call('mirror', {serial, dark: !!stream.control?.wantDark}).catch(() => {});
+                    this._ui.openMain();   // the panel goes back to its main section and closes by itself in a moment
+                }],
+                ['go-up-symbolic', 'Close', () => this._onDismiss()],
+            ];
+        };
+
+        const openRing = (stageX, stageY) => {
+            closeRing();
+            const [ok, x, y] = root.transform_stage_point(stageX, stageY);
+            if (!ok)
+                return;
+            const margin = RADIUS + SIZE / 2 + scaled(4);
+            const cx = root.width < margin * 2 ? root.width / 2 : Math.min(Math.max(x, margin), root.width - margin);
+            const cy = root.height < margin * 2 ? root.height / 2 : Math.min(Math.max(y, margin), root.height - margin);
+
+            const backdrop = new St.Widget({style_class: 'osmin-phone-ring', width: (RADIUS + scaled(26)) * 2, height: (RADIUS + scaled(26)) * 2, reactive: false});
+            backdrop.set_position(cx - backdrop.width / 2, cy - backdrop.height / 2);
+            ring.add_child(backdrop);
+            const label = new St.Label({style_class: 'osmin-phone-ring-label', text: '', reactive: false});
+            ring.add_child(label);
+            const place = () => label.set_position(cx - label.width / 2, cy - label.height / 2);
+
+            const list = items();
+            list.forEach(([icon, name, action, on], i) => {
+                const angle = -Math.PI / 2 + (2 * Math.PI * i) / list.length;
+                const button = new St.Button({
+                    style_class: `osmin-button osmin-phone-control${on ? ' osmin-phone-control-on' : ''}`,
+                    reactive: true, can_focus: true, track_hover: true,
+                    child: new St.Icon({icon_name: icon, style_class: 'osmin-button-icon'}),
+                });
+                button.set_size(SIZE, SIZE);
+                button.set_position(cx + Math.cos(angle) * RADIUS - SIZE / 2, cy + Math.sin(angle) * RADIUS - SIZE / 2);
+                button.connect('notify::hover', () => {
+                    if (button.hover) {
+                        label.text = name;
+                        place();
+                    }
+                });
+                button.connect('clicked', () => {
+                    closeRing();
+                    action();
+                });
+                ring.add_child(button);
+            });
+            ring.opacity = 0;
+            ring.show();
+            ring.ease({opacity: 255, duration: 120, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        };
+
+        screen.connect('button-press-event', (_a, event) => {
+            if (event.get_button() !== 3)
+                return Clutter.EVENT_PROPAGATE;
+            openRing(...event.get_coords());
+            return Clutter.EVENT_STOP;
+        });
+        root.add_child(ring);
+        root.add_child(pinBox);
     }
 
     /** A point of the stage -> a pixel of the phone's screen (clamped to it). */

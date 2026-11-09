@@ -2242,3 +2242,6 @@
 .osmin-phone-pin { background-color: rgba(20, 20, 24, 0.85); border-radius: 20px; padding: 6px 10px; margin: 0 24px 58px 24px; }
 .osmin-phone-pin-entry { background-color: transparent; color: white; border: none; box-shadow: none; padding: 6px 8px; min-width: 160px; }
 .osmin-button.osmin-phone-control-on { background-color: #0a84ff; }
+
+.osmin-phone-ring { border-radius: 999px; background-color: rgba(10, 10, 14, 0.72); border: 1px solid rgba(255, 255, 255, 0.12); }
+.osmin-phone-ring-label { color: white; font-size: 9pt; font-weight: 600; text-align: center; }

@@ -50,6 +50,9 @@ export class PhoneViewer {
                 background-color: rgba(20, 20, 24, 0.62); color: white; background-image: none; }
             button.osmin-phone-control:hover { background-color: rgba(60, 60, 68, 0.8); }
             button.osmin-phone-control.on { background-color: #0a84ff; }
+            .osmin-phone-ringbg { background-color: rgba(10, 10, 14, 0.78); border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.12); }
+            .osmin-phone-pin { background-color: rgba(20, 20, 24, 0.85); border-radius: 20px; padding: 6px 10px; }
+            .osmin-phone-ring-label { color: white; font-size: 12px; font-weight: 600; }
         `);
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
@@ -112,66 +115,123 @@ export class PhoneViewer {
         screen.add_css_class('osmin-phone-screen');
         screen.add_overlay(this._status);
 
-        const button = (icon, tooltip, action) => {
-            const b = Gtk.Button.new_from_icon_name(icon);
-            b.tooltip_text = tooltip;
-            b.add_css_class('osmin-phone-control');
-            b.connect('clicked', action);
-            return b;
+        // The picture is always clean: no buttons over it. A right click opens a ring of round buttons around the
+        // pointer, drawn in the window itself (the same as in the capsule); the left button is the finger.
+        const pinBox = new Gtk.Box({halign: Gtk.Align.CENTER, valign: Gtk.Align.END, margin_bottom: 24, visible: false});
+        pinBox.add_css_class('osmin-phone-pin');
+        const entry = new Gtk.PasswordEntry({placeholder_text: 'PIN or password', show_peek_icon: true, width_chars: 16});
+        pinBox.append(entry);
+        const closePin = () => {
+            entry.set_text('');
+            pinBox.set_visible(false);
+            this._picture.grab_focus();
         };
-        const top = new Gtk.Box({spacing: 6, halign: Gtk.Align.END, valign: Gtk.Align.START, margin_top: 10, margin_end: 10});
-        if (this._onDock)
-            top.append(button('view-restore-symbolic', 'Put the phone back in the Osmin panel', () => this._onDock()));
-        top.append(button('window-close-symbolic', 'Close', () => this._window.close()));
-        const bottom = new Gtk.Box({spacing: 6, halign: Gtk.Align.CENTER, valign: Gtk.Align.END, margin_bottom: 10});
-        // Keeps the phone's own screen dark (the phone stays awake) while it is used from here.
-        const dark = button('weather-clear-night-symbolic', 'Keep the phone\'s own screen dark', () => {
-            if (this._control)
-                this._control.setDark(!this._control.wantDark);
-            this._syncDark();
+        entry.connect('activate', () => {
+            const secret = entry.get_text();
+            closePin();
+            this._control?.unlock(secret, this._screen);
         });
+        const escape = new Gtk.EventControllerKey();
+        escape.connect('key-pressed', (_c, keyval) => {
+            if (keyval !== Gdk.KEY_Escape)
+                return false;
+            closePin();
+            return true;
+        });
+        entry.add_controller(escape);
+        screen.add_overlay(pinBox);
+
         this._syncDark = () => {
             const error = this._control?.darkError;
             if (error && this._status && !this._frames)
                 this._status.label = error;
-            if (this._control?.wantDark)
-                dark.add_css_class('on');
-            else
-                dark.remove_css_class('on');
         };
-        bottom.append(dark);
-        // Wakes a sleeping phone (nothing happens when it is awake); with the dark screen on, the panel stays dark.
-        bottom.append(button('weather-clear-symbolic', 'Wake the phone', () => this._control?.wake()));
-        bottom.append(button('go-previous-symbolic', 'Back', () => this._key(4)));
-        bottom.append(button('go-home-symbolic', 'Home', () => this._key(3)));
-        bottom.append(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));
-        bottom.append(button('preferences-system-notifications-symbolic', 'Notifications', () => this._control?.shell('cmd statusbar expand-notifications')));
-        // Unlock: a PIN or password is typed here once and goes to the phone; it is not kept.
-        const unlock = button('system-lock-screen-symbolic', 'Unlock with a PIN or password', () => pin.popup());
-        const pin = new Gtk.Popover({child: new Gtk.PasswordEntry({placeholder_text: 'PIN or password', show_peek_icon: true, width_chars: 18}), position: Gtk.PositionType.TOP});
-        pin.set_parent(unlock);
-        pin.get_child().connect('activate', entry => {
-            const secret = entry.get_text();
-            entry.set_text('');
-            pin.popdown();
-            this._control?.unlock(secret, this._screen);
+        const items = () => {
+            const dark = !!this._control?.wantDark;
+            const list = [
+                ['go-previous-symbolic', 'Back', () => this._key(4)],
+                ['go-home-symbolic', 'Home', () => this._key(3)],
+                ['view-grid-symbolic', 'Recent apps', () => this._key(187)],
+                ['preferences-system-notifications-symbolic', 'Notifications', () => this._control?.shell('cmd statusbar expand-notifications')],
+                ['weather-clear-night-symbolic', dark ? 'Dark screen: on' : 'Dark screen: off', () => {
+                    if (this._control)
+                        this._control.setDark(!this._control.wantDark);
+                    this._syncDark();
+                }, dark],
+                ['weather-clear-symbolic', 'Wake the phone', () => this._control?.wake()],
+                ['system-lock-screen-symbolic', 'Unlock with a PIN', () => {
+                    pinBox.set_visible(true);
+                    entry.grab_focus();
+                }],
+            ];
+            if (this._onDock)
+                list.push(['view-restore-symbolic', 'Put the phone back in the Osmin panel', () => this._onDock()]);
+            list.push(['window-close-symbolic', 'Close', () => this._window.close()]);
+            return list;
+        };
+
+        const ring = new Gtk.Fixed({visible: false, hexpand: true, vexpand: true});
+        const closeRing = () => {
+            ring.set_visible(false);
+            let child = ring.get_first_child();
+            while (child) {
+                ring.remove(child);
+                child = ring.get_first_child();
+            }
+        };
+        const away = new Gtk.GestureClick({button: 0});
+        away.connect('pressed', (_g, _n, x, y) => {
+            // A click on a button is that button's; anywhere else it closes the ring.
+            if (ring.pick(x, y, Gtk.PickFlags.DEFAULT) === ring)
+                closeRing();
         });
-        bottom.append(unlock);
-        for (const box of [top, bottom]) {
-            box.add_css_class('osmin-phone-controls');
-            box.set_can_target(true);
-            screen.add_overlay(box);
-        }
-        const hover = new Gtk.EventControllerMotion();
-        hover.connect('enter', () => {
-            top.add_css_class('shown');
-            bottom.add_css_class('shown');
+        ring.add_controller(away);
+        const RING = 74;
+        const SIZE = 36;
+        const openRing = (x, y) => {
+            closeRing();
+            // The ring layer is hidden until now (no size yet): measure the picture, which it covers.
+            const width = this._picture.get_width();
+            const height = this._picture.get_height();
+            const margin = RING + SIZE / 2 + 4;
+            const cx = width < margin * 2 ? width / 2 : Math.min(Math.max(x, margin), width - margin);
+            const cy = height < margin * 2 ? height / 2 : Math.min(Math.max(y, margin), height - margin);
+            const side = (RING + 26) * 2;
+            const backdrop = new Gtk.Box({can_target: false});
+            backdrop.add_css_class('osmin-phone-ringbg');
+            backdrop.set_size_request(side, side);
+            ring.put(backdrop, cx - side / 2, cy - side / 2);
+            const label = new Gtk.Label({label: '', can_target: false});
+            label.add_css_class('osmin-phone-ring-label');
+            label.set_size_request(90, 16);
+            ring.put(label, cx - 45, cy - 8);
+            const list = items();
+            list.forEach(([icon, name, action, on], i) => {
+                const angle = -Math.PI / 2 + (2 * Math.PI * i) / list.length;
+                const b = Gtk.Button.new_from_icon_name(icon);
+                b.add_css_class('osmin-phone-control');
+                if (on)
+                    b.add_css_class('on');
+                b.set_size_request(SIZE, SIZE);
+                const hover = new Gtk.EventControllerMotion();
+                hover.connect('enter', () => (label.label = name));
+                b.add_controller(hover);
+                b.connect('clicked', () => {
+                    closeRing();
+                    action();
+                });
+                ring.put(b, cx + Math.cos(angle) * RING - SIZE / 2, cy + Math.sin(angle) * RING - SIZE / 2);
+            });
+            ring.set_visible(true);
+        };
+        screen.add_overlay(ring);
+        const secondary = new Gtk.GestureClick({button: 3});
+        secondary.connect('pressed', (_g, _n, x, y) => {
+            // The right click is ours: the handle that moves the window would open the window's own menu.
+            secondary.set_state(Gtk.EventSequenceState.CLAIMED);
+            openRing(x, y);
         });
-        hover.connect('leave', () => {
-            top.remove_css_class('shown');
-            bottom.remove_css_class('shown');
-        });
-        screen.add_controller(hover);
+        this._picture.add_controller(secondary);
 
         // The black body: dragging it (not the picture) moves the window.
         const body = new Gtk.Box({hexpand: true, vexpand: true});
