@@ -84,6 +84,7 @@ export class PhoneStream extends Signals.EventEmitter {
         }
         this.screen = screen;
         this.control = new PhoneControl({adb, serial});
+        this.control.keepAwake();
         this._startVideo(generation);
     }
 

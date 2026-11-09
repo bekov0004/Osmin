@@ -4,6 +4,8 @@ import GLib from 'gi://GLib';
 const HELPER_REMOTE = '/data/local/tmp/osmin-input.jar';
 const READY_TIMEOUT_S = 5;
 const MAX_QUEUE = 120;
+const WAKE_CODE = 224;            // KEYCODE_WAKEUP: turns the screen on, and does nothing when it is on
+const KEEP_AWAKE_S = 15;
 const TAP_MAX_PX = 12;
 const TAP_MAX_MS = 350;
 
@@ -35,6 +37,7 @@ export class PhoneControl {
         this._writing = false;
         this._closed = false;
         this._down = null;
+        this._awakeId = 0;
         this._start();
     }
 
@@ -103,7 +106,21 @@ export class PhoneControl {
         }
     }
 
+    /** Wakes the phone's screen now and every few seconds, so it does not sleep while it is being used. */
+    keepAwake() {
+        if (this._awakeId || this._closed)
+            return;
+        this.key(WAKE_CODE);
+        this._awakeId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, KEEP_AWAKE_S, () => {
+            this.key(WAKE_CODE);
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
     destroy() {
+        if (this._awakeId)
+            GLib.source_remove(this._awakeId);
+        this._awakeId = 0;
         this._closed = true;
         this._process?.force_exit();
         this._process = null;

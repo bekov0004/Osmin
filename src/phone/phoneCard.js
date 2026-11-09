@@ -161,7 +161,11 @@ export class PhoneCardActivity extends LiveActivity {
                 stream?.control?.up(last?.[0] ?? 0, last?.[1] ?? 0);
             grab?.dismiss();
             stream?.destroy();
-            this._ui.endTextInput();
+            try {
+                this._ui.endTextInput();
+            } catch (e) {
+                // the capsule is going away with its own grab
+            }
         });
         return root;
     }

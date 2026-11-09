@@ -32,6 +32,27 @@ export function parseSize(text) {
  * on the phone.
  */
 export class PhoneViewer {
+    /** The look of the window (once per process). */
+    static installStyle() {
+        if (PhoneViewer._styled)
+            return;
+        PhoneViewer._styled = true;
+        const provider = new Gtk.CssProvider();
+        provider.load_from_string(`
+            window.osmin-phone-window { background: transparent; box-shadow: none; }
+            .osmin-phone-body { background-color: #000; border-radius: 34px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.1); }
+            .osmin-phone-screen { border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.16); background-color: #000; }
+            .osmin-phone-picture { border-radius: 24px; }
+            .osmin-phone-status { color: rgba(255, 255, 255, 0.65); font-size: 13px; }
+            .osmin-phone-controls { opacity: 0; transition: opacity 140ms ease; }
+            .osmin-phone-controls.shown { opacity: 1; }
+            button.osmin-phone-control { min-width: 34px; min-height: 34px; padding: 0; border-radius: 17px; border: none; box-shadow: none;
+                background-color: rgba(20, 20, 24, 0.62); color: white; background-image: none; }
+            button.osmin-phone-control:hover { background-color: rgba(60, 60, 68, 0.8); }
+        `);
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
+
     /**
      * @param {{adb: string, serial: string, title?: string, onClose?: () => void}} options
      */
@@ -70,32 +91,62 @@ export class PhoneViewer {
     // --- the window ------------------------------------------------------------------------------
 
     _buildWindow(title) {
-        const window = new Gtk.Window({title, default_width: 340, default_height: 720});
+        // No title bar: the window is the phone, as in the capsule's card: a black body with round corners,
+        // the picture with a thin frame inside, and buttons that show while the pointer is over it.
+        PhoneViewer.installStyle();
+        const window = new Gtk.Window({title, decorated: false, resizable: false, default_width: 330, default_height: 739});
+        window.add_css_class('osmin-phone-window');
         this._window = window;
-        const header = new Gtk.HeaderBar();
-        window.set_titlebar(header);
+
+        this._picture = new Gtk.Picture({content_fit: Gtk.ContentFit.FILL, can_shrink: true, hexpand: true, vexpand: true});
+        this._picture.add_css_class('osmin-phone-picture');
+        this._status = new Gtk.Label({label: 'Connecting to the phone…', wrap: true, justify: Gtk.Justification.CENTER, margin_start: 24, margin_end: 24});
+        this._status.add_css_class('osmin-phone-status');
+        this._status.halign = Gtk.Align.CENTER;
+        this._status.valign = Gtk.Align.CENTER;
+
+        const screen = new Gtk.Overlay({child: this._picture, hexpand: true, vexpand: true});
+        screen.add_css_class('osmin-phone-screen');
+        screen.add_overlay(this._status);
+
         const button = (icon, tooltip, action) => {
             const b = Gtk.Button.new_from_icon_name(icon);
             b.tooltip_text = tooltip;
+            b.add_css_class('osmin-phone-control');
             b.connect('clicked', action);
             return b;
         };
+        const top = new Gtk.Box({spacing: 6, halign: Gtk.Align.END, valign: Gtk.Align.START, margin_top: 10, margin_end: 10});
         if (this._onDock)
-            header.pack_end(button('view-restore-symbolic', 'Put the phone back in the Osmin panel', () => this._onDock()));
-        header.pack_start(button('go-previous-symbolic', 'Back', () => this._key(4)));
-        header.pack_start(button('go-home-symbolic', 'Home', () => this._key(3)));
-        header.pack_start(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));
-        header.pack_end(button('system-shutdown-symbolic', 'Lock or wake the screen', () => this._key(26)));
-        header.pack_end(button('preferences-system-notifications-symbolic', 'Notifications', () => this._control?.shell('cmd statusbar expand-notifications')));
+            top.append(button('view-restore-symbolic', 'Put the phone back in the Osmin panel', () => this._onDock()));
+        top.append(button('window-close-symbolic', 'Close', () => this._window.close()));
+        const bottom = new Gtk.Box({spacing: 6, halign: Gtk.Align.CENTER, valign: Gtk.Align.END, margin_bottom: 10});
+        bottom.append(button('go-previous-symbolic', 'Back', () => this._key(4)));
+        bottom.append(button('go-home-symbolic', 'Home', () => this._key(3)));
+        bottom.append(button('view-grid-symbolic', 'Recent apps', () => this._key(187)));
+        bottom.append(button('preferences-system-notifications-symbolic', 'Notifications', () => this._control?.shell('cmd statusbar expand-notifications')));
+        for (const box of [top, bottom]) {
+            box.add_css_class('osmin-phone-controls');
+            box.set_can_target(true);
+            screen.add_overlay(box);
+        }
+        const hover = new Gtk.EventControllerMotion();
+        hover.connect('enter', () => {
+            top.add_css_class('shown');
+            bottom.add_css_class('shown');
+        });
+        hover.connect('leave', () => {
+            top.remove_css_class('shown');
+            bottom.remove_css_class('shown');
+        });
+        screen.add_controller(hover);
 
-        this._picture = new Gtk.Picture({content_fit: Gtk.ContentFit.CONTAIN, can_shrink: true, hexpand: true, vexpand: true});
-        this._picture.add_css_class('osmin-phone-picture');
-        this._status = new Gtk.Label({label: 'Connecting to the phone…', wrap: true, justify: Gtk.Justification.CENTER, margin_start: 24, margin_end: 24});
-        const overlay = new Gtk.Overlay({child: this._picture});
-        overlay.add_overlay(this._status);
-        this._status.halign = Gtk.Align.CENTER;
-        this._status.valign = Gtk.Align.CENTER;
-        window.set_child(overlay);
+        // The black body: dragging it (not the picture) moves the window.
+        const body = new Gtk.Box({hexpand: true, vexpand: true});
+        body.add_css_class('osmin-phone-body');
+        body.append(screen);
+        const handle = new Gtk.WindowHandle({child: body});
+        window.set_child(handle);
 
         // Mouse: the finger follows the pointer (down, moves, up), so a click is a tap and a drag is a swipe.
         const drag = new Gtk.GestureDrag({button: 1});
@@ -196,6 +247,7 @@ export class PhoneViewer {
             return;
         }
         this._control = new PhoneControl({adb: this._adb, serial: this._serial});
+        this._control.keepAwake();
         const size = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', 'wm', 'size'],
             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
         size.communicate_utf8_async(null, null, (_p, result) => {
@@ -211,8 +263,16 @@ export class PhoneViewer {
                 this._fail('Could not read the screen size of the phone. Is it still connected and unlocked?');
                 return;
             }
-            const ratio = this._screen.h / this._screen.w;
-            this._window.set_default_size(340, Math.round(340 * ratio) + 48);
+            // The same size as the card in the capsule: 310 wide picture (as tall as the phone), 10 px of body around it.
+            const monitor = Gdk.Display.get_default()?.get_monitors().get_item(0)?.get_geometry();
+            let pictureW = 310;
+            let pictureH = pictureW * this._screen.h / this._screen.w;
+            const max = (monitor?.height ?? 1080) * 0.9 - 20;
+            if (pictureH > max) {
+                pictureH = max;
+                pictureW = Math.max(pictureH * this._screen.w / this._screen.h, 200);
+            }
+            this._window.set_size_request(Math.round(pictureW) + 20, Math.round(pictureH) + 20);
             this._startVideo();
         });
     }
