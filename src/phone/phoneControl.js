@@ -148,11 +148,16 @@ export class PhoneControl {
                 fn();
             return GLib.SOURCE_REMOVE;
         });
+        // 1. Wake the phone if it sleeps (nothing when it is awake).
         this.wake();
-        later(700, () => this.swipe(Math.round(screen.w / 2), Math.round(screen.h * 0.85), Math.round(screen.w / 2), Math.round(screen.h * 0.3), 250));
+        // 2. Ask the system to show the PIN pad (this works on a locked screen without a swipe) ...
+        later(800, () => this.shell('wm dismiss-keyguard'));
+        // 3. ... and swipe the lock screen up as well, for phones whose lock screen needs it.
+        later(1500, () => this.swipe(Math.round(screen.w / 2), Math.round(screen.h * 0.85), Math.round(screen.w / 2), Math.round(screen.h * 0.3), 250));
         if (secret) {
-            later(1700, () => this.text(secret));
-            later(2200, () => this.key(66));
+            // 4. Type the code once the pad is up, then Enter (a pad that submits by itself ignores it).
+            later(2600, () => this.text(secret));
+            later(3100, () => this.key(66));
         }
     }
 

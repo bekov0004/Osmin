@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Phone: the unlock first asks the system to show the PIN pad (`wm dismiss-keyguard`), then swipes up as before, and types the code a little later, so it also works on a phone that was already awake in the dark.
 - Phone: nothing is drawn over the phone's screen any more. A right click opens a ring of round buttons around the pointer (Back, Home, Recent apps, Notifications, Dark screen, Wake, Unlock, Open in a window or Put back in the panel, Close), with the name of the button under the pointer in the middle; a click anywhere else closes it, the left button stays the finger. The same in the capsule card and in the window.
 - Phone: the phone's screen is never lit by Osmin by itself. No more "wake" key every 15 seconds (the helper tells the system the user is active instead, which lights nothing); the unlock and the new Wake button (sun) wake the phone only if it is asleep, and the helper switches the panel off again every 40 ms while it wakes and every 400 ms afterwards, in case a notification lights it; closing the card or window in the dark puts the phone to sleep instead of lighting it. Turning the dark screen off with the moon is the only way the panel is lit again.
 - Phone: the picture is requested again (up to six times) when the phone's encoder refuses right while its screen changes state; before, the card stayed empty with "The phone did not send a picture" when the screen was darkened at the moment of opening.
