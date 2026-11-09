@@ -38,8 +38,8 @@ export class ActivityCard extends St.Bin {
         if (!activity)
             return;
         const view = activity.createPeekView();
-        // Leave a margin inside the capsule on both sides.
-        view.set_width(scaled(activity.peekSize.width - 32));
+        // Leave a margin inside the capsule on both sides (an activity may ask for a thinner one).
+        view.set_width(scaled(activity.peekSize.width - (activity.peekInset ?? 32)));
         this.child = view;
     }
 

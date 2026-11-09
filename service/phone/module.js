@@ -46,6 +46,7 @@ export class PhoneModule extends Module {
         super('Phone');
         this._adb = GLib.getenv('OSMIN_ADB') || GLib.find_program_in_path('adb') || ADB_PATHS.find(p => GLib.file_test(p, GLib.FileTest.IS_EXECUTABLE)) || null;
         this._devices = [];
+        this._sizes = new Map();       // serial -> {w, h}: the phone's screen
         this._pairing = null;
         this._pairingInfo = null;      // {name, password}
         this._viewer = null;           // {serial, window}
@@ -190,6 +191,20 @@ export class PhoneModule extends Module {
     async _refreshDevices() {
         const {out} = await this._run(['devices', '-l']);
         const devices = parseDevices(out);
+        for (const device of devices) {
+            if (device.state === 'device' && !this._sizes.has(device.serial)) {
+                this._sizes.set(device.serial, null);
+                this._run(['-s', device.serial, 'shell', 'wm', 'size']).then(({out: text}) => {
+                    const match = /Override size:\s*(\d+)x(\d+)/.exec(text) ?? /Physical size:\s*(\d+)x(\d+)/.exec(text);
+                    if (match) {
+                        this._sizes.set(device.serial, {w: Number(match[1]), h: Number(match[2])});
+                        this._devices = this._devices.map(d => d.serial === device.serial ? {...d, screen: this._sizes.get(d.serial)} : d);
+                        this.emitState();
+                    }
+                }).catch(() => this._sizes.delete(device.serial));
+            }
+            device.screen = this._sizes.get(device.serial) ?? null;
+        }
         if (JSON.stringify(devices) !== JSON.stringify(this._devices)) {
             this._devices = devices;
             this.emitState();

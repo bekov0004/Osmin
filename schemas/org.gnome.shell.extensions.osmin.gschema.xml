@@ -162,6 +162,11 @@
       <summary>The Phone tab was added to the window once</summary>
       <description>Set by Osmin after it added the Phone tab to the window of the top-bar button; turning the tab off afterwards is respected.</description>
     </key>
+    <key name="phonecard-offered" type="b">
+      <default>false</default>
+      <summary>The Phone tile was added to the capsule once</summary>
+      <description>Set by Osmin after it added the Phone tile to the capsule; turning it off afterwards is respected.</description>
+    </key>
     <key name="action-request" type="s">
       <default>''</default>
       <summary>Run an action (written by the settings window)</summary>
@@ -191,7 +196,7 @@
     </key>
 
     <key name="widget-cells" type="a{si}">
-      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'awake': 4, 'phone': 4, 'displays': 4, 'utilities': 4, 'controls': 4, 'toggles': 4, 'focus': 3, 'system': 4, 'network': 4, 'disks': 4, 'power': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'workspaces': 4, 'agents': 4, 'companion': 2}</default>
+      <default>{'media': 5, 'calendar': 4, 'mirror': 3, 'phonecard': 3, 'timer': 3, 'todo': 4, 'notes': 4, 'shortcuts': 4, 'tools': 5, 'awake': 4, 'phone': 4, 'displays': 4, 'utilities': 4, 'controls': 4, 'toggles': 4, 'focus': 3, 'system': 4, 'network': 4, 'disks': 4, 'power': 4, 'sound': 4, 'downloads': 4, 'input': 4, 'windows': 5, 'workspaces': 4, 'agents': 4, 'companion': 2}</default>
       <summary>Widget widths</summary>
       <description>The width of each widget in cells.</description>
     </key>

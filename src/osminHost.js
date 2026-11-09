@@ -129,7 +129,6 @@ export class OsminHost {
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
-        this._backend?.phone.connectObject('event', (_m, name) => name === 'dock' && this.openSection('phone'), this);
         this._offerNewTabs();
         this._syncSuperV();
         this._syncReceiving();
@@ -160,7 +159,6 @@ export class OsminHost {
         this._server?.destroy();
         this._server = null;
         this._backend?.localSend.disconnectObject(this);
-        this._backend?.phone.disconnectObject(this);
         this._inputSources?.disconnectObject(this);
         this._inputSources = null;
         this._keymap?.disconnectObject(this);
@@ -212,15 +210,29 @@ export class OsminHost {
     /** A tab that came with an update is added to the window once (after Keep awake); later the user decides. */
     _offerNewTabs() {
         const gsettings = this._settings.gsettings;
-        if (!gsettings || this._settings.get('phone-offered'))
+        if (!gsettings)
             return;
         const list = [...this._settings.get('enabled-widgets')];
-        if (!list.includes('phone')) {
-            const at = list.indexOf('awake');
-            list.splice(at >= 0 ? at + 1 : list.length, 0, 'phone');
-            gsettings.set_strv('enabled-widgets', list);
+        let changed = false;
+        if (!this._settings.get('phone-offered')) {
+            if (!list.includes('phone')) {
+                const at = list.indexOf('awake');
+                list.splice(at >= 0 ? at + 1 : list.length, 0, 'phone');
+                changed = true;
+            }
+            gsettings.set_boolean('phone-offered', true);
         }
-        gsettings.set_boolean('phone-offered', true);
+        // The Phone tile of the capsule, after the Mirror.
+        if (!this._settings.get('phonecard-offered')) {
+            if (!list.includes('phonecard')) {
+                const at = list.indexOf('mirror');
+                list.splice(at >= 0 ? at + 1 : list.length, 0, 'phonecard');
+                changed = true;
+            }
+            gsettings.set_boolean('phonecard-offered', true);
+        }
+        if (changed)
+            gsettings.set_strv('enabled-widgets', list);
     }
 
     /** A shortcut or a request of the settings window: a tool, the search or one of the window's pages. */

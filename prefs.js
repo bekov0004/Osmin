@@ -230,6 +230,7 @@ const WIDGET_ICONS = {
     shortcuts: 'view-app-grid-symbolic',
     awake: 'weather-clear-night-symbolic',
     phone: 'phone-symbolic',
+    phonecard: 'phone-symbolic',
     displays: 'video-display-symbolic',
     utilities: 'applications-utilities-symbolic',
     controls: 'preferences-other-symbolic',
