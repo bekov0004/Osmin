@@ -15,7 +15,13 @@ class Session(
     private val info: String,
     private val bitRate: Int = 5_000_000,
     private val log: (String) -> Unit = {},
+    private val connectTimeoutMs: Int = Link.CONNECT_TIMEOUT_MS,
+    private val silenceMs: Int = 15_000,
+    private val beatMs: Long = 4_000,
 ) {
+    /** How a session ended. */
+    enum class Outcome { NOT_CONNECTED, ENDED, EXIT }
+
     /** A size the picture is asked at: about 540 wide, both sides a multiple of 16 (what the encoder accepts). */
     private fun pictureSize(): ScreenSize {
         val width = Math.round(minOf(540, screen.width) / 16f) * 16
@@ -23,14 +29,23 @@ class Session(
         return ScreenSize(width, height)
     }
 
-    fun run() {
+    /**
+     * Blocks until the session is over. The computer is expected to say something (its heartbeat, `h`) every few seconds;
+     * the phone sends its own heartbeat (`H`), so either side knows within seconds that the other is gone, even when a
+     * network changed and no connection was ever closed.
+     */
+    fun run(): Outcome {
+        var outcome = Outcome.NOT_CONNECTED
+        var beat: Thread? = null
         var control: Socket? = null
         var video: Socket? = null
         var pump: VideoPump? = null
         var dark = false
         try {
-            control = Link.open(endpoint, 'C', "${screen.width}x${screen.height} $info")
-            video = Link.open(endpoint, 'V', "${screen.width}x${screen.height} $info")
+            control = Link.open(endpoint, 'C', "${screen.width}x${screen.height} $info", connectTimeoutMs)
+            video = Link.open(endpoint, 'V', "${screen.width}x${screen.height} $info", connectTimeoutMs)
+            outcome = Outcome.ENDED
+            control.soTimeout = silenceMs
             val size = pictureSize()
             pump = VideoPump(source, video.getOutputStream(), size.width, size.height, bitRate, onGiveUp = { closeQuietly(control) })
             pump.start()
@@ -42,6 +57,16 @@ class Session(
                     out.flush()
                 }
             }
+            beat = Thread {
+                try {
+                    while (true) {
+                        Thread.sleep(beatMs)
+                        reply("H")
+                    }
+                } catch (e: Exception) {
+                    // the session is over
+                }
+            }.also { it.isDaemon = true; it.start() }
             while (true) {
                 val line = try {
                     Link.readLine(control)
@@ -65,11 +90,13 @@ class Session(
                         reply(if (error == null) "POWER OK ${command.mode}" else "POWER ERR $error")
                     }
                     is Command.Quit -> break
+                    is Command.Exit -> { outcome = Outcome.EXIT; break }
                 }
             }
         } catch (e: Exception) {
             log("session ended: ${e.message}")
         } finally {
+            beat?.interrupt()
             pump?.stop()
             // The computer is gone while the screen was dark: put the phone to sleep, so nothing lights up by itself.
             if (dark) {
@@ -83,6 +110,7 @@ class Session(
             closeQuietly(control)
             closeQuietly(video)
         }
+        return outcome
     }
 
     private fun closeQuietly(socket: Socket?) {

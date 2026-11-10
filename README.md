@@ -274,8 +274,20 @@ phone-helper/           the small helper used when the app is not installed (adb
 With the app installed, Osmin starts its server once through adb (`CLASSPATH=<apk> app_process / dev.osmin.phone.server.Server <host> <port> <token>`).
 The server then **dials the computer** (the address is the one of the computer in the network it shares with the phone, so
 a network the phone shares works as well as one the computer shares) and keeps two connections: `C` for the control lines and
-`V` for the raw H.264 picture. Each starts with `HELLO <role> <token> <screen> <sdk> <model>` and gets `OK`.
+`V` for the raw H.264 picture. The secret (the token) is never sent, because the phone searches for the computer and may knock
+on other machines: each connection starts with `HELLO2 <role> <fingerprint> <nonce>`, the computer answers `CHAL <nonce> <proof>`,
+the phone `AUTH <proof> <screen> <sdk> <model>`, and the computer `OK` (both proofs are HMAC-SHA256 of the token).
 Without the app, Osmin uses adb for everything, as before.
+
+**It finds the computer by itself.** The server started by the app stays (`stay`): when a session ends, or the network changes,
+it searches the networks the phone is in now (the Wi-Fi, a hotspot of the computer, the phone's own hotspot, USB tethering)
+for the port the computer listens on, trying first the address that worked, the neighbours of the phone (`/proc/net/arp`)
+and the first address of the network, then the rest of it (up to /22), and connects again; the less it finds, the less often
+it looks (every 1.5 s at first, every 30 s at most). Both sides send a heartbeat every few seconds, so a network that went away
+shows within seconds (the card says "Waiting for the phone…" and takes it back by itself). The ring's "Disconnect the phone"
+ends the server for good; so does removing the app or restarting the phone. Wireless debugging is needed only for the first
+start in a network; the server that is already running does not need it. The computer side listens only while the Phone
+card is open, and a firewall on the computer must let the port in (the link shows it).
 
 **Without adb on the computer.** The app has its own adb client (`android/.../adb/`: pairing with SPAKE2 and TLS 1.3, the
 TLS connection, a shell stream; the same protocol as adb's, written from the Android sources, checked against the real `adb`

@@ -6,14 +6,20 @@ import GLib from 'gi://GLib';
  * phone with adb's rights; it connects twice to a port the computer listens on:
  *   C  the control lines (touches, keys, the dark screen ...) and their replies
  *   V  the picture, a raw H.264 stream
- * Each connection starts with "HELLO <role> <token> <screen> <sdk> <model>" and gets "OK" back. The token is a
- * secret only this computer and the phone it started the server on know. Nothing is found by name, so it works in a
- * network the phone shares as well as in one the computer shares.
+ * The token is a secret only this computer and the phone know. The phone looks for the computer in whatever network it
+ * is in (it may knock on other machines on the way), so the token is never sent: each side proves it knows it.
+ *   phone    HELLO2 <role> <fingerprint of the token> <nonce P>
+ *   computer CHAL <nonce C> <HMAC(token, "srv|P|C")>
+ *   phone    AUTH <HMAC(token, "cli|C|P")> <screen> <sdk> <model>
+ *   computer OK
+ * (The first version, "HELLO <role> <token> ...", is still understood, for an app that was not updated.)
+ * Nothing is found by name, so it works in a network the phone shares as well as in one the computer shares.
  */
 
 export const APP_ID = 'dev.osmin.phone';
 const SERVER_CLASS = 'dev.osmin.phone.server.Server';
 const PRIORITY = GLib.PRIORITY_DEFAULT;
+const GREETING_S = 8;
 
 /** Every "inet 192.168.0.15/24" of the output of `ip -4 addr show`. */
 export function addressesOf(text) {
@@ -46,6 +52,9 @@ export function lanAddress(phoneText, localText) {
     }
     return null;
 }
+
+const hmac = (token, text) => GLib.compute_hmac_for_string(GLib.ChecksumType.SHA256, new TextEncoder().encode(token), text, -1);
+export const fingerprint = token => GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, token, -1).slice(0, 8);
 
 export function randomToken() {
     const bytes = new Uint8Array(16);
@@ -139,40 +148,94 @@ export class PhoneLink {
 
     _onIncoming(connection) {
         const input = new Gio.DataInputStream({base_stream: connection.get_input_stream()});
-        // The phone sends nothing more until it has the answer, so a buffered read of the line takes nothing else.
-        input.read_line_async(PRIORITY, null, (_stream, result) => {
+        // The phone sends nothing more until it has the answer, so the buffered reads take nothing else.
+        const readLine = callback => input.read_line_async(PRIORITY, null, (_stream, result) => {
             let line = null;
             try {
                 [line] = input.read_line_finish_utf8(result);
             } catch (e) {
                 line = null;
             }
-            const parts = (line ?? '').trim().split(' ');
-            const entry = parts[0] === 'HELLO' ? this._pending.get(parts[2]) : null;
-            const role = parts[1];
-            if (!entry || (role !== 'C' && role !== 'V') || entry[role]) {
-                this._answer(connection, 'NO', true);
+            callback((line ?? '').trim());
+        });
+        // Whoever knocks has a few seconds to finish the greeting; a machine that stays silent does not keep it open.
+        let guard = GLib.timeout_add_seconds(PRIORITY, GREETING_S, () => {
+            guard = 0;
+            try {
+                connection.close(null);
+            } catch (e) {
+                // already closed
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+        const finished = () => {
+            if (guard)
+                GLib.source_remove(guard);
+            guard = 0;
+        };
+        const refuse = () => {
+            finished();
+            this._answer(connection, 'NO', true);
+        };
+        readLine(first => {
+            const parts = first.split(' ');
+            if (parts[0] === 'HELLO') {
+                // the first version of the protocol: the token itself
+                const entry = this._pending.get(parts[2]);
+                if (entry && (parts[1] === 'C' || parts[1] === 'V') && !entry[parts[1]]) {
+                    finished();
+                    this._accepted(connection, parts[2], entry, parts[1], parts.slice(3).join(' '));
+                } else {
+                    refuse();
+                }
                 return;
             }
-            this._answer(connection, 'OK', false);
-            entry[role] = connection;
-            entry.info = parts.slice(3).join(' ');
-            if (entry.C && entry.V) {
-                if (entry.timer)
-                    GLib.source_remove(entry.timer);
-                this._pending.delete(parts[2]);
-                entry.resolve({control: entry.C, video: entry.V, info: entry.info});
+            const [token, entry] = parts[0] === 'HELLO2' && parts.length === 4
+                ? [...this._pending].find(([t]) => fingerprint(t) === parts[2]) ?? [null, null]
+                : [null, null];
+            const role = parts[1];
+            if (!entry || (role !== 'C' && role !== 'V') || entry[role] || !/^[0-9a-f]{16,64}$/.test(parts[3])) {
+                refuse();
+                return;
             }
+            const nonce = randomToken();
+            this._write(connection, `CHAL ${nonce} ${hmac(token, `srv|${parts[3]}|${nonce}`)}`);
+            readLine(second => {
+                const auth = second.split(' ');
+                // the phone may have connected in the meantime, or the wait may have ended
+                if (auth[0] !== 'AUTH' || auth[1] !== hmac(token, `cli|${nonce}|${parts[3]}`) || this._pending.get(token) !== entry || entry[role]) {
+                    refuse();
+                    return;
+                }
+                finished();
+                this._accepted(connection, token, entry, role, auth.slice(2).join(' '));
+            });
         });
     }
 
-    _answer(connection, text, close) {
+    _accepted(connection, token, entry, role, info) {
+        this._answer(connection, 'OK', false);
+        entry[role] = connection;
+        entry.info = info;
+        if (entry.C && entry.V) {
+            if (entry.timer)
+                GLib.source_remove(entry.timer);
+            this._pending.delete(token);
+            entry.resolve({control: entry.C, video: entry.V, info: entry.info});
+        }
+    }
+
+    _write(connection, text) {
         try {
             connection.get_output_stream().write_all(`${text}\n`, null);
             connection.get_output_stream().flush(null);
         } catch (e) {
             // the phone is gone
         }
+    }
+
+    _answer(connection, text, close) {
+        this._write(connection, text);
         if (close)
             connection.close(null);
     }

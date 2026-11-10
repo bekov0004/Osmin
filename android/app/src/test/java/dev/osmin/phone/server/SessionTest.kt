@@ -22,19 +22,14 @@ class SessionTest {
         val hellos = mutableListOf<String>()
     }
 
-    /** Accepts the two connections of a phone (in whatever order they come), answering OK. */
+    /** Accepts the two connections of a phone (in whatever order they come), greeting each as the computer does. */
     private fun accept(server: ServerSocket, token: String): Computer {
         val c = Computer(server)
         repeat(2) {
             val s = server.accept()
-            val hello = line(s.getInputStream())
-            c.hellos += hello
-            val parts = hello.split(' ')
-            assertEquals("HELLO", parts[0])
-            assertEquals(token, parts[2])
-            s.getOutputStream().write("OK\n".toByteArray())
-            s.getOutputStream().flush()
-            if (parts[1] == "C") c.control = s else c.video = s
+            val greeting = computerGreets(s, token)!!
+            c.hellos += "HELLO ${greeting.role} ${greeting.info}"
+            if (greeting.role == 'C') c.control = s else c.video = s
         }
         return c
     }
@@ -47,8 +42,8 @@ class SessionTest {
             val thread = Thread { session.run() }.also { it.start() }
             val computer = accept(server, "secret123")
 
-            assertTrue(computer.hellos.any { it.startsWith("HELLO C secret123 1080x2400 36 DNY_NX9") })
-            assertTrue(computer.hellos.any { it.startsWith("HELLO V secret123 1080x2400 36 DNY_NX9") })
+            assertTrue(computer.hellos.any { it.startsWith("HELLO C 1080x2400 36 DNY_NX9") })
+            assertTrue(computer.hellos.any { it.startsWith("HELLO V 1080x2400 36 DNY_NX9") })
 
             // the picture arrives on its own connection
             val buffer = ByteArray(8)
@@ -98,8 +93,7 @@ class SessionTest {
             val session = Session(Endpoint("127.0.0.1", server.localPort, "wrong"), injector, FakeSource(), ScreenSize(1080, 2400), "36 X")
             val thread = Thread { session.run() }.also { it.start() }
             val s = server.accept()
-            line(s.getInputStream())
-            s.getOutputStream().write("NO\n".toByteArray()); s.getOutputStream().flush()
+            assertEquals(null, computerGreets(s, "another secret"))
             thread.join(3000)
             assertTrue(!thread.isAlive)
             assertTrue(injector.calls.contains("close"))
@@ -121,6 +115,35 @@ class SessionTest {
                 computer.control.getOutputStream().write("q\n".toByteArray())
                 thread.join(3000)
             }
+        }
+    }
+
+    @Test fun aSilentComputerEndsTheSessionAndThePhoneSaysItIsThere() {
+        ServerSocket(0).use { server ->
+            val injector = FakeInjector()
+            val session = Session(Endpoint("127.0.0.1", server.localPort, "t"), injector, FakeSource(), ScreenSize(1080, 2400), "36 X", silenceMs = 700, beatMs = 100)
+            var outcome: Session.Outcome? = null
+            val thread = Thread { outcome = session.run() }.also { it.start() }
+            val computer = accept(server, "t")
+            computer.control.soTimeout = 3000
+            // the phone's heartbeat arrives although nobody asked for anything
+            assertEquals("H", line(computer.control.getInputStream()))
+            // the computer says nothing (a network changed under it): the session ends by itself
+            thread.join(4000)
+            assertTrue(!thread.isAlive)
+            assertEquals(Session.Outcome.ENDED, outcome)
+        }
+    }
+
+    @Test fun theComputerCanEndTheServerForGood() {
+        ServerSocket(0).use { server ->
+            val session = Session(Endpoint("127.0.0.1", server.localPort, "t"), FakeInjector(), FakeSource(), ScreenSize(1080, 2400), "36 X")
+            var outcome: Session.Outcome? = null
+            val thread = Thread { outcome = session.run() }.also { it.start() }
+            val computer = accept(server, "t")
+            computer.control.getOutputStream().write("h\ne\n".toByteArray())
+            thread.join(3000)
+            assertEquals(Session.Outcome.EXIT, outcome)
         }
     }
 }

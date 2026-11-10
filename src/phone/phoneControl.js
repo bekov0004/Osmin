@@ -8,6 +8,8 @@ const WAKE_CODE = 224;            // KEYCODE_WAKEUP (only used without the helpe
 const SLEEP_CODE = 223;           // KEYCODE_SLEEP: when the session ends in the dark, the phone goes to sleep by itself
 const EXIT_WAIT_S = 2;            // the helper gets this long to say its last lines before it is stopped
 const POWER_REPLY_S = 3;
+const BEAT_S = 4;                 // the phone's server hears "h" this often (and sends "H"), so a dead network shows within seconds
+const SILENCE_MS = 13000;
 const TAP_MAX_PX = 12;
 const TAP_MAX_MS = 350;
 
@@ -37,11 +39,14 @@ export class PhoneControl {
      *   link: the control connection of the Osmin Phone app's server (see phoneLink.js), when there is one: then
      *   nothing is started with adb here
      */
-    constructor({adb, serial, dark = false, link = null, onMode = () => {}, onDark = () => {}}) {
+    constructor({adb, serial, dark = false, link = null, onMode = () => {}, onDark = () => {}, onLost = () => {}}) {
         this._adb = adb;
         this._serial = serial;
         this._onMode = onMode;
         this._onDark = onDark;
+        this._onLost = onLost;       // the link to the app's server broke (the phone left or the network changed)
+        this._beatTimer = 0;
+        this._heard = 0;
         this._wantDark = dark;
         this._darkVia = null;        // 'display' (panel off, phone awake) or 'brightness' (lowest light) while it is dark
         this._powerFailed = false;
@@ -189,7 +194,23 @@ export class PhoneControl {
         this._send(this._mode === 'input' ? `input keyevent ${WAKE_CODE}` : 'z');
     }
 
+    /**
+     * Ends the Osmin Phone app's server on the phone for good ("Disconnect"): it would otherwise keep looking for this
+     * computer in every network. The screen is given back first if it was dark.
+     */
+    exitServer() {
+        if (!this._linkShell || this._closed || !this._process)
+            return;
+        try {
+            this._process.get_stdin_pipe().write_all(`${this._darkVia === 'display' ? `k ${SLEEP_CODE}\np 3\n` : ''}e\n`, null);
+        } catch (e) {
+            // the phone is gone
+        }
+        this._darkVia = null;
+    }
+
     destroy() {
+        this._stopBeat();
         if (this._powerTimer)
             GLib.source_remove(this._powerTimer);
         this._powerTimer = 0;
@@ -231,9 +252,46 @@ export class PhoneControl {
             },
         };
         this._setMode('helper');
+        this._heard = GLib.get_monotonic_time();
         this._readHelper(new Gio.DataInputStream({base_stream: connection.get_input_stream()}));
+        this._beatTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, BEAT_S, () => {
+            if (this._closed)
+                return GLib.SOURCE_REMOVE;
+            let alive = (GLib.get_monotonic_time() - this._heard) / 1000 < SILENCE_MS;
+            if (alive) {
+                try {
+                    connection.get_output_stream().write_all('h\n', null);
+                } catch (e) {
+                    alive = false;
+                }
+            }
+            if (!alive) {
+                this._beatTimer = 0;
+                this._lost();
+                return GLib.SOURCE_REMOVE;
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
         this._applyDark();
         this._flush();
+    }
+
+    _stopBeat() {
+        if (this._beatTimer)
+            GLib.source_remove(this._beatTimer);
+        this._beatTimer = 0;
+    }
+
+    /** The link broke: the connection is closed and whoever shows the phone is told once. */
+    _lost() {
+        if (this._closed || !this._linkShell)
+            return;
+        this._stopBeat();
+        this._process?.force_exit();
+        this._closed = true;
+        this._process = null;
+        this._queue = [];
+        this._onLost();
     }
 
     // --- start ---------------------------------------------------------------------------------------
@@ -333,8 +391,13 @@ export class PhoneControl {
             } catch (e) {
                 line = null;
             }
+            if (line === null && !this._closed && this._linkShell) {
+                this._lost();
+                return;
+            }
             if (line === null || this._closed)
                 return;
+            this._heard = GLib.get_monotonic_time();
             if (this._powerTimer) {
                 GLib.source_remove(this._powerTimer);
                 this._powerTimer = 0;

@@ -28,7 +28,8 @@ export function parseSize(text) {
 /**
  * The screen of a phone, decoded here with GStreamer into an image the capsule draws: the phone's own
  * `screenrecord` (H.264) comes through adb, and touches and keys go back through PhoneControl.
- * Signals: 'state-changed', 'content-changed' (a new St.ImageContent: the picture changed size).
+ * Signals: 'state-changed', 'content-changed' (a new St.ImageContent: the picture changed size), 'link-lost' (the app's
+ * server went away or the network broke; the phone connects again by itself).
  */
 export class PhoneStream extends Signals.EventEmitter {
     constructor() {
@@ -153,10 +154,15 @@ export class PhoneStream extends Signals.EventEmitter {
         if (generation !== this._generation)
             return;
         this.screen = {w: Number(size[1]), h: Number(size[2])};
-        this._launched = {...launched, process: null};
-        this.control = new PhoneControl({adb: '', serial: 'app', dark, link: launched.control, onDark: () => this.emit('dark-changed')});
+        const mine = {...launched, process: null};
+        this._launched = mine;
+        this.control = new PhoneControl({adb: '', serial: 'app', dark, link: launched.control, onDark: () => this.emit('dark-changed'),
+            onLost: () => {
+                if (generation === this._generation && this._launched === mine)
+                    this.emit('link-lost', launched);
+            }});
         this.control.keepAwake();
-        this._startLinkedVideo(generation, this._launched);
+        this._startLinkedVideo(generation, mine);
     }
 
     stop() {

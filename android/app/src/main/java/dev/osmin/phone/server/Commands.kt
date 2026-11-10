@@ -18,13 +18,19 @@ sealed interface Command {
 
     /** Ask for a picture of another size or quality (the video restarts). */
     data class Video(val width: Int, val height: Int, val bitRate: Int) : Command
+    /** Ends this session; the server looks for the computer again. */
     data object Quit : Command
+
+    /** Ends the server for good (until the app starts it again). */
+    data object Exit : Command
 }
 
 object CommandParser {
     /**
      * `d x y` `m x y` `u x y` (a finger down, moving, up; pixels of the screen), `k code` (a key), `t text`
-     * (type ASCII text), `p mode`, `w 1|0`, `z`, `v WxH bitrate`, `x command`, `q`. Anything else is ignored (null).
+     * (type ASCII text), `p mode`, `w 1|0`, `z`, `v WxH bitrate`, `x command`, `q` (end the session), `e` (end the server).
+     * `h` is the computer's heartbeat: it gives nothing to do (null), but a line that arrives tells the phone the computer
+     * is still there. Anything else is ignored too.
      */
     fun parse(line: String): Command? {
         if (line.isEmpty())
@@ -41,6 +47,7 @@ object CommandParser {
                 'w' -> Command.Awake(rest.trim() == "1")
                 'z' -> Command.WakeIfAsleep
                 'q' -> Command.Quit
+                'e' -> Command.Exit
                 'x' -> rest.takeIf { it.isNotBlank() }?.let { Command.Shell(it) }
                 'v' -> video(rest)
                 else -> null

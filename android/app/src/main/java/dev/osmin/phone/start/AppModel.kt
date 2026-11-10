@@ -60,7 +60,7 @@ object AppModel {
     /** Starts the phone's server so that it connects to the computer of [link]. */
     fun start(link: ConnectTarget) = work("Connecting to the computer…") {
         starter().start(link)
-        say("Started. Osmin on the computer should show this phone in a moment.")
+        say("Started. The phone now finds the computer by itself, in any network the two share (Wi-Fi or a hotspot of either one). Osmin should show it in a moment.")
     }
 
     /** Runs a piece of work on the background thread, one at a time, and reports a failure in plain words. */

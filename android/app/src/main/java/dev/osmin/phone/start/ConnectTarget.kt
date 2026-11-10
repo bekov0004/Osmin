@@ -36,10 +36,11 @@ object StartCommand {
 
     /**
      * `setsid` and `nohup` keep it alive when the shell that started it ends; the output goes nowhere, and the trailing
-     * `&` returns at once. Every part is a value this app made, and still quoted.
+     * `&` returns at once. `stay`: it keeps looking for the computer, in whatever network the phone is in, until it is told to
+     * stop (the computer's `e`), the app is removed, or the phone restarts. Every part is a value this app made, and still quoted.
      */
     fun build(apkPath: String, target: ConnectTarget): String {
         require(apkPath.none { it == '\'' || it == '\n' }) { "a strange apk path" }
-        return "CLASSPATH='$apkPath' setsid nohup app_process / $SERVER '${target.host}' ${target.port} '${target.token}' </dev/null >/dev/null 2>&1 &"
+        return "CLASSPATH='$apkPath' setsid nohup app_process / $SERVER '${target.host}' ${target.port} '${target.token}' stay </dev/null >/dev/null 2>&1 &"
     }
 }

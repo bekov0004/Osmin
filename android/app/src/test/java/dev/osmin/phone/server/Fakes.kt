@@ -72,3 +72,37 @@ class EndlessSource : VideoSource {
 }
 
 fun CountDownLatch.waitFor(ms: Long = 3000) = await(ms, TimeUnit.MILLISECONDS)
+
+/** The line of a socket, up to the newline (nothing is read past it). */
+fun readLineOf(socket: java.net.Socket): String {
+    val b = java.io.ByteArrayOutputStream()
+    val input = socket.getInputStream()
+    while (true) { val c = input.read(); if (c < 0 || c == '\n'.code) break; b.write(c) }
+    return b.toString()
+}
+
+/** What the computer learns from a phone that proved itself. */
+data class Greeting(val role: Char, val info: String)
+
+/**
+ * The computer's side of the link (see Link): the challenge, the check of the phone's proof, and OK.
+ * @return the phone's role and info, or null when the phone did not know the secret (it is answered NO)
+ */
+fun computerGreets(socket: java.net.Socket, token: String): Greeting? {
+    val hello = readLineOf(socket).split(' ')
+    val out = socket.getOutputStream()
+    if (hello.size != 4 || hello[0] != "HELLO2" || hello[2] != Link.fingerprint(token)) {
+        out.write("NO\n".toByteArray()); out.flush()
+        return null
+    }
+    val nonce = "c0ffee00c0ffee00c0ffee00c0ffee00"
+    out.write("CHAL $nonce ${Link.proof(token, "srv", hello[3], nonce)}\n".toByteArray()); out.flush()
+    val auth = readLineOf(socket)
+    val parts = auth.split(' ', limit = 3)
+    if (parts.size < 3 || parts[0] != "AUTH" || parts[1] != Link.proof(token, "cli", nonce, hello[3])) {
+        out.write("NO\n".toByteArray()); out.flush()
+        return null
+    }
+    out.write("OK\n".toByteArray()); out.flush()
+    return Greeting(hello[1][0], parts[2])
+}

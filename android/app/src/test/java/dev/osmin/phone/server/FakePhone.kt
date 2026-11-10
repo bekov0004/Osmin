@@ -35,10 +35,26 @@ object FakePhone {
         }
     }
 
+    /**
+     * FakePhone <host> <port> <token> [stay]. With `stay` it behaves like the app's server: when a session ends, it
+     * searches the network FAKE_OWN_IP is in (the phone's "own address", say 192.168.0.15) for the port and connects again.
+     */
     @JvmStatic
     fun main(args: Array<String>) {
         val log = File(System.getenv("FAKE_LOG") ?: "/tmp/fakephone.log")
-        Session(Endpoint(args[0], args[1].toInt(), args[2]), LoggingInjector(log), FfmpegSource(), ScreenSize(1080, 2400), "36 FAKE_PHONE").run()
+        fun session(at: Endpoint, timeout: Int = Link.CONNECT_TIMEOUT_MS) =
+            Session(at, LoggingInjector(log), FfmpegSource(), ScreenSize(1080, 2400), "36 FAKE_PHONE", connectTimeoutMs = timeout, silenceMs = 9000)
+        val endpoint = Endpoint(args[0], args[1].toInt(), args[2])
+        if (args.getOrNull(3) == "stay") {
+            val own = System.getenv("FAKE_OWN_IP") ?: "192.168.0.15"
+            Roamer(endpoint.port, endpoint.token, endpoint.host,
+                find = { Lan.open(Lan.candidates(listOf(LocalNet("wlan0", own, 24)), emptyList(), null), endpoint.port) },
+                sessionFor = { session(it, 1_500)::run },
+                sleep = { Thread.sleep(minOf(it, 2_000)) },
+                log = { log.appendText("$it\n") }).run()
+        } else {
+            session(endpoint).run()
+        }
         System.exit(0)
     }
 }

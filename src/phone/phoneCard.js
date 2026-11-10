@@ -168,8 +168,10 @@ export class PhoneCardActivity extends LiveActivity {
                 },
             });
             const dark = !!this._settings?.get('phone-dark-screen');
-            if (this._app?.state === 'connected')
+            if (this._app?.state === 'connected') {
+                stream.connectObject('link-lost', () => this._onLinkLost(), root);
                 stream.adoptLink(this._app.launched, {dark});
+            }
             else
                 stream.start(phone.state.adbPath, this.device.serial, {dark});
         } else {
@@ -276,6 +278,29 @@ export class PhoneCardActivity extends LiveActivity {
         } catch (e) {
             // the listener was stopped (the card closed) or nobody came for an hour
         }
+    }
+
+    /**
+     * The phone's server went away (it left the network, or the network changed): wait for it again. It looks for this
+     * computer itself and connects without anyone touching it, in whatever network the two are in.
+     */
+    _onLinkLost() {
+        const app = this._app;
+        if (!app || app.state !== 'connected')
+            return;
+        const old = app.launched;
+        app.launched = null;
+        app.state = 'waiting';
+        app.reconnecting = true;
+        for (const connection of [old?.control, old?.video]) {
+            try {
+                connection?.close(null);
+            } catch (e) {
+                // already closed
+            }
+        }
+        this._waitForApp(app);
+        this._resize();
     }
 
     _stopApp() {
@@ -399,6 +424,13 @@ export class PhoneCardActivity extends LiveActivity {
                     this._phone.call('mirror', {serial, dark: !!stream.control?.wantDark}).catch(() => {});
                     this._ui.openMain();   // the panel goes back to its main section and closes by itself in a moment
                 }]]),
+                // The phone's server keeps looking for this computer in every network until it is ended here.
+                ...(this._app ? [['network-offline-symbolic', 'Disconnect the phone', () => {
+                    stream.control?.exitServer();
+                    stream.stop();
+                    this._stopApp();
+                    this._resize();
+                }]] : []),
                 ['go-up-symbolic', 'Close', () => this._onDismiss()],
             ];
         };
@@ -564,6 +596,21 @@ export class PhoneCardActivity extends LiveActivity {
                     this._appError = '';
                     this._resize();
                 }));
+            } else if (this._app.reconnecting) {
+                // It was connected a moment ago: the phone finds this computer again by itself.
+                icon('phone-symbolic');
+                box.add_child(this._text('Waiting for the phone…', 'osmin-phone-title'));
+                box.add_child(this._text('It connects again by itself when it is in the same network as this computer (Wi-Fi, or a hotspot of either one). If not, open the Osmin Phone app and tap Connect.', 'osmin-phone-note'));
+                const row = new St.BoxLayout({style_class: 'osmin-phone-row', x_align: Clutter.ActorAlign.CENTER});
+                row.add_child(pill('Show the link', () => {
+                    this._app.reconnecting = false;
+                    this._resize();
+                }, true));
+                row.add_child(pill('Cancel', () => {
+                    this._stopApp();
+                    this._resize();
+                }));
+                box.add_child(row);
             } else {
                 box.style = 'padding-top: 22px;';
                 const qr = new QrCode(scaled(188));
