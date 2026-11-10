@@ -191,6 +191,13 @@ export async function dial(host, token, port = PHONE_PORT) {
     return {control: control.connection, video: video.connection, info: control.info};
 }
 
+/** Whether the phone's server answers at [host] (only the port: nothing is said). */
+export async function reachable(host, port = PHONE_PORT, timeoutMs = 800) {
+    const connection = await connect(host, port, timeoutMs);
+    connection?.close(null);
+    return !!connection;
+}
+
 /** Which of the [hosts] have [port] open (a few at a time), in the order given. */
 export async function openHosts(hosts, port = PHONE_PORT, timeoutMs = CONNECT_MS) {
     const open = new Set();
@@ -213,9 +220,15 @@ export async function openHosts(hosts, port = PHONE_PORT, timeoutMs = CONNECT_MS
  * Looks for the phone: where it was last, then the networks of this computer. @returns {Promise<{host, control, video, info}|null>}
  */
 export async function seekPhone({token, last = '', port = PHONE_PORT}) {
+    // Where it was last: at once, before the networks are searched (that takes a few seconds).
+    if (last) {
+        const found = await dial(last, token, port);
+        if (found)
+            return {host: last, ...found};
+    }
     const local = await run(['ip', '-4', 'addr', 'show']);
     const neighbours = await run(['ip', 'neigh']);
-    const hosts = candidates(local.out, neighbours.out, last);
+    const hosts = candidates(local.out, neighbours.out, null).filter(host => host !== last);
     for (const host of await openHosts(hosts, port)) {
         const found = await dial(host, token, port);
         if (found)

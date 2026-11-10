@@ -30,6 +30,7 @@ export const DEFAULTS = Object.freeze({
     'phone-link-port': 0,
     'phone-link-token': '',
     'phone-last-host': '',
+    'phone-app-model': '',
     'phone-dark-screen': true,
     'shortcut-radial': [],
     'shortcut-quickpanel': [],

@@ -182,6 +182,11 @@
       <summary>The secret in the link of the Osmin Phone app</summary>
       <description>Made on first use. Whoever has it can connect a phone to this computer, so it is not shown anywhere but in the link and QR code of the Phone card.</description>
     </key>
+    <key name="phone-app-model" type="s">
+      <default>''</default>
+      <summary>The name of the phone connected through the Osmin Phone app</summary>
+      <description>Shown in the Phone tile; a click then opens the card straight on this phone.</description>
+    </key>
     <key name="phone-last-host" type="s">
       <default>''</default>
       <summary>Where the phone was last found on the network</summary>

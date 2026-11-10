@@ -40,13 +40,14 @@ const pill = (label, onClick, primary = false) => {
  */
 export class PhoneCardActivity extends LiveActivity {
     /** @param {{phone: ModuleClient, ui: {beginTextInput: Function, endTextInput: Function}, onDismiss: Function, onResize: Function}} params */
-    constructor({phone, ui, settings = null, onDismiss, onResize}) {
+    constructor({phone, ui, settings = null, onDismiss, onResize, onChange = () => {}}) {
         super({id: 'phone-card', widgetId: 'phonecard'});
         this._phone = phone;
         this._ui = ui;
         this._settings = settings;
         this._onDismiss = onDismiss;
         this._onResize = onResize;
+        this._onChange = onChange;   // the tile in the panel shows the app's phone too
         this.peekInset = 32;
         // The Osmin Phone app: {link, token, url, state: 'waiting'|'connected', launched, info, screen}. The app's server
         // dials this computer (see phoneLink.js), so adb is not needed.
@@ -95,6 +96,8 @@ export class PhoneCardActivity extends LiveActivity {
         const state = this._phone?.state ?? {};
         if (this._app?.state === 'connected')
             return 'phone';
+        if (this._app?.state === 'waiting' && this._app.reconnecting && !this._appError)
+            return 'seeking';
         if (this._app?.state === 'waiting' || this._appError)
             return 'app';
         if (!state.adb)
@@ -116,7 +119,7 @@ export class PhoneCardActivity extends LiveActivity {
         }
         this.peekInset = 32;
         // Without a phone the card is only as tall as what it says.
-        const height = {adb: 330, window: 170, opening: 150, pairing: 470, start: 360, app: 560}[this.kind] ?? 300;
+        const height = {adb: 330, window: 170, opening: 150, pairing: 470, start: 360, app: 560, seeking: 250}[this.kind] ?? 300;
         return {width: WIDTH, height};
     }
 
@@ -233,16 +236,22 @@ export class PhoneCardActivity extends LiveActivity {
     // --- the Osmin Phone app ---------------------------------------------------------------------------
 
     /** Starts listening for the app's server and makes the link to show (a QR code and text). */
-    async _startApp() {
+    /** The phone that was connected through the app before (its name), or null: then the card goes straight to it. */
+    get knownAppPhone() {
+        const gsettings = this._settings?.gsettings;
+        if (!gsettings?.get_string('phone-link-token'))
+            return null;
+        return gsettings.get_string('phone-app-model') || null;
+    }
+
+    /**
+     * Starts listening for the app's server and looking for the phone. auto: the phone is known (it was connected
+     * before), so the card says "Connecting to <phone>…" instead of showing the link; the link is one tap away.
+     */
+    async _startApp({auto = false} = {}) {
         if (this._app)
             return;
         this._appError = '';
-        const host = await defaultAddress();
-        if (!host) {
-            this._appError = 'This computer does not seem to be on a network. Connect it to the Wi-Fi the phone is on.';
-            this._resize();
-            return;
-        }
         const gsettings = this._settings?.gsettings;
         const link = new PhoneLink();
         link.start(gsettings?.get_int('phone-link-port') || DEFAULT_LINK_PORT);
@@ -252,9 +261,27 @@ export class PhoneCardActivity extends LiveActivity {
             gsettings?.set_string('phone-link-token', token);
         }
         gsettings?.set_int('phone-link-port', link.port);
-        this._app = {link, token, state: 'waiting', url: `osmin://connect?host=${host}&port=${link.port}&token=${token}`, launched: null, model: 'Phone', screen: null};
-        this._resize();
-        this._findPhone(this._app);
+        const app = {link, token, state: 'waiting', url: '', launched: null, model: this.knownAppPhone || 'Phone', screen: null, reconnecting: auto};
+        this._app = app;
+        // (auto: the card is about to be shown in this state, so there is nothing to rebuild)
+        this._findPhone(app);
+        const host = await defaultAddress();
+        if (this._app !== app)
+            return;
+        if (host) {
+            app.url = `osmin://connect?host=${host}&port=${link.port}&token=${token}`;
+        } else if (!auto) {
+            this._appError = 'This computer does not seem to be on a network. Connect it to the Wi-Fi the phone is on.';
+            this._stopApp();
+        }
+        if (!auto && app.state === 'waiting')
+            this._resize();
+    }
+
+    /** Opens the card on the phone that was connected through the app before (no buttons to press). */
+    openKnownPhone() {
+        if (!this._app && this.knownAppPhone)
+            this._startApp({auto: true});
     }
 
     /**
@@ -325,6 +352,15 @@ export class PhoneCardActivity extends LiveActivity {
             return;
         }
         app.state = 'connected';
+        const gsettings = this._settings?.gsettings;
+        gsettings?.set_string('phone-app-model', app.model);
+        try {
+            const host = connections.control.get_remote_address().get_address().to_string();
+            gsettings?.set_string('phone-last-host', host.replace(/^::ffff:/, ''));
+        } catch (e) {
+            // the address is only a hint for the next time
+        }
+        this._onChange();
         this._resize();
     }
 
@@ -355,6 +391,7 @@ export class PhoneCardActivity extends LiveActivity {
         const app = this._app;
         this._app = null;
         app?.link.stop();
+        this._onChange();
     }
 
     /** The card is rebuilt for the new state (the capsule makes room for it). */
@@ -647,8 +684,8 @@ export class PhoneCardActivity extends LiveActivity {
             } else if (this._app.reconnecting) {
                 // It was connected a moment ago: the phone finds this computer again by itself.
                 icon('phone-symbolic');
-                box.add_child(this._text('Waiting for the phone…', 'osmin-phone-title'));
-                box.add_child(this._text('It connects again by itself when it is in the same network as this computer (Wi-Fi, or a hotspot of either one). If not, open the Osmin Phone app and tap Connect.', 'osmin-phone-note'));
+                box.add_child(this._text(`Connecting to ${this._app.model}…`, 'osmin-phone-title'));
+                box.add_child(this._text('It connects by itself when it is in the same network as this computer (Wi-Fi, or a hotspot of either one). If not, open the Osmin Phone app and tap Connect.', 'osmin-phone-note'));
                 const row = new St.BoxLayout({style_class: 'osmin-phone-row', x_align: Clutter.ActorAlign.CENTER});
                 row.add_child(pill('Show the link', () => {
                     this._app.reconnecting = false;

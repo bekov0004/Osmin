@@ -3,6 +3,7 @@ import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import {PhoneCardActivity} from '../../phone/phoneCard.js';
+import {reachable} from '../../phone/phoneFinder.js';
 import {createButton} from '../../ui/button.js';
 import {Priority} from '../../utils/events.js';
 import {OsminWidget} from '../widget.js';
@@ -25,12 +26,15 @@ export class PhoneCardWidget extends OsminWidget {
         this._ui = context.ui;
         this._renewId = 0;
         this._reopenId = 0;
+        this._settings = context.settings;
+        this._near = false;          // the phone of the Osmin Phone app answers on the network
         this._big = new PhoneCardActivity({
             phone: this._phone,
             ui: this._ui,
             settings: context.settings,
             onDismiss: () => this._shrink(),
             onResize: () => this._reopen(),
+            onChange: () => this._update(),
         });
     }
 
@@ -88,6 +92,22 @@ export class PhoneCardWidget extends OsminWidget {
 
     _lease() {
         this._phone?.call('watch', {on: true}).catch(() => {});
+        this._probe();
+    }
+
+    /** Whether the phone of the app is around (its server answers), for the tile's words. */
+    async _probe() {
+        const host = this._settings?.gsettings?.get_string('phone-last-host');
+        if (!host || !this._big.knownAppPhone || this._probing)
+            return;
+        this._probing = true;
+        try {
+            this._near = await reachable(host);
+        } catch (e) {
+            this._near = false;
+        }
+        this._probing = false;
+        this._update();
     }
 
     _update() {
@@ -95,11 +115,23 @@ export class PhoneCardWidget extends OsminWidget {
             return;
         const state = this._phone?.state ?? {};
         const device = this._big.device;
-        this._title.text = device ? (device.model || 'Phone') : 'Phone';
-        this._subtitle.text = !state.adb ? 'adb is missing' : state.mirroring ? 'In a window' : device ? 'Tap to open' : 'Tap to connect';
+        const known = this._big.knownAppPhone;
+        this._title.text = device ? (device.model || 'Phone') : known ?? 'Phone';
+        if (state.mirroring)
+            this._subtitle.text = 'In a window';
+        else if (device || (known && this._near))
+            this._subtitle.text = 'Tap to open';
+        else if (known)
+            this._subtitle.text = 'Tap to connect';
+        else
+            this._subtitle.text = state.adb ? 'Tap to connect' : 'Tap to set up';
     }
 
     _open() {
+        // A phone of the app that was connected before: straight to it (adb's phone, when there is one, comes first).
+        const adbPhone = (this._phone?.state?.devices ?? []).some(d => d.state === 'device');
+        if (!adbPhone)
+            this._big.openKnownPhone();
         this._ui.showCard(this._big, {persistent: true, priority: Priority.HIGH});
     }
 
