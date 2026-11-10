@@ -19,6 +19,7 @@ class FakeInjector : Injector {
     override fun panel(mode: Int): String? { calls += "panel $mode"; return if (mode == 0) panelError else null }
     override fun keepAwake(on: Boolean) { calls += "awake $on" }
     override fun wakeIfAsleep() { calls += "wake" }
+    override fun shell(command: String) { calls += "shell $command" }
     override fun close() { calls += "close"; closed.countDown() }
 
     fun await(vararg expected: String, timeoutMs: Long = 3000) {

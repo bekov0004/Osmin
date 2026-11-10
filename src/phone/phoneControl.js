@@ -132,7 +132,9 @@ export class PhoneControl {
 
     /** A shell command on the phone (statusbar and so on). */
     shell(command) {
-        if (this._mode === 'input') {
+        if (this._linkShell) {
+            this._send(`x ${command}`);
+        } else if (this._mode === 'input') {
             this._queue.push({line: command, mode: 'input', any: false});
             this._flush();
         } else {
@@ -216,6 +218,7 @@ export class PhoneControl {
 
     /** The Osmin Phone app's server is already connected: its lines are the helper's lines. */
     _useLink(connection) {
+        this._linkShell = true;      // the app's server runs shell commands on the phone itself (line "x command")
         this._process = {
             get_stdin_pipe: () => connection.get_output_stream(),
             get_stdout_pipe: () => connection.get_input_stream(),

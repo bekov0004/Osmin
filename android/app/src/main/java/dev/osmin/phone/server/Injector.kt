@@ -19,6 +19,9 @@ interface Injector {
     /** Wakes the phone only if it is asleep. */
     fun wakeIfAsleep()
 
+    /** Runs a command in the shell, without waiting for it. */
+    fun shell(command: String)
+
     /** Stops every thread of the injector. */
     fun close()
 }

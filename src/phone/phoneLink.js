@@ -83,11 +83,22 @@ export class PhoneLink {
         this.port = 0;
     }
 
-    start() {
+    /** @param {number} [preferredPort] the port used last time (so a link that was shown stays valid); any port if it is taken */
+    start(preferredPort = 0) {
         if (this._service)
             return;
         this._service = new Gio.SocketService();
-        this.port = this._service.add_any_inet_port(null);
+        this.port = 0;
+        if (preferredPort > 0) {
+            try {
+                if (this._service.add_inet_port(preferredPort, null))
+                    this.port = preferredPort;
+            } catch (e) {
+                this.port = 0;
+            }
+        }
+        if (!this.port)
+            this.port = this._service.add_any_inet_port(null);
         this._service.connect('incoming', (_service, connection) => {
             this._onIncoming(connection);
             return true;
@@ -165,6 +176,12 @@ export class PhoneLink {
         if (close)
             connection.close(null);
     }
+}
+
+/** The address of this computer on the network it reaches the internet through (what a phone on that network can dial). */
+export async function defaultAddress() {
+    const {out} = await run(['ip', '-4', 'route', 'get', '1.1.1.1']);
+    return /src (\d+\.\d+\.\d+\.\d+)/.exec(out)?.[1] ?? null;
 }
 
 /** Whether the Android app is installed on the phone: the path of its apk, or null. */

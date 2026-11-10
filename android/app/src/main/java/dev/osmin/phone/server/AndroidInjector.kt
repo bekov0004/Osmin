@@ -243,6 +243,15 @@ class AndroidInjector : Injector {
         }, "osmin-awake").also { it.isDaemon = true; it.start() }
     }
 
+    override fun shell(command: String) {
+        try {
+            val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
+            // The output is not wanted, but it must be read or the command may block on a full pipe.
+            Thread({ try { process.inputStream.copyTo(java.io.OutputStream.nullOutputStream()) } catch (ignored: Exception) {} }, "osmin-shell").also { it.isDaemon = true; it.start() }
+        } catch (ignored: Exception) {
+        }
+    }
+
     override fun close() {
         keepDark = false
         keepAwake = false

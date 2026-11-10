@@ -17,6 +17,7 @@ object FakePhone {
         override fun panel(mode: Int): String? { write("panel $mode"); return null }
         override fun keepAwake(on: Boolean) = write("awake $on")
         override fun wakeIfAsleep() = write("wake")
+        override fun shell(command: String) = write("shell $command")
         override fun close() = write("close")
     }
 

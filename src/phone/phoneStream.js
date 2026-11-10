@@ -106,7 +106,7 @@ export class PhoneStream extends Signals.EventEmitter {
                 console.warn(`[osmin] phone: the app's server did not start (${e.message}), using adb`);
             }
             if (generation !== this._generation) {
-                launched?.process.force_exit();
+                launched?.process?.force_exit();
                 launched?.control.close(null);
                 launched?.video.close(null);
                 return;
@@ -122,6 +122,41 @@ export class PhoneStream extends Signals.EventEmitter {
         this.control = new PhoneControl({adb, serial, dark, onDark: () => this.emit('dark-changed')});
         this.control.keepAwake();
         this._startVideo(generation);
+    }
+
+    /**
+     * The phone's server, started by the Osmin Phone app on the phone, has connected (see phoneLink.js): show it. There
+     * is no adb here, so the screen's size comes from the server's greeting ("1080x2400 36 MODEL").
+     * @param {{control, video, info: string}} launched
+     */
+    async adoptLink(launched, {dark = false} = {}) {
+        this.stop();
+        const generation = ++this._generation;
+        this._serial = 'app';
+        this.error = '';
+        this._setState(StreamState.STARTING);
+        const size = /^(\d+)x(\d+)/.exec(launched.info ?? '');
+        if (!size) {
+            this._fail(generation, 'The phone did not say how big its screen is');
+            return;
+        }
+        try {
+            if (!this._Gst) {
+                const module = await import('gi://Gst?version=1.0');
+                this._Gst = module.default;
+                this._Gst.init(null);
+            }
+        } catch (e) {
+            this._fail(generation, 'GStreamer is not available');
+            return;
+        }
+        if (generation !== this._generation)
+            return;
+        this.screen = {w: Number(size[1]), h: Number(size[2])};
+        this._launched = {...launched, process: null};
+        this.control = new PhoneControl({adb: '', serial: 'app', dark, link: launched.control, onDark: () => this.emit('dark-changed')});
+        this.control.keepAwake();
+        this._startLinkedVideo(generation, this._launched);
     }
 
     stop() {
@@ -184,7 +219,7 @@ export class PhoneStream extends Signals.EventEmitter {
         });
         GLib.Source.set_name_by_id(this._pollId, '[osmin] phone frames');
         // The server on the phone ends when the connection drops or the phone is disconnected.
-        launched.process.wait_async(null, () => {
+        launched.process?.wait_async(null, () => {
             if (generation === this._generation && this._launched === launched)
                 this._fail(generation, 'The phone disconnected');
         });
@@ -268,7 +303,7 @@ export class PhoneStream extends Signals.EventEmitter {
         }
         // The server ends by itself when its connections close; this is only for one that is stuck.
         GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
-            launched.process.force_exit();
+            launched.process?.force_exit();
             return GLib.SOURCE_REMOVE;
         });
     }

@@ -7,6 +7,7 @@ import {createButton} from '../ui/button.js';
 import {LiveActivity} from '../ui/liveActivity.js';
 import {QrCode} from '../ui/qrCode.js';
 import {scaled} from '../utils/scale.js';
+import {PhoneLink, defaultAddress, randomToken} from './phoneLink.js';
 import {PhoneStream, StreamState} from './phoneStream.js';
 import {ScreenEffect} from './screenEffect.js';
 
@@ -45,6 +46,12 @@ export class PhoneCardActivity extends LiveActivity {
         this._onDismiss = onDismiss;
         this._onResize = onResize;
         this.peekInset = 32;
+        // The Osmin Phone app: {link, token, url, state: 'waiting'|'connected', launched, info, screen}. The app's server
+        // dials this computer (see phoneLink.js), so adb is not needed.
+        this._app = null;
+        this._appError = '';
+        this._resizing = false;      // the card is being rebuilt for a new state, not closed
+        this._view = null;           // the view of the card that is on screen
     }
 
     get title() {
@@ -52,11 +59,15 @@ export class PhoneCardActivity extends LiveActivity {
     }
 
     get device() {
+        if (this._app?.state === 'connected')
+            return {serial: 'app', state: 'device', model: this._app.model, screen: this._app.screen};
         return (this._phone?.state?.devices ?? []).find(d => d.state === 'device') ?? null;
     }
 
     /** What the card shows: a phone (connected, not in its own window) or a message with buttons. */
     get showsPhone() {
+        if (this._app?.state === 'connected')
+            return true;
         const state = this._phone?.state ?? {};
         return !!(state.adb && this.device?.screen && !state.mirroring);
     }
@@ -80,6 +91,10 @@ export class PhoneCardActivity extends LiveActivity {
     /** What the card is about now: 'phone', 'adb' (missing), 'window' (the phone is in its own window), 'opening', 'pairing' or 'start'. */
     get kind() {
         const state = this._phone?.state ?? {};
+        if (this._app?.state === 'connected')
+            return 'phone';
+        if (this._app?.state === 'waiting' || this._appError)
+            return 'app';
         if (!state.adb)
             return 'adb';
         if (state.mirroring)
@@ -99,7 +114,7 @@ export class PhoneCardActivity extends LiveActivity {
         }
         this.peekInset = 32;
         // Without a phone the card is only as tall as what it says.
-        const height = {adb: 250, window: 170, opening: 150, pairing: 470, start: 300}[this.kind] ?? 300;
+        const height = {adb: 330, window: 170, opening: 150, pairing: 470, start: 360, app: 560}[this.kind] ?? 300;
         return {width: WIDTH, height};
     }
 
@@ -108,7 +123,9 @@ export class PhoneCardActivity extends LiveActivity {
     }
 
     createPeekView() {
+        this._resizing = false;
         const phone = this._phone;
+        let view = null;
         const phoneMode = this.showsPhone;
         // The card gives its view all the room unless the view asks for less: a phone is exactly as big as the phone.
         const root = new St.Widget({
@@ -121,6 +138,8 @@ export class PhoneCardActivity extends LiveActivity {
             track_hover: true,
         });
         root.margin_top = scaled(TOP - 8);   // the card's own top is about 8 px below the screen's edge
+        view = root;
+        this._view = root;
         const stream = phoneMode ? new PhoneStream() : null;
         this._lastStream = stream;   // for the tests
         let renew = 0;
@@ -148,7 +167,11 @@ export class PhoneCardActivity extends LiveActivity {
                     return {touching, grab, last};
                 },
             });
-            stream.start(phone.state.adbPath, this.device.serial, {dark: !!this._settings?.get('phone-dark-screen')});
+            const dark = !!this._settings?.get('phone-dark-screen');
+            if (this._app?.state === 'connected')
+                stream.adoptLink(this._app.launched, {dark});
+            else
+                stream.start(phone.state.adbPath, this.device.serial, {dark});
         } else {
             this._buildMessage(root);
         }
@@ -166,8 +189,10 @@ export class PhoneCardActivity extends LiveActivity {
                 });
             } else if (now.kind !== shape.kind || now.serial !== shape.serial) {
                 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                    if (!gone)
+                    if (!gone) {
+                        this._resizing = true;
                         this._onResize();
+                    }
                     return GLib.SOURCE_REMOVE;
                 });
             } else if (!phoneMode) {
@@ -186,6 +211,12 @@ export class PhoneCardActivity extends LiveActivity {
                 stream?.control?.up(last?.[0] ?? 0, last?.[1] ?? 0);
             grab?.dismiss();
             stream?.destroy();
+            // The card was closed (not rebuilt, and not replaced by a newer view of itself): stop listening for the app.
+            if (this._view === view) {
+                this._view = null;
+                if (!this._resizing)
+                    this._stopApp();
+            }
             try {
                 this._ui.endTextInput();
             } catch (e) {
@@ -193,6 +224,70 @@ export class PhoneCardActivity extends LiveActivity {
             }
         });
         return root;
+    }
+
+    // --- the Osmin Phone app ---------------------------------------------------------------------------
+
+    /** Starts listening for the app's server and makes the link to show (a QR code and text). */
+    async _startApp() {
+        if (this._app)
+            return;
+        this._appError = '';
+        const host = await defaultAddress();
+        if (!host) {
+            this._appError = 'This computer does not seem to be on a network. Connect it to the Wi-Fi the phone is on.';
+            this._resize();
+            return;
+        }
+        const gsettings = this._settings?.gsettings;
+        const link = new PhoneLink();
+        link.start(gsettings?.get_int('phone-link-port') ?? 0);
+        let token = gsettings?.get_string('phone-link-token') ?? '';
+        if (!token) {
+            token = randomToken();
+            gsettings?.set_string('phone-link-token', token);
+        }
+        gsettings?.set_int('phone-link-port', link.port);
+        this._app = {link, token, state: 'waiting', url: `osmin://connect?host=${host}&port=${link.port}&token=${token}`, launched: null, model: 'Phone', screen: null};
+        this._resize();
+        this._waitForApp(this._app);
+    }
+
+    /** Waits for the phone; when it connects the card shows it. Again after a session, until the card is closed. */
+    async _waitForApp(app) {
+        try {
+            const connections = await app.link.expect(app.token, 3600);
+            if (this._app !== app)
+                return;
+            const size = /^(\d+)x(\d+)\s+\S+\s*(\S*)/.exec(connections.info);
+            app.screen = size ? {w: Number(size[1]), h: Number(size[2])} : null;
+            app.model = size?.[3]?.replace(/_/g, ' ') || 'Phone';
+            app.launched = connections;
+            if (!app.screen) {
+                connections.control.close(null);
+                connections.video.close(null);
+                this._appError = 'The phone did not say how big its screen is.';
+                this._stopApp();
+                this._resize();
+                return;
+            }
+            app.state = 'connected';
+            this._resize();
+        } catch (e) {
+            // the listener was stopped (the card closed) or nobody came for an hour
+        }
+    }
+
+    _stopApp() {
+        const app = this._app;
+        this._app = null;
+        app?.link.stop();
+    }
+
+    /** The card is rebuilt for the new state (the capsule makes room for it). */
+    _resize() {
+        this._resizing = true;
+        this._onResize();
     }
 
     // --- the phone ---------------------------------------------------------------------------------
@@ -459,10 +554,37 @@ export class PhoneCardActivity extends LiveActivity {
         root.add_child(close);
 
         const icon = name => box.add_child(new St.Icon({icon_name: name, style_class: 'osmin-phone-bigicon', x_align: Clutter.ActorAlign.CENTER}));
+        const appButton = () => box.add_child(pill('Use the Osmin Phone app', () => this._startApp(), false));
+        if (this._app?.state === 'waiting' || this._appError) {
+            if (this._appError) {
+                icon('dialog-warning-symbolic');
+                box.add_child(this._text(this._appError, 'osmin-phone-note'));
+                box.add_child(pill('Close', () => {
+                    this._appError = '';
+                    this._resize();
+                }));
+            } else {
+                box.style = 'padding-top: 22px;';
+                const qr = new QrCode(scaled(188));
+                qr.setText(this._app.url);
+                box.add_child(qr);
+                box.add_child(this._text('Waiting for the phone…', 'osmin-phone-title'));
+                box.add_child(this._text('In the Osmin Phone app on the phone: scan this code with the camera, or tap Paste the link here after copying it. Then tap Connect to the computer.', 'osmin-phone-note'));
+                const row = new St.BoxLayout({style_class: 'osmin-phone-row', x_align: Clutter.ActorAlign.CENTER});
+                row.add_child(pill('Copy the link', () => St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, this._app.url), true));
+                row.add_child(pill('Cancel', () => {
+                    this._stopApp();
+                    this._resize();
+                }));
+                box.add_child(row);
+            }
+            return;
+        }
         if (!state.adb) {
             icon('phone-symbolic');
-            box.add_child(this._text('Install adb first', 'osmin-phone-title'));
-            box.add_child(this._text('adb is the standard Android tool that talks to the phone.', 'osmin-phone-note'));
+            box.add_child(this._text('Connect your phone', 'osmin-phone-title'));
+            box.add_child(this._text('With the Osmin Phone app on the phone, nothing else is needed here. Or install adb, the standard Android tool.', 'osmin-phone-note'));
+            appButton();
             box.add_child(new St.Label({text: 'sudo apt install adb', style_class: 'osmin-phone-code', x_align: Clutter.ActorAlign.CENTER}));
         } else if (state.mirroring) {
             icon('preferences-system-windows-symbolic');
@@ -486,7 +608,10 @@ export class PhoneCardActivity extends LiveActivity {
             icon('phone-symbolic');
             box.add_child(this._text('Your phone on this screen', 'osmin-phone-title'));
             box.add_child(this._text('See it, tap, swipe and type with the mouse and the keyboard. Android 11 or newer, on the same Wi-Fi.', 'osmin-phone-note'));
-            box.add_child(pill('Show the QR code', () => this._phone.call('startPairing').catch(() => {}), true));
+            const row = new St.BoxLayout({style_class: 'osmin-phone-row', x_align: Clutter.ActorAlign.CENTER});
+            row.add_child(pill('Use the Osmin Phone app', () => this._startApp(), true));
+            row.add_child(pill('Use adb', () => this._phone.call('startPairing').catch(() => {})));
+            box.add_child(row);
         }
     }
 }

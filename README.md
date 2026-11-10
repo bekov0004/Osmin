@@ -277,4 +277,12 @@ a network the phone shares works as well as one the computer shares) and keeps t
 `V` for the raw H.264 picture. Each starts with `HELLO <role> <token> <screen> <sdk> <model>` and gets `OK`.
 Without the app, Osmin uses adb for everything, as before.
 
+**Without adb on the computer.** The app has its own adb client (`android/.../adb/`: pairing with SPAKE2 and TLS 1.3, the
+TLS connection, a shell stream; the same protocol as adb's, written from the Android sources, checked against the real `adb`
+of a computer). The user turns on Developer options and Wireless debugging once and pairs once with the code from the
+pairing window (typed into a notification, because that window closes when another app comes forward). After that the app
+connects to the phone's own debugging service and starts the server, which dials the computer. In the Phone card, "Use the Osmin Phone app" shows a link
+(`osmin://connect?host=...&port=...&token=...`) as a QR code and as text; the app opens it (camera, or paste) and the
+computer listens on a port that is kept between sessions, so the link stays valid.
+
 Build: `scripts/build-android.sh` (apk in `dist/osmin-phone.apk`), tests: `scripts/build-android.sh test`, install: `scripts/build-android.sh install`.

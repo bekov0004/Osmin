@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Osmin Phone has its own adb client (Kotlin: SPAKE2 pairing, TLS 1.3 connect, shell), so the phone can be connected without adb on the computer: the Phone card has "Use the Osmin Phone app" (a link and a QR code; the app pairs with the phone's own wireless debugging once and starts its server, which dials the computer). The client was tested against a fake adbd and against the real `adb` of a computer. Wireless debugging and Developer options on the phone are still needed (Android allows nothing else).
 - Osmin Phone, an Android app (Kotlin, `android/`): when it is installed, the phone's server dials the computer and the picture and the control go over that link, not through adb; it works in a network the phone shares as well as in one the computer shares. Without the app everything works through adb as before. `scripts/build-android.sh` builds, tests and installs it.
 - Phone: the window the phone is taken out into is frameless: only the screen with round corners, no black body, no border, no title bar. Move it with Alt (or Super) and drag, or drag with the middle button.
 - Phone: the unlock first asks the system to show the PIN pad (`wm dismiss-keyguard`), then swipes up as before, and types the code a little later, so it also works on a phone that was already awake in the dark.

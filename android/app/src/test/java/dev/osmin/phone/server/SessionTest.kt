@@ -61,10 +61,10 @@ class SessionTest {
 
             // commands in, replies out
             val out = computer.control.getOutputStream()
-            out.write("d 540 1200\nm 540 900\nu 540 900\nk 66\nt 1234\nw 1\nz\nbogus line\np 0\n".toByteArray()); out.flush()
+            out.write("d 540 1200\nm 540 900\nu 540 900\nk 66\nt 1234\nw 1\nz\nx wm dismiss-keyguard\nbogus line\np 0\n".toByteArray()); out.flush()
             computer.control.soTimeout = 3000
             assertEquals("POWER OK 0", line(computer.control.getInputStream()))
-            injector.await("touch down 540.0 1200.0", "touch move 540.0 900.0", "touch up 540.0 900.0", "key 66", "text 1234", "awake true", "wake", "panel 0")
+            injector.await("touch down 540.0 1200.0", "touch move 540.0 900.0", "touch up 540.0 900.0", "key 66", "text 1234", "awake true", "wake", "shell wm dismiss-keyguard", "panel 0")
 
             // the computer leaves while the screen is dark: the phone is put to sleep (key 223) and the panel left to the system
             computer.control.close()

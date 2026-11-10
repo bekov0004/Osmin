@@ -13,6 +13,9 @@ sealed interface Command {
     data class Awake(val on: Boolean) : Command
     data object WakeIfAsleep : Command
 
+    /** A command for the phone's shell (the status bar, dismissing the lock screen ...): from the computer the user connected. */
+    data class Shell(val command: String) : Command
+
     /** Ask for a picture of another size or quality (the video restarts). */
     data class Video(val width: Int, val height: Int, val bitRate: Int) : Command
     data object Quit : Command
@@ -21,7 +24,7 @@ sealed interface Command {
 object CommandParser {
     /**
      * `d x y` `m x y` `u x y` (a finger down, moving, up; pixels of the screen), `k code` (a key), `t text`
-     * (type ASCII text), `p mode`, `w 1|0`, `z`, `v WxH bitrate`, `q`. Anything else is ignored (null).
+     * (type ASCII text), `p mode`, `w 1|0`, `z`, `v WxH bitrate`, `x command`, `q`. Anything else is ignored (null).
      */
     fun parse(line: String): Command? {
         if (line.isEmpty())
@@ -38,6 +41,7 @@ object CommandParser {
                 'w' -> Command.Awake(rest.trim() == "1")
                 'z' -> Command.WakeIfAsleep
                 'q' -> Command.Quit
+                'x' -> rest.takeIf { it.isNotBlank() }?.let { Command.Shell(it) }
                 'v' -> video(rest)
                 else -> null
             }

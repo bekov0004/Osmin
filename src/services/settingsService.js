@@ -27,6 +27,8 @@ export const DEFAULTS = Object.freeze({
     'awake-on-start': false,
     'phone-offered': false,
     'phonecard-offered': false,
+    'phone-link-port': 0,
+    'phone-link-token': '',
     'phone-dark-screen': true,
     'shortcut-radial': [],
     'shortcut-quickpanel': [],

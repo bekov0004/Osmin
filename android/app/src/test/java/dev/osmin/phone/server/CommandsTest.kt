@@ -26,6 +26,12 @@ class CommandsTest {
         assertEquals(Command.Quit, CommandParser.parse("q"))
     }
 
+    @Test fun shell() {
+        assertEquals(Command.Shell("cmd statusbar expand-notifications"), CommandParser.parse("x cmd statusbar expand-notifications"))
+        assertNull(CommandParser.parse("x "))
+        assertNull(CommandParser.parse("x"))
+    }
+
     @Test fun video() {
         assertEquals(Command.Video(544, 1200, 5000000), CommandParser.parse("v 544x1200 5000000"))
         assertNull(CommandParser.parse("v 544 5000000"))
@@ -33,7 +39,7 @@ class CommandsTest {
 
     @Test fun badLinesAreIgnored() {
         assertNull(CommandParser.parse(""))
-        assertNull(CommandParser.parse("x 1 2"))
+        assertNull(CommandParser.parse("y 1 2"))
         assertNull(CommandParser.parse("d 1"))
         assertNull(CommandParser.parse("d a b"))
         assertNull(CommandParser.parse("k abc"))

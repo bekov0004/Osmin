@@ -56,6 +56,7 @@ class Session(
                     is Command.Text -> injector.text(command.text)
                     is Command.Awake -> injector.keepAwake(command.on)
                     is Command.WakeIfAsleep -> injector.wakeIfAsleep()
+                    is Command.Shell -> injector.shell(command.command)
                     is Command.Video -> pump.change(command.width, command.height, command.bitRate)
                     is Command.Panel -> {
                         val error = injector.panel(command.mode)
