@@ -392,12 +392,13 @@ export class PhoneCardActivity extends LiveActivity {
                 }, dark],
                 ['weather-clear-symbolic', 'Wake the phone', () => control()?.wake()],
                 ['system-lock-screen-symbolic', 'Unlock with a PIN', () => showPin()],
-                ['window-new-symbolic', 'Open in a window', () => {
+                // The window works through adb for now: not for a phone that came through the app.
+                ...(this._app ? [] : [['window-new-symbolic', 'Open in a window', () => {
                     const serial = this.device?.serial;
                     stream.stop();
                     this._phone.call('mirror', {serial, dark: !!stream.control?.wantDark}).catch(() => {});
                     this._ui.openMain();   // the panel goes back to its main section and closes by itself in a moment
-                }],
+                }]]),
                 ['go-up-symbolic', 'Close', () => this._onDismiss()],
             ];
         };
