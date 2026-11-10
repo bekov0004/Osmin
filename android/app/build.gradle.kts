@@ -29,5 +29,10 @@ android {
 }
 
 dependencies {
+    // Google's TLS provider: the platform's one cannot export the keying material that adb's pairing needs.
+    implementation("org.conscrypt:conscrypt-android:2.5.2")
+
     testImplementation("junit:junit:4.13.2")
+    // The same provider for the JVM, so the adb code can be tested on a computer.
+    testImplementation("org.conscrypt:conscrypt-openjdk-uber:2.5.2")
 }
