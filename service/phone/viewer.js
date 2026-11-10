@@ -7,6 +7,7 @@ import Gst from 'gi://Gst?version=1.0';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import {PhoneControl} from '../../src/phone/phoneControl.js';
+import {PhoneLink, appPath, launchServer} from '../../src/phone/phoneLink.js';
 
 const TARGET_WIDTH = 720;        // the picture is asked at about this width: sharp enough, light on Wi-Fi
 const BIT_RATE = 6000000;
@@ -70,6 +71,8 @@ export class PhoneViewer {
         this._screen = null;        // the phone's real screen size
         this._video = null;
         this._control = null;
+        this._launched = null;
+        this._link = null;
         this._pipeline = null;
         this._pollId = 0;
         this._restartId = 0;
@@ -349,9 +352,6 @@ export class PhoneViewer {
             this._fail(`GStreamer is not available: ${e.message}`);
             return;
         }
-        this._control = new PhoneControl({adb: this._adb, serial: this._serial, dark: this._dark, onDark: () => this._syncDark?.()});
-        this._control.keepAwake();
-        this._syncDark?.();
         const size = Gio.Subprocess.new([this._adb, '-s', this._serial, 'shell', 'wm', 'size'],
             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
         size.communicate_utf8_async(null, null, (_p, result) => {
@@ -377,7 +377,60 @@ export class PhoneViewer {
                 pictureW = Math.max(pictureH * this._screen.w / this._screen.h, 200);
             }
             this._window.set_size_request(Math.round(pictureW), Math.round(pictureH));
+            this._begin();
+        });
+    }
+
+    /**
+     * The picture and the control: over the link when the Osmin Phone app is on the phone (its server dials this
+     * computer; no adb per frame, any network), otherwise through adb.
+     */
+    async _begin() {
+        let launched = null;
+        const apk = await appPath(this._adb, this._serial);
+        if (apk && !this._closed) {
+            try {
+                this._link ??= new PhoneLink();
+                launched = await launchServer({adb: this._adb, serial: this._serial, link: this._link, apk});
+            } catch (e) {
+                console.warn(`[osmin-service] phone: the app's server did not start (${e.message}), using adb`);
+            }
+        }
+        if (this._closed) {
+            launched?.process.force_exit();
+            launched?.control.close(null);
+            launched?.video.close(null);
+            return;
+        }
+        this._launched = launched;
+        this._control = new PhoneControl({adb: this._adb, serial: this._serial, dark: this._dark, link: launched?.control ?? null, onDark: () => this._syncDark?.()});
+        this._control.keepAwake();
+        this._syncDark?.();
+        if (launched)
+            this._startLinkedVideo(launched);
+        else
             this._startVideo();
+    }
+
+    /** The picture comes on the link's second connection, as a raw H.264 stream that the phone keeps going. */
+    _startLinkedVideo(launched) {
+        this._pipeline = Gst.parse_launch(pipeline(launched.video.get_socket().get_fd()));
+        this._sink = this._pipeline.get_by_name('sink');
+        this._pipeline.set_state(Gst.State.PLAYING);
+        let lastShown = null;
+        this._pollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, POLL_MS, () => {
+            const pixbuf = this._sink?.last_pixbuf;
+            if (pixbuf && pixbuf !== lastShown) {
+                lastShown = pixbuf;
+                this._picture.set_paintable(Gdk.Texture.new_for_pixbuf(pixbuf));
+                if (this._frames++ === 0)
+                    this._status.visible = false;
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
+        launched.process.wait_async(null, () => {
+            if (!this._closed && this._launched === launched)
+                this._fail('The phone disconnected');
         });
     }
 
@@ -473,6 +526,21 @@ export class PhoneViewer {
         this._stopVideo();
         this._video?.force_exit();
         this._control?.destroy();
+        const launched = this._launched;
+        this._launched = null;
+        if (launched) {
+            try {
+                launched.video.close(null);
+            } catch (e) {
+                // already closed
+            }
+            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
+                launched.process.force_exit();
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+        this._link?.stop();
+        this._link = null;
         this._onClose();
     }
 }

@@ -33,9 +33,11 @@ export class PhoneControl {
     /**
      * @param {{adb: string, serial: string, dark?: boolean, onMode?: (mode: 'helper'|'input') => void,
      *   onDark?: (state: {dark: boolean, via: string|null}) => void}} options
-     *   dark: keep the phone's screen dark while it is used from here
+     *   dark: keep the phone's screen dark while it is used from here;
+     *   link: the control connection of the Osmin Phone app's server (see phoneLink.js), when there is one: then
+     *   nothing is started with adb here
      */
-    constructor({adb, serial, dark = false, onMode = () => {}, onDark = () => {}}) {
+    constructor({adb, serial, dark = false, link = null, onMode = () => {}, onDark = () => {}}) {
         this._adb = adb;
         this._serial = serial;
         this._onMode = onMode;
@@ -51,7 +53,10 @@ export class PhoneControl {
         this._writing = false;
         this._closed = false;
         this._down = null;
-        this._start();
+        if (link)
+            this._useLink(link);
+        else
+            this._start();
     }
 
     /** 'helper', 'input', or null while it starts. */
@@ -207,6 +212,25 @@ export class PhoneControl {
             process.force_exit();
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    /** The Osmin Phone app's server is already connected: its lines are the helper's lines. */
+    _useLink(connection) {
+        this._process = {
+            get_stdin_pipe: () => connection.get_output_stream(),
+            get_stdout_pipe: () => connection.get_input_stream(),
+            force_exit: () => {
+                try {
+                    connection.close(null);
+                } catch (e) {
+                    // already closed
+                }
+            },
+        };
+        this._setMode('helper');
+        this._readHelper(new Gio.DataInputStream({base_stream: connection.get_input_stream()}));
+        this._applyDark();
+        this._flush();
     }
 
     // --- start ---------------------------------------------------------------------------------------

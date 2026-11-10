@@ -34,6 +34,7 @@ class VideoPump(
     @Volatile private var current: VideoProcess? = null
     @Volatile private var restart = false
     private var thread: Thread? = null
+    private val lock = Any()
 
     fun start() {
         thread = Thread(::run, "osmin-video").also { it.isDaemon = true; it.start() }
@@ -41,16 +42,21 @@ class VideoPump(
 
     /** A new size or quality: the picture restarts with it. */
     fun change(width: Int, height: Int, bitRate: Int) {
-        this.width = width
-        this.height = height
-        this.bitRate = bitRate
-        restart = true
-        current?.stop()
+        // Under the lock, so a change that comes while a run is just starting is not lost.
+        synchronized(lock) {
+            this.width = width
+            this.height = height
+            this.bitRate = bitRate
+            restart = true
+            current?.stop()
+        }
     }
 
     fun stop() {
-        stopped = true
-        current?.stop()
+        synchronized(lock) {
+            stopped = true
+            current?.stop()
+        }
     }
 
     fun join(timeoutMs: Long) {
@@ -61,15 +67,21 @@ class VideoPump(
         var failures = 0
         val buffer = ByteArray(32 * 1024)
         while (!stopped) {
+            val (w, h, rate) = synchronized(lock) { Triple(width, height, bitRate) }
             val process = try {
-                source.start(width, height, bitRate)
+                source.start(w, h, rate)
             } catch (e: Exception) {
                 failures++
                 if (failures > maxTries) break
                 sleep(retryDelayMs)
                 continue
             }
-            current = process
+            synchronized(lock) {
+                current = process
+                // A change or a stop that came before the run was known to the pump ends it at once.
+                if (restart || stopped)
+                    process.stop()
+            }
             var sent = 0L
             try {
                 while (!stopped) {
@@ -85,10 +97,12 @@ class VideoPump(
             }
             process.stop()
             process.waitFor()
-            current = null
+            synchronized(lock) {
+                current = null
+            }
             if (stopped) break
             if (restart) {
-                restart = false
+                synchronized(lock) { restart = false }
                 failures = 0
                 continue
             }

@@ -5,6 +5,7 @@ import St from 'gi://St';
 import * as Signals from 'resource:///org/gnome/shell/misc/signals.js';
 
 import {PhoneControl} from './phoneControl.js';
+import {PhoneLink, appPath, launchServer} from './phoneLink.js';
 
 const TARGET_WIDTH = 540;
 const BIT_RATE = 5000000;
@@ -49,6 +50,8 @@ export class PhoneStream extends Signals.EventEmitter {
         this._restartId = 0;
         this._size = null;           // the size of the picture in this.content
         this._attempts = 0;
+        this._launched = null;       // the app's server, when the picture comes over the link
+        this._link = null;
     }
 
     get state() {
@@ -88,6 +91,34 @@ export class PhoneStream extends Signals.EventEmitter {
         }
         this.screen = screen;
         this._attempts = 0;
+
+        // The Osmin Phone app on the phone: its server dials this computer, and the picture and the control come over
+        // that link (no adb per frame, any network). Without the app, or when it cannot start, adb does it all.
+        let launched = null;
+        const apk = await appPath(adb, serial);
+        if (generation !== this._generation)
+            return;
+        if (apk) {
+            try {
+                this._link ??= new PhoneLink();
+                launched = await launchServer({adb, serial, link: this._link, apk});
+            } catch (e) {
+                console.warn(`[osmin] phone: the app's server did not start (${e.message}), using adb`);
+            }
+            if (generation !== this._generation) {
+                launched?.process.force_exit();
+                launched?.control.close(null);
+                launched?.video.close(null);
+                return;
+            }
+        }
+        if (launched) {
+            this._launched = launched;
+            this.control = new PhoneControl({adb, serial, dark, link: launched.control, onDark: () => this.emit('dark-changed')});
+            this.control.keepAwake();
+            this._startLinkedVideo(generation, launched);
+            return;
+        }
         this.control = new PhoneControl({adb, serial, dark, onDark: () => this.emit('dark-changed')});
         this.control.keepAwake();
         this._startVideo(generation);
@@ -101,6 +132,7 @@ export class PhoneStream extends Signals.EventEmitter {
         this._stopVideo();
         this.control?.destroy();
         this.control = null;
+        this._closeLaunched();
         this._serial = null;
         this.frames = 0;
         if (this._state !== StreamState.OFF)
@@ -109,6 +141,8 @@ export class PhoneStream extends Signals.EventEmitter {
 
     destroy() {
         this.stop();
+        this._link?.stop();
+        this._link = null;
     }
 
     _readSize(adb, serial) {
@@ -128,6 +162,31 @@ export class PhoneStream extends Signals.EventEmitter {
                     resolve(null);
                 }
             });
+        });
+    }
+
+    /** The picture comes on the link's second connection, as a raw H.264 stream that the phone keeps going. */
+    _startLinkedVideo(generation, launched) {
+        const Gst = this._Gst;
+        try {
+            this._pipeline = Gst.parse_launch(pipeline(launched.video.get_socket().get_fd()));
+        } catch (e) {
+            this._fail(generation, e.message);
+            return;
+        }
+        this._sink = this._pipeline.get_by_name('sink');
+        this._pipeline.set_state(Gst.State.PLAYING);
+        this._pollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, POLL_MS, () => {
+            if (generation !== this._generation)
+                return GLib.SOURCE_REMOVE;
+            this._pull();
+            return GLib.SOURCE_CONTINUE;
+        });
+        GLib.Source.set_name_by_id(this._pollId, '[osmin] phone frames');
+        // The server on the phone ends when the connection drops or the phone is disconnected.
+        launched.process.wait_async(null, () => {
+            if (generation === this._generation && this._launched === launched)
+                this._fail(generation, 'The phone disconnected');
         });
     }
 
@@ -193,6 +252,24 @@ export class PhoneStream extends Signals.EventEmitter {
                 this._startVideo(generation);
                 return GLib.SOURCE_REMOVE;
             });
+        });
+    }
+
+    /** The link's video connection and the server's process (the control connection belongs to the PhoneControl). */
+    _closeLaunched() {
+        const launched = this._launched;
+        this._launched = null;
+        if (!launched)
+            return;
+        try {
+            launched.video.close(null);
+        } catch (e) {
+            // already closed
+        }
+        // The server ends by itself when its connections close; this is only for one that is stuck.
+        GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
+            launched.process.force_exit();
+            return GLib.SOURCE_REMOVE;
         });
     }
 
