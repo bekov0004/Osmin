@@ -3,6 +3,8 @@ package dev.osmin.phone.server
 import android.os.Build
 import android.system.Os
 import java.io.File
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 
 /**
  * The process that runs on the phone with the rights of adb's shell:
@@ -15,6 +17,8 @@ import java.io.File
  * stays, also in a network where Wireless debugging is not available (the phone's own hotspot).
  */
 object Server {
+    /** Where the phone listens for a computer that dials it (the computer's own port is the one in the link). */
+    const val INBOX_PORT = 47832
     private const val PID_FILE = "/data/local/tmp/osmin-server.pid"
 
     @JvmStatic
@@ -32,9 +36,33 @@ object Server {
         if (args.getOrNull(3) == "stay") {
             replaceOlderServer()
             val apk = System.getenv("CLASSPATH").orEmpty().split(':').firstOrNull().orEmpty()
+            // One computer at a time: the phone that dials out and the computer that dials in take turns.
+            val gate = Semaphore(1)
+            /** Runs [run] when it is this one's turn; null if another computer keeps the phone busy for [waitMs]. */
+            fun serving(waitMs: Long, run: () -> Session.Outcome): Session.Outcome? {
+                if (!gate.tryAcquire(waitMs, TimeUnit.MILLISECONDS))
+                    return null
+                try {
+                    return run().also { if (it == Session.Outcome.EXIT) { System.out.flush(); Runtime.getRuntime().halt(0) } }
+                } finally {
+                    gate.release()
+                }
+            }
+            // The computer can also come to the phone (to wake it, to unlock it ...): the phone listens too.
+            val inbox = Inbox(INBOX_PORT, endpoint.token,
+                greeting = { val size = readScreenSize(); "${size.width}x${size.height} ${Build.VERSION.SDK_INT} $model" },
+                serve = { control, video ->
+                    val at = session(endpoint)
+                    if (serving(3_000) { at.serve(control, video) } == null) {
+                        control.close(); video.close()
+                    }
+                },
+                log = log)
+            if (inbox.open())
+                Thread { inbox.run() }.also { it.isDaemon = true; it.start() }
             Roamer(endpoint.port, endpoint.token, endpoint.host,
-                find = { Lan.open(Lan.candidates(Lan.localNets(), Lan.readArp(), null), endpoint.port) },
-                sessionFor = { session(it, 2_000)::run },
+                find = { if (gate.availablePermits() == 0) emptyList() else Lan.open(Lan.candidates(Lan.localNets(), Lan.readArp(), null), endpoint.port) },
+                sessionFor = { at -> { serving(Long.MAX_VALUE / 4) { session(at, 2_000).run() } ?: Session.Outcome.NOT_CONNECTED } },
                 // an app that was removed or updated takes its apk with it: this server is then the old one
                 keepGoing = { apk.isEmpty() || File(apk).exists() },
                 log = log).run()

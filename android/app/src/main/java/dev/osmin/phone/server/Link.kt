@@ -22,6 +22,8 @@ data class Endpoint(val host: String, val port: Int, val token: String)
  *     computer CHAL <nonce C> <HMAC(secret, "srv|P|C")>     the phone checks that this is the computer
  *     phone    AUTH <HMAC(secret, "cli|C|P")> <info>         the computer checks that this is the phone
  *     computer OK
+ *
+ * The computer may also dial the phone (accept below), with the roles swapped.
  */
 object Link {
     const val CONNECT_TIMEOUT_MS = 8000
@@ -67,6 +69,34 @@ object Link {
             socket.close()
             throw e
         }
+    }
+
+    /**
+     * The other direction: the computer dials the phone, which listens (see Inbox). The same greeting with the roles
+     * swapped: the dialer (the computer) says HELLO2, the phone answers CHAL with its proof, the computer AUTHs, and the
+     * phone says "OK <info>" (the computer learns the screen's size from it).
+     * @return the role of this connection ('C' or 'V'), or null when it was refused (and answered NO)
+     */
+    fun accept(socket: Socket, token: String, info: String, greetingMs: Int = 5000): Char? {
+        socket.soTimeout = greetingMs
+        val out = socket.getOutputStream()
+        fun refuse(): Char? {
+            try { out.write("NO\n".toByteArray()); out.flush() } catch (e: IOException) { /* gone */ }
+            return null
+        }
+        val hello = try { readLine(socket).split(' ') } catch (e: IOException) { return null }
+        if (hello.size != 4 || hello[0] != "HELLO2" || hello[1] !in listOf("C", "V") || hello[2] != fingerprint(token) || !hello[3].matches(Regex("[0-9a-f]{16,64}")))
+            return refuse()
+        val mine = nonce()
+        out.write("CHAL $mine ${proof(token, "srv", hello[3], mine)}\n".toByteArray())
+        out.flush()
+        val auth = try { readLine(socket).split(' ') } catch (e: IOException) { return null }
+        if (auth.size < 2 || auth[0] != "AUTH" || !MessageDigest.isEqual(auth[1].toByteArray(), proof(token, "cli", mine, hello[3]).toByteArray()))
+            return refuse()
+        out.write("OK $info\n".toByteArray())
+        out.flush()
+        socket.soTimeout = 0
+        return hello[1][0]
     }
 
     /** Reads up to the newline without reading past it (what follows may be raw video). */

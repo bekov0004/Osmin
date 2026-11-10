@@ -8,6 +8,7 @@ import {LiveActivity} from '../ui/liveActivity.js';
 import {QrCode} from '../ui/qrCode.js';
 import {scaled} from '../utils/scale.js';
 import {PhoneLink, defaultAddress, randomToken} from './phoneLink.js';
+import {seekPhone} from './phoneFinder.js';
 import {PhoneStream, StreamState} from './phoneStream.js';
 import {ScreenEffect} from './screenEffect.js';
 
@@ -253,32 +254,78 @@ export class PhoneCardActivity extends LiveActivity {
         gsettings?.set_int('phone-link-port', link.port);
         this._app = {link, token, state: 'waiting', url: `osmin://connect?host=${host}&port=${link.port}&token=${token}`, launched: null, model: 'Phone', screen: null};
         this._resize();
-        this._waitForApp(this._app);
+        this._findPhone(this._app);
     }
 
-    /** Waits for the phone; when it connects the card shows it. Again after a session, until the card is closed. */
+    /**
+     * Both ways at once: this computer waits for the phone to dial it (the phone looks for the computer by itself), and
+     * looks for the phone itself (the app listens on the phone too, and a phone that is asleep still answers on the
+     * network, so it can be reached to be woken and unlocked). Whoever gets there first wins; the other connection is closed.
+     */
+    _findPhone(app) {
+        this._waitForApp(app);
+        this._seekPhone(app);
+    }
+
+    /** Waits for the phone to connect; the card then shows it. Again after a session, until the card is closed. */
     async _waitForApp(app) {
         try {
-            const connections = await app.link.expect(app.token, 3600);
-            if (this._app !== app)
-                return;
-            const size = /^(\d+)x(\d+)\s+\S+\s*(\S*)/.exec(connections.info);
-            app.screen = size ? {w: Number(size[1]), h: Number(size[2])} : null;
-            app.model = size?.[3]?.replace(/_/g, ' ') || 'Phone';
-            app.launched = connections;
-            if (!app.screen) {
-                connections.control.close(null);
-                connections.video.close(null);
-                this._appError = 'The phone did not say how big its screen is.';
-                this._stopApp();
-                this._resize();
-                return;
-            }
-            app.state = 'connected';
-            this._resize();
+            this._adopt(app, await app.link.expect(app.token, 3600));
         } catch (e) {
             // the listener was stopped (the card closed) or nobody came for an hour
         }
+    }
+
+    /** Looks for the phone in the networks of this computer, less and less often while it is not found. */
+    async _seekPhone(app) {
+        const gsettings = this._settings?.gsettings;
+        let delay = 2000;
+        while (this._app === app && app.state === 'waiting') {
+            let found = null;
+            try {
+                found = await seekPhone({token: app.token, last: gsettings?.get_string('phone-last-host') ?? ''});
+            } catch (e) {
+                console.warn(`[osmin] phone: looking for the phone: ${e.message}`);
+            }
+            if (found && (this._app !== app || app.state !== 'waiting')) {
+                found.control.close(null);
+                found.video.close(null);
+                return;
+            }
+            if (found) {
+                gsettings?.set_string('phone-last-host', found.host);
+                this._adopt(app, found);
+                return;
+            }
+            await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+                resolve();
+                return GLib.SOURCE_REMOVE;
+            }));
+            delay = Math.min(delay * 1.5, 10000);
+        }
+    }
+
+    /** The phone is connected (it dialed, or this computer did): the card shows it. */
+    _adopt(app, connections) {
+        if (this._app !== app || app.state === 'connected') {
+            connections.control.close(null);
+            connections.video.close(null);
+            return;
+        }
+        const size = /^(\d+)x(\d+)\s+\S+\s*(\S*)/.exec(connections.info);
+        app.screen = size ? {w: Number(size[1]), h: Number(size[2])} : null;
+        app.model = size?.[3]?.replace(/_/g, ' ') || 'Phone';
+        app.launched = connections;
+        if (!app.screen) {
+            connections.control.close(null);
+            connections.video.close(null);
+            this._appError = 'The phone did not say how big its screen is.';
+            this._stopApp();
+            this._resize();
+            return;
+        }
+        app.state = 'connected';
+        this._resize();
     }
 
     /**
@@ -300,7 +347,7 @@ export class PhoneCardActivity extends LiveActivity {
                 // already closed
             }
         }
-        this._waitForApp(app);
+        this._findPhone(app);
         this._resize();
     }
 

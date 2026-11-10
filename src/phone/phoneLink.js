@@ -53,7 +53,7 @@ export function lanAddress(phoneText, localText) {
     return null;
 }
 
-const hmac = (token, text) => GLib.compute_hmac_for_string(GLib.ChecksumType.SHA256, new TextEncoder().encode(token), text, -1);
+export const hmac = (token, text) => GLib.compute_hmac_for_string(GLib.ChecksumType.SHA256, new TextEncoder().encode(token), text, -1);
 export const fingerprint = token => GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, token, -1).slice(0, 8);
 
 export function randomToken() {
@@ -133,6 +133,15 @@ export class PhoneLink {
      */
     expect(token, timeoutS = 12) {
         return new Promise((resolve, reject) => {
+            // Waiting again for the same phone: the earlier wait is over (its timer must not remove this one).
+            const earlier = this._pending.get(token);
+            if (earlier) {
+                if (earlier.timer)
+                    GLib.source_remove(earlier.timer);
+                earlier.C?.close(null);
+                earlier.V?.close(null);
+                earlier.reject(new Error('replaced'));
+            }
             const entry = {C: null, V: null, info: '', resolve, reject, timer: 0};
             entry.timer = GLib.timeout_add_seconds(PRIORITY, timeoutS, () => {
                 entry.timer = 0;

@@ -45,7 +45,15 @@ object FakePhone {
         fun session(at: Endpoint, timeout: Int = Link.CONNECT_TIMEOUT_MS) =
             Session(at, LoggingInjector(log), FfmpegSource(), ScreenSize(1080, 2400), "36 FAKE_PHONE", connectTimeoutMs = timeout, silenceMs = 9000)
         val endpoint = Endpoint(args[0], args[1].toInt(), args[2])
-        if (args.getOrNull(3) == "stay") {
+        if (args.getOrNull(3) == "listen") {
+            // only listens: the computer finds this phone and dials it (a phone that does not search by itself)
+            val port = (System.getenv("FAKE_INBOX_PORT") ?: "47832").toInt()
+            val inbox = Inbox(port, endpoint.token, greeting = { "1080x2400 36 FAKE_PHONE" },
+                serve = { c, v -> if (session(endpoint).serve(c, v) == Session.Outcome.EXIT) System.exit(0) },
+                log = { log.appendText("$it\n") })
+            if (!inbox.open()) System.exit(3)
+            inbox.run()
+        } else if (args.getOrNull(3) == "stay") {
             val own = System.getenv("FAKE_OWN_IP") ?: "192.168.0.15"
             Roamer(endpoint.port, endpoint.token, endpoint.host,
                 find = { Lan.open(Lan.candidates(listOf(LocalNet("wlan0", own, 24)), emptyList(), null), endpoint.port) },

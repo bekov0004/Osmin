@@ -4,11 +4,11 @@ import java.io.IOException
 import java.net.Socket
 
 /**
- * One connection of the phone to the computer: the control lines in, the replies out, the picture on its own
+ * One connection between the phone and the computer (whichever dialed): the control lines in, the replies out, the picture on its own
  * connection. Ends when the computer goes away or says `q`; what was changed on the phone is given back.
  */
 class Session(
-    private val endpoint: Endpoint,
+    private val endpoint: Endpoint?,
     private val injector: Injector,
     private val source: VideoSource,
     private val screen: ScreenSize,
@@ -29,21 +29,38 @@ class Session(
         return ScreenSize(width, height)
     }
 
-    /**
-     * Blocks until the session is over. The computer is expected to say something (its heartbeat, `h`) every few seconds;
-     * the phone sends its own heartbeat (`H`), so either side knows within seconds that the other is gone, even when a
-     * network changed and no connection was ever closed.
-     */
+    /** What the phone tells the computer about itself when they meet: "1080x2400 36 MODEL". */
+    val greeting: String get() = "${screen.width}x${screen.height} $info"
+
+    /** The phone dials the computer ([endpoint]) and serves it until the session is over. */
     fun run(): Outcome {
-        var outcome = Outcome.NOT_CONNECTED
-        var beat: Thread? = null
+        val at = endpoint ?: return Outcome.NOT_CONNECTED
         var control: Socket? = null
         var video: Socket? = null
+        try {
+            control = Link.open(at, 'C', greeting, connectTimeoutMs)
+            video = Link.open(at, 'V', greeting, connectTimeoutMs)
+        } catch (e: Exception) {
+            log("session ended: ${e.message}")
+            closeQuietly(control)
+            injector.close()
+            return Outcome.NOT_CONNECTED
+        }
+        return serve(control, video)
+    }
+
+    /**
+     * Serves a computer that is connected (the phone dialed it, or it dialed the phone): blocks until the session is over.
+     * The computer is expected to say something (its heartbeat, `h`) every few seconds; the phone sends its own heartbeat
+     * (`H`), so either side knows within seconds that the other is gone, even when a network changed and no connection
+     * was ever closed.
+     */
+    fun serve(control: Socket, video: Socket): Outcome {
+        var outcome = Outcome.NOT_CONNECTED
+        var beat: Thread? = null
         var pump: VideoPump? = null
         var dark = false
         try {
-            control = Link.open(endpoint, 'C', "${screen.width}x${screen.height} $info", connectTimeoutMs)
-            video = Link.open(endpoint, 'V', "${screen.width}x${screen.height} $info", connectTimeoutMs)
             outcome = Outcome.ENDED
             control.soTimeout = silenceMs
             val size = pictureSize()

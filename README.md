@@ -279,6 +279,15 @@ on other machines: each connection starts with `HELLO2 <role> <fingerprint> <non
 the phone `AUTH <proof> <screen> <sdk> <model>`, and the computer `OK` (both proofs are HMAC-SHA256 of the token).
 Without the app, Osmin uses adb for everything, as before.
 
+**Both sides look for each other.** The server on the phone also listens (port 47832), and the Phone card on the computer
+looks for the phone: where it was last, the machines the computer already knows (`ip neigh`), then the networks of the
+computer (private ones, not container bridges). The computer dials the phone twice (C and V) with the same greeting, the
+roles swapped (the phone proves it knows the secret first; it answers `OK <screen> <sdk> <model>`). Whoever gets there
+first wins, the other connection is closed, and the phone serves one computer at a time. A phone that is asleep still
+answers on the network, so the computer can reach it to wake it and unlock it without anyone touching the phone, which a
+search the phone runs itself cannot do (the phone's processor sleeps, and so does its search). The phone's port is open to
+the network but needs the secret of the link to do anything.
+
 **It finds the computer by itself.** The server started by the app stays (`stay`): when a session ends, or the network changes,
 it searches the networks the phone is in now (the Wi-Fi, a hotspot of the computer, the phone's own hotspot, USB tethering)
 for the port the computer listens on, trying first the address that worked, the neighbours of the phone (`/proc/net/arp`)
