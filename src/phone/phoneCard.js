@@ -16,6 +16,7 @@ const INSET = 20;             // card width minus the picture's: 10 px on each s
 const TOP = 36;               // the band of the top bar above the card's content
 const BOTTOM = 14;
 const RADIUS = 24;
+const DEFAULT_LINK_PORT = 47831;      // the port the phone's app dials (kept between runs, so one firewall rule is enough)
 const LEASE_RENEW_S = 5;
 const KEYS = {
     [Clutter.KEY_BackSpace]: 67, [Clutter.KEY_Return]: 66, [Clutter.KEY_KP_Enter]: 66, [Clutter.KEY_Tab]: 61,
@@ -243,7 +244,7 @@ export class PhoneCardActivity extends LiveActivity {
         }
         const gsettings = this._settings?.gsettings;
         const link = new PhoneLink();
-        link.start(gsettings?.get_int('phone-link-port') ?? 0);
+        link.start(gsettings?.get_int('phone-link-port') || DEFAULT_LINK_PORT);
         let token = gsettings?.get_string('phone-link-token') ?? '';
         if (!token) {
             token = randomToken();
@@ -618,6 +619,9 @@ export class PhoneCardActivity extends LiveActivity {
                 box.add_child(qr);
                 box.add_child(this._text('Waiting for the phone…', 'osmin-phone-title'));
                 box.add_child(this._text('In the Osmin Phone app on the phone: scan this code with the camera, or tap Paste the link here after copying it. Then tap Connect to the computer.', 'osmin-phone-note'));
+                // A firewall on this computer (Ubuntu has ufw) stops the phone before it is heard: the port has to be let in once.
+                box.add_child(this._text('Nothing arrives? A firewall may block the phone. Once, in a terminal:', 'osmin-phone-note'));
+                box.add_child(new St.Label({text: `sudo ufw allow ${this._app.link.port}/tcp`, style_class: 'osmin-phone-code', x_align: Clutter.ActorAlign.CENTER}));
                 const row = new St.BoxLayout({style_class: 'osmin-phone-row', x_align: Clutter.ActorAlign.CENTER});
                 row.add_child(pill('Copy the link', () => St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, this._app.url), true));
                 row.add_child(pill('Cancel', () => {
