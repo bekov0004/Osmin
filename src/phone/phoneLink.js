@@ -191,7 +191,7 @@ export async function launchServer({adb, serial, link, apk}) {
     waiting.catch(() => {});
     let process;
     try {
-        process = Gio.Subprocess.new([adb, '-s', serial, 'shell', `CLASSPATH=${apk}`, 'app_process', '/', SERVER_CLASS, host, String(link.port), token],
+        process = Gio.Subprocess.new([adb, '-s', serial, 'shell', `CLASSPATH='${apk}'`, 'app_process', '/', SERVER_CLASS, host, String(link.port), token],
             Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
     } catch (e) {
         throw new Error(`could not start the phone's server: ${e.message}`);

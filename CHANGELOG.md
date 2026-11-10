@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Osmin Phone, an Android app (Kotlin, `android/`): when it is installed, the phone's server dials the computer and the picture and the control go over that link, not through adb; it works in a network the phone shares as well as in one the computer shares. Without the app everything works through adb as before. `scripts/build-android.sh` builds, tests and installs it.
 - Phone: the window the phone is taken out into is frameless: only the screen with round corners, no black body, no border, no title bar. Move it with Alt (or Super) and drag, or drag with the middle button.
 - Phone: the unlock first asks the system to show the PIN pad (`wm dismiss-keyguard`), then swipes up as before, and types the code a little later, so it also works on a phone that was already awake in the dark.
 - Phone: nothing is drawn over the phone's screen any more. A right click opens a ring of round buttons around the pointer (Back, Home, Recent apps, Notifications, Dark screen, Wake, Unlock, Open in a window or Put back in the panel, Close), with the name of the button under the pointer in the middle; a click anywhere else closes it, the left button stays the finger. The same in the capsule card and in the window.

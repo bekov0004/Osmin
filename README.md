@@ -214,7 +214,7 @@ Osmin is two parts that talk over D-Bus (`dev.osmin.Osmin`), and both ship insid
 | Artwork, Lyrics | Cover art and lyrics downloads |
 | Downloads, System, Agents | Watching the Downloads folder, the computer, the AI agents' logs |
 | Power, Tools, Processes, Cleaner | Keep awake, small jobs, processes and ports, the cache cleaner |
-| Phone | Pairing of an Android phone (adb over mDNS); its screen (screenrecord + GStreamer) in a capsule card or a window; control through `phone-helper/osmin-input.jar` (Osmin's own tiny helper that runs on the phone; rebuild with `scripts/build-phone-helper.sh`), or the phone's `input` commands when the helper cannot start |
+| Phone | Pairing of an Android phone (adb over mDNS), the link to the Osmin Phone app (`src/phone/phoneLink.js`); its screen (screenrecord + GStreamer) in a capsule card or a window; control through `phone-helper/osmin-input.jar` (Osmin's own tiny helper that runs on the phone; rebuild with `scripts/build-phone-helper.sh`), or the phone's `input` commands when the helper cannot start |
 
 Without the service the extension still runs; only the features that live in the service are unavailable.
 
@@ -255,3 +255,26 @@ changes, open a pull request that describes what changed and how you tried it.
 ## License
 
 GNU General Public License, version 3 or later. See [LICENSE](LICENSE).
+
+
+## Osmin Phone (the Android app)
+
+The `android/` folder is a Kotlin Android project (Gradle, package `dev.osmin.phone`). Its job is the phone's side of the Phone card:
+
+```
+android/app/src/main/java/dev/osmin/phone/
+  server/   the server that runs on the phone with adb's rights (Server.kt is its main)
+            Commands.kt (the control lines), Link.kt (the two connections), VideoPump.kt (screenrecord -> H.264),
+            AndroidInjector.kt (touches, keys, panel off, wake: the system calls), Session.kt (one connection)
+  ui/       MainActivity.kt: a screen that says what the app is for
+android/app/src/test/   unit tests of the server, and FakePhone.kt (the server with a fake phone, for Osmin's tests)
+phone-helper/           the small helper used when the app is not installed (adb pushes it)
+```
+
+With the app installed, Osmin starts its server once through adb (`CLASSPATH=<apk> app_process / dev.osmin.phone.server.Server <host> <port> <token>`).
+The server then **dials the computer** (the address is the one of the computer in the network it shares with the phone, so
+a network the phone shares works as well as one the computer shares) and keeps two connections: `C` for the control lines and
+`V` for the raw H.264 picture. Each starts with `HELLO <role> <token> <screen> <sdk> <model>` and gets `OK`.
+Without the app, Osmin uses adb for everything, as before.
+
+Build: `scripts/build-android.sh` (apk in `dist/osmin-phone.apk`), tests: `scripts/build-android.sh test`, install: `scripts/build-android.sh install`.

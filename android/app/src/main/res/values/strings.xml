@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Osmin Phone</string>
+    <string name="about_title">Osmin Phone</string>
+    <string name="about_what">Lets Osmin on your computer show this phone\'s screen and control it with the mouse and the keyboard.</string>
+    <string name="about_how">Keep this app installed, then connect from the Osmin panel on your computer: open the Phone card and follow it.</string>
+    <string name="about_needs">Wireless debugging must be on in Settings, Developer options, and the phone must be in the same network as the computer (a network that either of them shares is fine).</string>
+    <string name="about_privacy">The picture and the touches go only between this phone and the computer you connect, on your own network. Nothing is sent to the internet.</string>
+    <string name="about_version">Version %1$s</string>
 </resources>
