@@ -11,9 +11,13 @@ import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions
  * Mixed into OsminPreferences, so `this` has its building blocks (_row, _form, _switch ...).
  */
 
+// The names of the keys as they are written on a PC keyboard and in Ubuntu ("Ctrl", "Super"), not the Mac symbols.
 const KEYS = {
-    ctrl: '⌃', alt: '⌥', shift: '⇧', super: '⌘',
+    ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', super: 'Super',
 };
+const KEY_NAMES = {space: 'Space', Return: 'Enter', BackSpace: 'Backspace', Page_Up: 'Page Up', Page_Down: 'Page Down', Print: 'Print Screen',
+    Left: '←', Right: '→', Up: '↑', Down: '↓', Escape: 'Esc', Delete: 'Delete', grave: '`', minus: '-', equal: '=', plus: '+',
+    comma: ',', period: '.', slash: '/', backslash: '\\', semicolon: ';', apostrophe: "'", bracketleft: '[', bracketright: ']'};
 
 /**
  * While a shortcut is being recorded, the keys go to the window and not to GNOME (Super+V would open GNOME's
@@ -110,7 +114,7 @@ export function focusLeftWindow(widget) {
     return widget.get_root()?.is_active === false;
 }
 
-/** A name of an accelerator split into key caps: "<Control><Super>v" -> ['⌃', '⌘', 'V']. */
+/** A name of an accelerator split into key caps: "<Control><Super>v" -> ['Ctrl', 'Super', 'V']. */
 function capsOf(accel) {
     if (!accel)
         return [];
@@ -118,16 +122,17 @@ function capsOf(accel) {
     if (!ok)
         return [];
     const caps = [];
+    // in the order GTK and GNOME Settings write them ("Shift+Ctrl+Alt+Super+V"), like the other shortcut buttons
+    if (mods & Gdk.ModifierType.SHIFT_MASK)
+        caps.push(KEYS.shift);
     if (mods & Gdk.ModifierType.CONTROL_MASK)
         caps.push(KEYS.ctrl);
     if (mods & Gdk.ModifierType.ALT_MASK)
         caps.push(KEYS.alt);
-    if (mods & Gdk.ModifierType.SHIFT_MASK)
-        caps.push(KEYS.shift);
     if (mods & Gdk.ModifierType.SUPER_MASK)
         caps.push(KEYS.super);
     const name = Gdk.keyval_name(key) ?? '';
-    caps.push(name.length === 1 ? name.toUpperCase() : name.charAt(0).toUpperCase() + name.slice(1));
+    caps.push(KEY_NAMES[name] ?? (name.length === 1 ? name.toUpperCase() : name.charAt(0).toUpperCase() + name.slice(1)));
     return caps;
 }
 
