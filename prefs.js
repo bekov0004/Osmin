@@ -7,7 +7,8 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {DEFAULT_WIDGETS, WIDGET_INFO} from './src/utils/widgetInfo.js';
-import {assignShortcut, grabSystemKeys, shortcutFor, utilityMethods} from './prefsUtilities.js';
+import {gestureMethods} from './prefsGestures.js';
+import {assignShortcut, focusLeftWindow, grabSystemKeys, shortcutFor, utilityMethods} from './prefsUtilities.js';
 
 // --- theme -----------------------------------------------------------------
 // One place for every colour of the settings window (layered surfaces, a quiet blue accent, a dark
@@ -295,6 +296,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             [_('Essentials'), [
                 ['general', _('General'), 'preferences-system-symbolic', P('general')],
                 ['tools', _('Menu bar'), 'window-new-symbolic', P('tools')],
+                ['touchpad', _('Touchpad gestures'), 'input-touchpad-symbolic', this._touchpadGesturesPage(settings)],
                 ['features', _('Features'), 'view-app-grid-symbolic', featuresPage],
                 ['monitor', _('Monitor'), 'utilities-system-monitor-symbolic', P('monitor')],
             ]],
@@ -346,6 +348,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             osmin: _('Choose the widgets of the capsule (the island), their order and their width.'),
             appearance: _('The look of the capsule and the top bar.'),
             gestures: _('How the capsule opens, closes and reacts to the pointer and the touchpad.'),
+            touchpad: _('Three and four fingers on the touchpad do what you choose here, anywhere: switch apps like Alt+Tab, workspaces, the overview, windows, sound, tabs, Osmin, or any keys.'),
             activities: _('What the capsule shows while something is going on, and for how long.'),
             tray: _('The file shelf: drag files to the top of the screen to keep them there.'),
             clipboard: _('The history of what you copy, and how it behaves.'),
@@ -495,6 +498,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             key(_('Files and sharing'), _('Receive files with LocalSend'), _('This computer becomes visible to LocalSend devices (port 53317); every transfer asks first'), 'network-wireless-symbolic', 'localsend-receive'),
             key(_('Behaviour'), _('Open on hover'), _('The capsule opens when the pointer rests on it'), 'input-mouse-symbolic', 'open-on-hover'),
             key(_('Behaviour'), _('Collapse when the pointer leaves'), _('The open panel closes by itself'), 'view-restore-symbolic', 'auto-collapse'),
+            key(_('Behaviour'), _('Touchpad gestures everywhere'), _('Three and four fingers: switch apps, workspaces, windows, sound and more'), 'input-touchpad-symbolic', 'touchpad-gestures'),
             key(_('Behaviour'), _('Swipe down to open'), _('A two-finger swipe down on the capsule opens it'), 'input-touchpad-symbolic', 'gestures-swipe-open'),
             key(_('Behaviour'), _('Swipe up to close'), _('A two-finger swipe up closes the panel'), 'input-touchpad-symbolic', 'gestures-swipe-close'),
             key(_('Behaviour'), _('Swipe to change tracks'), _('A sideways swipe on the capsule skips songs'), 'media-skip-forward-symbolic', 'gestures-media-swipe'),
@@ -986,7 +990,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         });
         button.add_controller(keys);
         const focus = new Gtk.EventControllerFocus();
-        focus.connect('leave', stop);
+        focus.connect('leave', () => !focusLeftWindow(button) && stop());
         button.add_controller(focus);
         const changedId = settings.connect(`changed::${key}`, show);
         button.connect('destroy', () => {
@@ -1936,4 +1940,4 @@ export default class OsminPreferences extends ExtensionPreferences {
     }
 }
 
-Object.assign(OsminPreferences.prototype, utilityMethods);
+Object.assign(OsminPreferences.prototype, utilityMethods, gestureMethods);

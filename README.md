@@ -136,6 +136,19 @@ sideways swipe skips tracks while music plays, and a middle click plays or pause
 Clipboard and Alerts tabs, swipe down to make the panel taller. All gestures can be changed or
 inverted in Settings → Gestures.
 
+**Touchpad gestures everywhere.** Settings → Touchpad gestures gives every three- and four-finger gesture an action:
+swipes in four directions, pinches in and out, and resting the fingers. By default three fingers sideways switch
+apps like Alt+Tab (the switcher stays while the fingers are on the touchpad: moving on picks the next app, moving
+back the one before, lifting opens it; a quick swipe goes straight back to the previous app), three fingers up and
+down open the overview and the app grid, and four fingers sideways switch workspaces. GNOME's own workspace and
+overview gestures are driven through GNOME's own trackers, so they follow the fingers as before. The actions:
+apps and windows (switch, previous app, show the desktop, maximize, minimize, full screen, close, tile left/right),
+GNOME (workspaces, overview, all apps, notifications, quick settings, screenshot, lock), sound and light, browser
+and documents (back, forward, tabs, reload, zoom, copy, paste, undo), Osmin's own sections and tools, or any keys.
+Two fingers stay with the apps; in the overview, menus and the lock screen GNOME keeps its gestures. The code is in
+`src/gestures/` (`catalog.js` the gestures and actions, `recognizer.js` the gestures out of the touchpad's events,
+`gestureService.js` what they do).
+
 **Keyboard shortcuts.** Settings → General lets you set a key for each tab (Osmin, Tray, Clipboard,
 Alerts, Search) and for the tools. None are set by default. Any keys can be used: if GNOME already uses
 them (`Super+V` opens its notification list, for example), Osmin takes them while it runs and gives them back

@@ -5,6 +5,7 @@ import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Keyboard from 'resource:///org/gnome/shell/ui/status/keyboard.js';
 
+import {GestureService} from './gestures/gestureService.js';
 import {Osmin} from './osmin.js';
 import {ActivityManager} from './services/activityManager.js';
 import {ArtworkService} from './services/artworkService.js';
@@ -133,6 +134,13 @@ export class OsminHost {
         this._offerNewTabs();
         this._syncFreedBindings();
         this._syncReceiving();
+        if (this._settings.gsettings) {
+            try {
+                this._gestures = new GestureService({gsettings: this._settings.gsettings, run: id => this._runAction(id)});
+            } catch (e) {
+                console.warn(`[osmin] touchpad gestures: ${e.message}`);
+            }
+        }
         this._watchInputSource();
         if (this._settings.get('awake-on-start'))
             GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
@@ -155,6 +163,8 @@ export class OsminHost {
     destroy() {
         this._settings?.disconnectObject(this);
         this._removeShortcuts();
+        this._gestures?.destroy();
+        this._gestures = null;
         this._actions?.destroy();
         this._restoreFreedBindings();
         this._server?.destroy();

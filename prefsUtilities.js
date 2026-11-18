@@ -102,6 +102,14 @@ export function assignShortcut(settings, key, accel) {
     return takenFrom;
 }
 
+/**
+ * Whether the focus really left a recording button. The first time keys are taken from GNOME, GNOME asks whether that is
+ * allowed (a dialog of its own): the window loses the focus then, but the recording must go on.
+ */
+export function focusLeftWindow(widget) {
+    return widget.get_root()?.is_active === false;
+}
+
 /** A name of an accelerator split into key caps: "<Control><Super>v" -> ['⌃', '⌘', 'V']. */
 function capsOf(accel) {
     if (!accel)
@@ -224,7 +232,7 @@ export const utilityMethods = {
             button.grab_focus();
         });
         const focus = new Gtk.EventControllerFocus();
-        focus.connect('leave', () => recording && stopRecording());
+        focus.connect('leave', () => recording && !focusLeftWindow(button) && stopRecording());
         button.add_controller(focus);
         const keys = new Gtk.EventControllerKey();
         keys.connect('key-pressed', (_c, keyval, keycode, state) => {

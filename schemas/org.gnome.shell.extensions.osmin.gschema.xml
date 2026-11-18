@@ -301,6 +301,21 @@
       <description>Reverses the direction of every swipe gesture.</description>
     </key>
 
+    <key name="touchpad-gestures" type="b">
+      <default>true</default>
+      <summary>Touchpad gestures everywhere</summary>
+      <description>Three- and four-finger swipes, pinches and holds do what is chosen in gesture-actions. Off: GNOME's own gestures only.</description>
+    </key>
+    <key name="gesture-actions" type="a{ss}">
+      <default>{}</default>
+      <summary>What each touchpad gesture does</summary>
+      <description>Gesture ("swipe3-left", "pinch4-in", "hold3" ...) to action ("app-switcher", "workspaces", "keys:&lt;Control&gt;w" ...). A gesture that is not here does what Osmin does by default.</description>
+    </key>
+    <key name="gesture-sensitivity" type="i">
+      <range min="50" max="200"/>
+      <default>100</default>
+      <summary>How short a gesture may be, in percent</summary>
+    </key>
     <key name="gestures-middle-click" type="s">
       <choices>
         <choice value="activity"/>
