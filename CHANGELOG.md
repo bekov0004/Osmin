@@ -10,6 +10,8 @@ follows [Semantic Versioning](https://semver.org/).
 - Touchpad gestures everywhere (Settings → Touchpad gestures): every three- and four-finger swipe, pinch and rest can be given an action. Three fingers sideways switch apps like Alt+Tab (the switcher follows the fingers), three up and down the overview, four sideways the workspaces (GNOME's own, following the fingers); more than fifty actions, including any keys. Two fingers stay with the apps.
 
 ### Changed
+- Radial menu: alive instead of static. It opens out of the pointer, the buttons fly out one after the other, the action the pointer points at (anywhere in its slice) is lit, grows and shows its name in the middle, a small light follows the pointer around; the chosen button pulses as the wheel closes. Arrow keys go round, Enter runs, Esc or a right click closes.
+- Settings: shortcut keys are written as on a PC keyboard (Shift, Ctrl, Alt, Super), not with Mac symbols.
 - Shortcuts: any keys can be given to an Osmin shortcut; when GNOME already uses them (Super+V, for example), Osmin takes them while it runs and gives them back afterwards. The "Free Super+V from GNOME" switch is gone (what it had taken is given back). While a shortcut is being recorded the keys go to the settings window, not to GNOME.
 
 ### Fixed
