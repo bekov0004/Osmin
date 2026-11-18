@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Shortcuts: any keys can be given to an Osmin shortcut; when GNOME already uses them (Super+V, for example), Osmin takes them while it runs and gives them back afterwards. The "Free Super+V from GNOME" switch is gone (what it had taken is given back). While a shortcut is being recorded the keys go to the settings window, not to GNOME.
+
+### Fixed
+- Shortcuts recorded with the Russian (or another non-Latin) layout on were saved as Cyrillic keys and did not work; they are recorded as the Latin key now, and old ones are corrected. Two shortcuts can no longer have the same keys (the Quick panel's suggested keys were the Clipboard's: now Ctrl+Super+Q); the new one takes them and says from which. Shift+letter alone is refused (it would stop that letter from being typed); F-keys and Print work alone.
+
 ### Added
 - Phone: a phone connected through the Osmin Phone app is remembered, as a phone of adb was: the tile shows its name ("Tap to open" when it answers on the network), and a click opens its screen at once (the computer dials the phone where it was last, then searches); no "Use the Osmin Phone app" every time.
 - Osmin Phone, both ways: the server on the phone listens too (port 47832) and the Phone card on the computer looks for the phone in the networks it is in (where it was last, the neighbours, then the rest), so the computer can reach a phone that is asleep, wake it and unlock it without touching it; whichever side gets there first wins. Same secret, same proof both ways.

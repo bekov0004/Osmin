@@ -137,8 +137,10 @@ Clipboard and Alerts tabs, swipe down to make the panel taller. All gestures can
 inverted in Settings → Gestures.
 
 **Keyboard shortcuts.** Settings → General lets you set a key for each tab (Osmin, Tray, Clipboard,
-Alerts, Search). None are set by default. *Free Super+V from GNOME* gives `Super+V` to Osmin's
-Clipboard while the extension is on.
+Alerts, Search) and for the tools. None are set by default. Any keys can be used: if GNOME already uses
+them (`Super+V` opens its notification list, for example), Osmin takes them while it runs and gives them back
+when the shortcut changes or Osmin is disabled. A shortcut is recorded as the Latin key, whatever keyboard layout
+is on, and one set of keys belongs to one shortcut only (giving it to another one takes it from the first).
 
 **Search bar examples.**
 

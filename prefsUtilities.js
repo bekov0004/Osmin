@@ -15,6 +15,93 @@ const KEYS = {
     ctrl: '⌃', alt: '⌥', shift: '⇧', super: '⌘',
 };
 
+/**
+ * While a shortcut is being recorded, the keys go to the window and not to GNOME (Super+V would open GNOME's
+ * notification list instead of being recorded). GNOME may ask once whether the settings may do that.
+ */
+export function grabSystemKeys(widget, on) {
+    try {
+        const surface = widget.get_native()?.get_surface();
+        if (on)
+            surface?.inhibit_system_shortcuts(null);
+        else
+            surface?.restore_system_shortcuts();
+    } catch (e) {
+        // not a toplevel, or the compositor cannot do it: the keys GNOME uses cannot be recorded then
+    }
+}
+
+/** Every Osmin shortcut and what it is called (one set of keys can do only one of them). */
+export const SHORTCUT_NAMES = {
+    'shortcut-osmin': 'Osmin', 'shortcut-tray': 'Tray', 'shortcut-clipboard': 'Clipboard', 'shortcut-alerts': 'Alerts',
+    'shortcut-command': 'Search', 'shortcut-screenshot': 'Screenshot', 'shortcut-recording': 'Screen recording',
+    'shortcut-color': 'Colour picker', 'shortcut-mic': 'Microphone', 'shortcut-cleaning': 'Cleaning mode',
+    'shortcut-awake': 'Keep awake', 'shortcut-radial': 'Radial menu', 'shortcut-quickpanel': 'Quick panel',
+    'shortcut-output': 'Sound output',
+};
+
+// Keys that make a shortcut on their own, without Ctrl, Alt or Super.
+const LONE_KEYS = new Set(['Print', 'Pause', 'Scroll_Lock', 'Insert', 'Menu', ...Array.from({length: 24}, (_v, i) => `F${i + 1}`)]);
+
+/**
+ * The shortcut for a key press, or {error} when it cannot be one. The key is taken as it is in the first Latin layout,
+ * so a shortcut recorded with the Russian layout on is "<Super>v", not "<Super>Cyrillic_em" (which would work in one
+ * layout only, or not at all).
+ * @returns {{accel?: string, error?: string, wait?: boolean}}  wait: a modifier alone, keep listening
+ */
+export function shortcutFor(widget, keyval, keycode, state) {
+    const mods = state & Gtk.accelerator_get_default_mod_mask();
+    const modifierKeys = [Gdk.KEY_Control_L, Gdk.KEY_Control_R, Gdk.KEY_Shift_L, Gdk.KEY_Shift_R, Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
+        Gdk.KEY_Super_L, Gdk.KEY_Super_R, Gdk.KEY_Meta_L, Gdk.KEY_Meta_R, Gdk.KEY_ISO_Level3_Shift, Gdk.KEY_Hyper_L, Gdk.KEY_Hyper_R];
+    if (modifierKeys.includes(keyval))
+        return {wait: true};
+    let key = keyval;
+    try {
+        const [ok, keys, keyvals] = widget.get_display().map_keycode(keycode);
+        if (ok) {
+            // the key's own symbol (level 0) in the first layout that writes Latin letters there
+            const latin = keys.map((k, i) => ({k, v: keyvals[i]})).filter(({k, v}) => k.level === 0 && v > 0 && v < 0x100)
+                .sort((a, b) => a.k.group - b.k.group)[0];
+            if (latin)
+                key = latin.v;
+        }
+    } catch (e) {
+        // keep the key as it came
+    }
+    key = Gdk.keyval_to_lower(key);
+    const name = Gdk.keyval_name(key) ?? '';
+    const strong = mods & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK | Gdk.ModifierType.META_MASK);
+    if (!strong && !LONE_KEYS.has(name))
+        return {error: _('Add Ctrl, Alt or Super')};
+    if (!Gtk.accelerator_valid(key, mods) && !LONE_KEYS.has(name))
+        return {error: _('These keys cannot be a shortcut')};
+    return {accel: Gtk.accelerator_name(key, mods)};
+}
+
+const sameKeys = (a, b) => {
+    const parse = accel => {
+        const [, key, mods] = Gtk.accelerator_parse(accel ?? '');
+        return key ? `${mods}:${Gdk.keyval_to_lower(key)}` : '';
+    };
+    return !!a && parse(a) !== '' && parse(a) === parse(b);
+};
+
+/**
+ * Gives the keys to this shortcut and takes them from any other Osmin shortcut that had them (two shortcuts on the same
+ * keys: only one of them would work). @returns {string|null} the name of the shortcut they were taken from
+ */
+export function assignShortcut(settings, key, accel) {
+    let takenFrom = null;
+    for (const other of Object.keys(SHORTCUT_NAMES)) {
+        if (other !== key && settings.get_strv(other).some(a => sameKeys(a, accel))) {
+            settings.set_strv(other, []);
+            takenFrom = SHORTCUT_NAMES[other];
+        }
+    }
+    settings.set_strv(key, [accel]);
+    return takenFrom;
+}
+
 /** A name of an accelerator split into key caps: "<Control><Super>v" -> ['⌃', '⌘', 'V']. */
 function capsOf(accel) {
     if (!accel)
@@ -78,7 +165,21 @@ export const utilityMethods = {
         const button = new Gtk.Button({css_classes: ['osmin-caps'], child: caps});
         const reset = this._button(_('Reset'), () => settings.set_strv(key, [fallback]));
         let recording = false;
+        let notice = '';
+        let noticeId = 0;
         let shortcutTitle = null;
+        const say = text => {
+            notice = text;
+            if (noticeId)
+                GLib.source_remove(noticeId);
+            noticeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2500, () => {
+                noticeId = 0;
+                notice = '';
+                show();
+                return GLib.SOURCE_REMOVE;
+            });
+            show();
+        };
         const show = () => {
             const [accel] = settings.get_strv(key);
             sw.set_active(!!accel);
@@ -87,7 +188,9 @@ export const utilityMethods = {
                 caps.remove(child);
                 child = caps.get_first_child();
             }
-            if (recording) {
+            if (notice) {
+                caps.append(new Gtk.Label({label: notice}));
+            } else if (recording) {
                 caps.append(new Gtk.Label({label: _('Press keys…')}));
             } else {
                 for (const cap of capsOf(accel || fallback))
@@ -100,37 +203,53 @@ export const utilityMethods = {
         };
         sw.connect('state-set', (_sw, state) => {
             const [accel] = settings.get_strv(key);
-            if (state && !accel)
-                settings.set_strv(key, [fallback]);
+            if (state && !accel) {
+                const takenFrom = assignShortcut(settings, key, fallback);
+                if (takenFrom)
+                    say(_('Taken from %s').format(takenFrom));
+            }
             else if (!state && accel)
                 settings.set_strv(key, []);
             return false;
         });
+        const stopRecording = () => {
+            recording = false;
+            grabSystemKeys(button, false);
+            show();
+        };
         button.connect('clicked', () => {
             recording = true;
+            grabSystemKeys(button, true);
             show();
             button.grab_focus();
         });
+        const focus = new Gtk.EventControllerFocus();
+        focus.connect('leave', () => recording && stopRecording());
+        button.add_controller(focus);
         const keys = new Gtk.EventControllerKey();
-        keys.connect('key-pressed', (_c, keyval, _code, state) => {
+        keys.connect('key-pressed', (_c, keyval, keycode, state) => {
             if (!recording)
                 return false;
             const mods = state & Gtk.accelerator_get_default_mod_mask();
             if (keyval === Gdk.KEY_Escape && mods === 0) {
-                recording = false;
-                show();
+                stopRecording();
                 return true;
             }
-            if ([Gdk.KEY_Control_L, Gdk.KEY_Control_R, Gdk.KEY_Shift_L, Gdk.KEY_Shift_R, Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
-                Gdk.KEY_Super_L, Gdk.KEY_Super_R, Gdk.KEY_Meta_L, Gdk.KEY_Meta_R].includes(keyval))
+            const result = shortcutFor(button, keyval, keycode, state);
+            if (result.wait)
                 return true;
-            if (mods === 0)
+            if (result.error) {
+                say(result.error);
                 return true;
-            recording = false;
-            settings.set_strv(key, [Gtk.accelerator_name(keyval, mods)]);
+            }
+            const takenFrom = assignShortcut(settings, key, result.accel);
+            stopRecording();
+            if (takenFrom)
+                say(_('Taken from %s').format(takenFrom));
             return true;
         });
         button.add_controller(keys);
+        button.connect('destroy', () => noticeId && GLib.source_remove(noticeId));
         settings.connect(`changed::${key}`, show);
         show();
         this._row(form, title, sw);
@@ -363,7 +482,7 @@ export const utilityMethods = {
         this._pill(form, 'view-app-grid-symbolic', _('Open quick panel'), () => this._request(settings, 'quickpanel'));
         this._hint(form, _('The window of the top-bar button with your favorite tools, summoned by a shortcut from anywhere.'));
         this._hint(form, _('Use the Customize button in the window to choose, hide and drag the tools around.'));
-        this._shortcutPair(form, settings, 'shortcut-quickpanel', '<Control><Super>v');
+        this._shortcutPair(form, settings, 'shortcut-quickpanel', '<Control><Super>q');
         this._togglesPage(settings, form);
         this._micPage(settings, form);
         this._cameraPage(settings, form);

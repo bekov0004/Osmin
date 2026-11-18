@@ -32,6 +32,7 @@ import {SystemService, barReadings} from './services/systemService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
 import {EventType, Priority} from './utils/events.js';
+import {latinAccel, restoreFreedBindings, syncFreedBindings} from './utils/freedBindings.js';
 import {targetMonitors} from './utils/monitors.js';
 import {SignalTracker} from './utils/signals.js';
 
@@ -130,7 +131,7 @@ export class OsminHost {
         // Monitor indices may all change when a screen is plugged or unplugged: start over.
         this._addShortcuts();
         this._offerNewTabs();
-        this._syncSuperV();
+        this._syncFreedBindings();
         this._syncReceiving();
         this._watchInputSource();
         if (this._settings.get('awake-on-start'))
@@ -155,7 +156,7 @@ export class OsminHost {
         this._settings?.disconnectObject(this);
         this._removeShortcuts();
         this._actions?.destroy();
-        this._restoreMessageTrayBinding();
+        this._restoreFreedBindings();
         this._server?.destroy();
         this._server = null;
         this._backend?.localSend.disconnectObject(this);
@@ -281,24 +282,30 @@ export class OsminHost {
     }
 
     /**
-     * GNOME opens its notification list on Super+V, so that combination cannot be used for a Osmin
-     * shortcut. With "free-super-v" on, that default binding is taken away (and given back on disable).
+     * The keys of Osmin's shortcuts work whatever they are: what GNOME uses of them is taken while Osmin runs and given
+     * back afterwards (see utils/freedBindings.js). The old "Free Super+V" switch saved GNOME's own binding: give it back.
      */
-    _syncSuperV() {
-        const wanted = this._settings.get('free-super-v');
+    _syncFreedBindings() {
         const gsettings = this._settings.gsettings;
         if (!gsettings)
             return;
-        const shell = new Gio.Settings({schema_id: 'org.gnome.shell.keybindings'});
-        const saved = gsettings.get_strv('saved-message-tray-binding');
-        if (!wanted) {
-            this._restoreMessageTrayBinding();
-            return;
+        try {
+            const old = gsettings.get_strv('saved-message-tray-binding');
+            if (old.length > 0) {
+                new Gio.Settings({schema_id: 'org.gnome.shell.keybindings'}).set_strv('toggle-message-tray', old);
+                gsettings.set_strv('saved-message-tray-binding', []);
+            }
+            // recorded with the Russian layout by an older Osmin: the Latin key under it works in every layout
+            for (const [key] of SHORTCUTS) {
+                const now = gsettings.get_strv(key);
+                const fixed = now.map(latinAccel);
+                if (fixed.some((accel, i) => accel !== now[i]))
+                    gsettings.set_strv(key, fixed);
+            }
+            syncFreedBindings(gsettings, SHORTCUTS.flatMap(([key]) => gsettings.get_strv(key)));
+        } catch (e) {
+            console.warn(`[osmin] shortcuts: ${e.message}`);
         }
-        // Left over from a shell that stopped without disabling Osmin: the saved list is the original.
-        const original = saved.length > 0 ? saved : shell.get_strv('toggle-message-tray');
-        gsettings.set_strv('saved-message-tray-binding', original);
-        shell.set_strv('toggle-message-tray', original.filter(binding => binding.toLowerCase() !== '<super>v'));
     }
 
     /**
@@ -366,13 +373,15 @@ export class OsminHost {
         }
     }
 
-    _restoreMessageTrayBinding() {
+    _restoreFreedBindings() {
         const gsettings = this._settings?.gsettings;
-        const saved = gsettings?.get_strv('saved-message-tray-binding') ?? [];
-        if (saved.length === 0)
+        if (!gsettings)
             return;
-        new Gio.Settings({schema_id: 'org.gnome.shell.keybindings'}).set_strv('toggle-message-tray', saved);
-        gsettings.set_strv('saved-message-tray-binding', []);
+        try {
+            restoreFreedBindings(gsettings);
+        } catch (e) {
+            console.warn(`[osmin] shortcuts: ${e.message}`);
+        }
     }
 
     _removeShortcuts() {
@@ -403,8 +412,8 @@ export class OsminHost {
             this._menu?.setBaseIcon(this._settings.get('bar-icon'));
         else if (key === 'bar-metrics')
             this._syncBarMetrics();
-        else if (key === 'free-super-v')
-            this._syncSuperV();
+        else if (key.startsWith('shortcut-'))
+            this._syncFreedBindings();
         else if (key === 'localsend-receive')
             this._syncReceiving();
         else if (key === 'panel-color' || key === 'panel-opacity')

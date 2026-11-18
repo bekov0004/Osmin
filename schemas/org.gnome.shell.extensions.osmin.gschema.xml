@@ -54,15 +54,15 @@
       <description>Makes this computer visible to LocalSend devices on the network (it listens on port 53317). Every transfer has to be accepted in a card; files are saved in the Downloads folder. Off by default.</description>
     </key>
 
-    <key name="free-super-v" type="b">
-      <default>false</default>
-      <summary>Free Super+V from GNOME</summary>
-      <description>GNOME opens its notification list on Super+V. While this is on and Osmin is enabled, that default binding is taken away so Super+V (or Super+M) can be used for a Osmin shortcut; it is given back when Osmin is disabled.</description>
+    <key name="freed-bindings" type="s">
+      <default>''</default>
+      <summary>GNOME's own bindings that use the keys of an Osmin shortcut, saved while they are taken</summary>
+      <description>Internal: {"schema|key": [the original list]}. Given back when the shortcut changes or Osmin is disabled.</description>
     </key>
 
     <key name="saved-message-tray-binding" type="as">
       <default>[]</default>
-      <summary>GNOME's own toggle-message-tray binding, saved while it is freed</summary>
+      <summary>Left from an older version: GNOME's toggle-message-tray binding, given back at the next start</summary>
       <description>Internal: restored when Osmin is disabled, or at the next start if the shell stopped without disabling Osmin.</description>
     </key>
 

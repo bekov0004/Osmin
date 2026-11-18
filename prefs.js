@@ -7,7 +7,7 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {DEFAULT_WIDGETS, WIDGET_INFO} from './src/utils/widgetInfo.js';
-import {utilityMethods} from './prefsUtilities.js';
+import {assignShortcut, grabSystemKeys, shortcutFor, utilityMethods} from './prefsUtilities.js';
 
 // --- theme -----------------------------------------------------------------
 // One place for every colour of the settings window (layered surfaces, a quiet blue accent, a dark
@@ -498,7 +498,6 @@ export default class OsminPreferences extends ExtensionPreferences {
             key(_('Behaviour'), _('Swipe down to open'), _('A two-finger swipe down on the capsule opens it'), 'input-touchpad-symbolic', 'gestures-swipe-open'),
             key(_('Behaviour'), _('Swipe up to close'), _('A two-finger swipe up closes the panel'), 'input-touchpad-symbolic', 'gestures-swipe-close'),
             key(_('Behaviour'), _('Swipe to change tracks'), _('A sideways swipe on the capsule skips songs'), 'media-skip-forward-symbolic', 'gestures-media-swipe'),
-            key(_('System'), _('Free Super+V from GNOME'), _('Lets you use Super+V for the Clipboard shortcut'), 'preferences-desktop-keyboard-shortcuts-symbolic', 'free-super-v'),
         ];
 
         // What a feature costs while it is on, said plainly (like "Nothing at rest").
@@ -903,13 +902,11 @@ export default class OsminPreferences extends ExtensionPreferences {
             if (key === 'shortcut-osmin')
                 form.append(new Gtk.Label({label: _('Shortcuts'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
             this._row(form, title, this._shortcutButton(settings, key),
-                key === 'shortcut-osmin' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels.') : '');
+                key === 'shortcut-osmin' ? _('Open the panel on a section. Press the same keys again to close it. Backspace clears, Esc cancels. Any keys work: if GNOME already uses them, Osmin takes them while it runs and gives them back.') : '');
         }
 
         this._toggleRow(form, settings, 'localsend-receive', _('LocalSend'), _('Receive files'),
             _('Makes this computer visible to LocalSend devices on your network (port 53317). Every transfer must be accepted in a card first; files are saved in Downloads. Close the LocalSend app first: only one can listen.'));
-        this._toggleRow(form, settings, 'free-super-v', '', _('Free Super+V from GNOME'),
-            _('GNOME opens its notification list on Super+V, so you cannot record it. This takes that binding away while Osmin is enabled and gives it back when Osmin is disabled. Turn it on first, then record Super+V.'));
 
         this._shortcutPair(form, settings, 'shortcut-awake', '<Control><Alt><Super>k', _('Enable shortcut for “Keep awake”'));
         this._hint(form, _('Works in any app, no extra permissions.'));
@@ -929,22 +926,38 @@ export default class OsminPreferences extends ExtensionPreferences {
     _shortcutButton(settings, key) {
         const button = new Gtk.Button({halign: Gtk.Align.START, width_request: 160});
         let recording = false;
+        let notice = '';
+        let noticeId = 0;
         const show = () => {
             const [accel] = settings.get_strv(key);
-            button.label = recording ? _('Press keys…')
+            button.label = notice ? notice : recording ? _('Press keys…')
                 : accel ? Gtk.accelerator_get_label(...Gtk.accelerator_parse(accel).slice(1)) : _('Not set');
+        };
+        const say = text => {
+            notice = text;
+            if (noticeId)
+                GLib.source_remove(noticeId);
+            noticeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2500, () => {
+                noticeId = 0;
+                notice = '';
+                show();
+                return GLib.SOURCE_REMOVE;
+            });
+            show();
         };
         const stop = () => {
             recording = false;
+            grabSystemKeys(button, false);
             show();
         };
         button.connect('clicked', () => {
             recording = true;
+            grabSystemKeys(button, true);
             show();
             button.grab_focus();
         });
         const keys = new Gtk.EventControllerKey();
-        keys.connect('key-pressed', (_c, keyval, _keycode, state) => {
+        keys.connect('key-pressed', (_c, keyval, keycode, state) => {
             if (!recording)
                 return false;
             const mods = state & Gtk.accelerator_get_default_mod_mask();
@@ -957,11 +970,18 @@ export default class OsminPreferences extends ExtensionPreferences {
                 stop();
                 return true;
             }
-            // A bare modifier (or a key that cannot make a shortcut) keeps waiting.
-            if (mods === 0 || !Gtk.accelerator_valid(keyval, mods))
+            // A bare modifier keeps waiting; keys that cannot make a shortcut say why and keep waiting.
+            const result = shortcutFor(button, keyval, keycode, state);
+            if (result.wait)
                 return true;
-            settings.set_strv(key, [Gtk.accelerator_name(keyval, mods)]);
+            if (result.error) {
+                say(result.error);
+                return true;
+            }
+            const takenFrom = assignShortcut(settings, key, result.accel);
             stop();
+            if (takenFrom)
+                say(_('Taken from %s').format(takenFrom));
             return true;
         });
         button.add_controller(keys);
@@ -969,7 +989,11 @@ export default class OsminPreferences extends ExtensionPreferences {
         focus.connect('leave', stop);
         button.add_controller(focus);
         const changedId = settings.connect(`changed::${key}`, show);
-        button.connect('destroy', () => settings.disconnect(changedId));
+        button.connect('destroy', () => {
+            settings.disconnect(changedId);
+            if (noticeId)
+                GLib.source_remove(noticeId);
+        });
         show();
         return button;
     }
