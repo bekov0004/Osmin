@@ -938,10 +938,16 @@ export class Osmin {
                 this._pinned = false;
                 this._timers.clear('leave');
             } else if (!this._pinned && !this._grab && this._settings.get('auto-collapse')) {
+                // Just after a click inside, a slip of the pointer should not close it: a little longer, in
+                // proportion to the delay chosen (a short delay stays short).
                 const recent = GLib.get_monotonic_time() - this._lastInteraction <
                     INTERACTION_GRACE_MS * 1000;
-                this._timers.set('leave', this._closeDelay() + (recent ? INTERACTION_GRACE_MS : 0),
-                    () => this._settle());
+                const delay = this._closeDelay();
+                const grace = recent ? Math.min(INTERACTION_GRACE_MS, delay * 4) : 0;
+                if (delay + grace <= 0)
+                    this._settle();
+                else
+                    this._timers.set('leave', delay + grace, () => this._settle());
             }
             break;
         case State.CARD:

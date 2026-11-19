@@ -70,6 +70,7 @@ preferencespage { background-color: ${p.BACKGROUND}; }
     border-radius: 999px; box-shadow: none; min-height: 28px; padding: 0 8px; margin: 2px 2px 8px 2px; }
 .osmin-sidebar searchentry:focus-within { box-shadow: 0 0 0 3px ${p.ACCENT_SOFT}; }
 .osmin-sidebar list { background: none; }
+.osmin-sidebar-scroll, .osmin-sidebar-scroll > viewport { background: none; }
 .osmin-sidebar row { background: none; border-radius: 10px; padding: 5px 8px; margin: 1px 2px; min-height: 22px; color: ${p.TEXT}; }
 .osmin-sidebar row:hover { background-color: ${p.HOVER}; }
 .osmin-sidebar row image { color: ${p.ACCENT}; }
@@ -265,12 +266,12 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._applyScheme(settings);
         settings.connect('changed::color-scheme', () => this._applyScheme(settings));
 
-        const page = new Adw.PreferencesPage({title: _('Osmin'), icon_name: 'preferences-system-symbolic'});
-        const group = new Adw.PreferencesGroup();
-        const root = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-prefs']});
-        group.add(root);
-        page.add(group);
-        window.add(page);
+        // The window's own frame: a header, then the menu on the left and the page on the right, each scrolling on
+        // its own and filling the window (no list page around them, with its margins and one scroll for everything).
+        const root = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, css_classes: ['osmin-prefs'], vexpand: true, hexpand: true});
+        const frame = new Adw.ToolbarView({content: root});
+        frame.add_top_bar(new Adw.HeaderBar({title_widget: new Adw.WindowTitle({title: _('Osmin')})}));
+        window.set_content(frame);
 
         const pages = [
             ['general', _('General'), 'preferences-system-symbolic', this._generalPage(settings)],
@@ -372,7 +373,7 @@ export default class OsminPreferences extends ExtensionPreferences {
                 content.margin_start = content.margin_end = 0;
                 content.margin_top = 8;
                 page.append(content);
-                const clamp = new Adw.Clamp({maximum_size: 760, tightening_threshold: 600, child: page, valign: Gtk.Align.START, hexpand: true});
+                const clamp = new Adw.Clamp({maximum_size: 1000, tightening_threshold: 760, child: page, valign: Gtk.Align.START, hexpand: true});
                 const scroller = new Gtk.ScrolledWindow({child: clamp, hscrollbar_policy: Gtk.PolicyType.NEVER, vexpand: true, hexpand: true});
                 stack.add_named(scroller, name);
                 const row = new Gtk.ListBoxRow();
@@ -438,7 +439,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             tryName = TRY[row._page] ?? null;
             tryButton.visible = !!tryName;
         });
-        sidebar.append(list);
+        sidebar.append(new Gtk.ScrolledWindow({child: list, hscrollbar_policy: Gtk.PolicyType.NEVER, vexpand: true, css_classes: ['osmin-sidebar-scroll']}));
         list.select_row(rowsByName.get('general'));
 
         // Typing in the search field shows the features page, filtered.
@@ -447,7 +448,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             featuresPage._filter(search.text);
         });
 
-        const layout = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, height_request: 720});
+        const layout = new Gtk.Box({orientation: Gtk.Orientation.HORIZONTAL, vexpand: true, hexpand: true});
         const right = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true});
         right.append(header);
         right.append(stack);
