@@ -8,6 +8,8 @@ static uint32_t le32(const uint8_t *p) { return (uint32_t)(p[0] | p[1] << 8 | p[
 static void put16(uint8_t *p, uint16_t v) { p[0] = v & 0xff; p[1] = v >> 8; }
 static void put32(uint8_t *p, uint32_t v) { p[0] = v & 0xff; p[1] = v >> 8 & 0xff; p[2] = v >> 16 & 0xff; p[3] = v >> 24; }
 
+static const uint8_t SNAP[8] = {0xaa, 0xaa, 0x03, 0x00, 0x17, 0xf2, 0x08, 0x00};
+
 /* Radiotap: walks the present fields up to the signal strength; sets *fcs when the frame still ends with its FCS. */
 static size_t radiotap(const uint8_t *p, size_t length, int *rssi, int *fcs)
 {
@@ -16,9 +18,8 @@ static size_t radiotap(const uint8_t *p, size_t length, int *rssi, int *fcs)
     if (length < 8 || p[0] != 0)
         return 0;
     size_t header = le16(p + 2);
-    if (header > length)
+    if (header > length || header < 8)
         return 0;
-    /* the present words (bit 31: another word follows) */
     size_t offset = 4;
     uint32_t present = le32(p + 4);
     uint32_t word = present;
@@ -29,7 +30,6 @@ static size_t radiotap(const uint8_t *p, size_t length, int *rssi, int *fcs)
         word = le32(p + offset);
     }
     offset += 4;
-    /* fields in bit order: (bit, size, alignment) */
     static const struct { int bit, size, align; } fields[] = {
         {0, 8, 8}, {1, 1, 1}, {2, 1, 1}, {3, 4, 2}, {4, 2, 1}, {5, 1, 1},
     };
@@ -66,6 +66,27 @@ static void dns_name(const uint8_t *p, size_t length, char *out, size_t size)
     out[written < size ? written : size - 1] = 0;
 }
 
+/* The channel sequence (TLV 18, also at the end of the sync parameters): one channel per slot. */
+static int parse_chanseq(const uint8_t *v, size_t len, uint8_t out[AWDL_SLOTS])
+{
+    if (len < 6)
+        return 0;
+    int count = v[0] + 1;
+    int encoding = v[1];
+    int width = encoding == 0 ? 1 : 2;
+    if (count > AWDL_SLOTS)
+        count = AWDL_SLOTS;
+    if (6 + (size_t)count * width > len)
+        return 0;
+    memset(out, 0, AWDL_SLOTS);
+    for (int i = 0; i < count; i++) {
+        const uint8_t *c = v + 6 + i * width;
+        /* simple: channel; legacy: flags, channel; opclass: channel, class */
+        out[i] = encoding == 1 ? c[1] : c[0];
+    }
+    return 1;
+}
+
 int awdl_parse(const uint8_t *packet, size_t length, struct awdl_frame *out)
 {
     int rssi, fcs;
@@ -75,7 +96,7 @@ int awdl_parse(const uint8_t *packet, size_t length, struct awdl_frame *out)
     const uint8_t *f = packet + rt;
     size_t n = length - rt - (fcs ? 4 : 0);
     /* management (type 0), action (subtype 13): frame control 0xd0 */
-    if (n < 24 + 16 || (f[0] & 0xfc) != 0xd0)
+    if (length < rt + 4 || n < 24 + 16 || (f[0] & 0xfc) != 0xd0)
         return 0;
     const uint8_t *body = f + 24;
     if (body[0] != AWDL_CATEGORY || memcmp(body + 1, AWDL_OUI, 3) != 0 || body[4] != AWDL_TYPE)
@@ -83,7 +104,6 @@ int awdl_parse(const uint8_t *packet, size_t length, struct awdl_frame *out)
     memset(out, 0, sizeof(*out));
     out->devclass = -1;
     out->awdl_version = -1;
-    out->master_metric = -1;
     out->rssi = rssi;
     memcpy(out->src, f + 10, 6);
     out->version = body[5];
@@ -91,6 +111,7 @@ int awdl_parse(const uint8_t *packet, size_t length, struct awdl_frame *out)
     out->phy_tx_time = le32(body + 8);
     out->target_tx_time = le32(body + 12);
 
+    int v2 = 0;
     size_t at = 16;
     size_t total = n - 24;
     while (at + 3 <= total) {
@@ -101,15 +122,55 @@ int awdl_parse(const uint8_t *packet, size_t length, struct awdl_frame *out)
             break;
         if (out->n_tlvs < (int)sizeof(out->tlvs))
             out->tlvs[out->n_tlvs++] = type;
-        if (type == AWDL_TLV_ARPA && len > 1)
-            dns_name(v + 1, len - 1, out->hostname, sizeof(out->hostname));
-        else if (type == AWDL_TLV_VERSION && len >= 2) {
-            out->awdl_version = v[0];
-            out->devclass = v[1];
-        } else if (type == AWDL_TLV_ELECTION_PARAMS && len >= 15) {
-            memcpy(out->master, v + 5, 6);
-            out->has_master = 1;
-            out->master_metric = (int)le32(v + 11);
+        switch (type) {
+        case AWDL_TLV_ARPA:
+            if (len > 1)
+                dns_name(v + 1, len - 1, out->hostname, sizeof(out->hostname));
+            break;
+        case AWDL_TLV_VERSION:
+            if (len >= 2) {
+                out->awdl_version = v[0];
+                out->devclass = v[1];
+            }
+            break;
+        case AWDL_TLV_SYNC_PARAMS:
+            if (len >= 31) {
+                out->has_sync = 1;
+                out->next_aw_channel = v[0];
+                out->tx_counter = le16(v + 1);
+                out->master_channel = v[3];
+                out->aw_period = le16(v + 5);
+                memcpy(out->sync_master, v + 21, 6);
+                out->aw_seq = le16(v + 29);
+                if (!out->has_chanseq && len > 33)
+                    out->has_chanseq = parse_chanseq(v + 33, len - 33, out->chanseq);
+            }
+            break;
+        case AWDL_TLV_CHAN_SEQ:
+            out->has_chanseq = parse_chanseq(v, len, out->chanseq) || out->has_chanseq;
+            break;
+        case AWDL_TLV_ELECTION_PARAMS:
+            if (len >= 19 && !v2) {
+                out->has_election = 1;
+                out->distance = v[3];
+                memcpy(out->master, v + 5, 6);
+                out->master_metric = le32(v + 11);
+                out->self_metric = le32(v + 15);
+            }
+            break;
+        case AWDL_TLV_ELECTION_PARAMS_V2:
+            if (len >= 40) {
+                v2 = 1;
+                out->has_election = 1;
+                memcpy(out->master, v, 6);
+                out->master_counter = le32(v + 12);
+                out->distance = le32(v + 16);
+                out->master_metric = le32(v + 20);
+                out->self_metric = le32(v + 24);
+            }
+            break;
+        default:
+            break;
         }
         at += 3 + len;
     }
@@ -124,16 +185,12 @@ static size_t tlv(uint8_t *p, uint8_t type, const uint8_t *value, uint16_t lengt
     return 3 + (size_t)length;
 }
 
-size_t awdl_build_psf(uint8_t *buffer, size_t size, const uint8_t mac[6], const char *hostname, uint16_t sequence)
+/* Radiotap (no fields) and the 802.11 header of an action frame to everyone in the AWDL BSS. */
+static uint8_t *action_header(uint8_t *p, const uint8_t mac[6], uint16_t sequence, int subtype, uint32_t tx_time_us)
 {
-    if (size < 256)
-        return 0;
-    uint8_t *p = buffer;
-    /* radiotap: version 0, no fields */
     memset(p, 0, 8);
     p[2] = 8;
     p += 8;
-    /* 802.11 action frame to everyone in the AWDL BSS */
     p[0] = 0xd0;
     p[1] = 0;
     put16(p + 2, 0);
@@ -142,20 +199,130 @@ size_t awdl_build_psf(uint8_t *buffer, size_t size, const uint8_t mac[6], const 
     memcpy(p + 16, AWDL_BSSID, 6);
     put16(p + 22, (uint16_t)(sequence << 4));
     p += 24;
-    /* AWDL header */
     p[0] = AWDL_CATEGORY;
     memcpy(p + 1, AWDL_OUI, 3);
     p[4] = AWDL_TYPE;
     p[5] = AWDL_VERSION_1;
-    p[6] = AWDL_SUBTYPE_PSF;
+    p[6] = (uint8_t)subtype;
     p[7] = 0;
-    put32(p + 8, 0);
-    put32(p + 12, 0);
-    p += 16;
-    /* version: AWDL 3.4 (0x34), a Mac */
+    put32(p + 8, tx_time_us);
+    put32(p + 12, tx_time_us);
+    return p + 16;
+}
+
+/* Our channel sequence: the one channel in every slot (opclass encoding), then 3 bytes of padding. */
+static size_t chanseq(uint8_t *v, const struct awdl_self *self)
+{
+    v[0] = AWDL_SLOTS - 1;
+    v[1] = 3;                 /* encoding: channel, operating class */
+    v[2] = 0;                 /* duplicate count */
+    v[3] = AWDL_AWS_PER_SLOT - 1;
+    put16(v + 4, 0xffff);     /* fill channel */
+    for (int i = 0; i < AWDL_SLOTS; i++) {
+        v[6 + i * 2] = self->channel;
+        v[7 + i * 2] = self->opclass;
+    }
+    memset(v + 6 + AWDL_SLOTS * 2, 0, 3);
+    return 6 + AWDL_SLOTS * 2 + 3;
+}
+
+size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *self, int subtype, uint16_t sequence,
+    uint32_t tx_time_us)
+{
+    if (size < 512)
+        return 0;
+    uint8_t *p = action_header(buffer, self->mac, sequence, subtype, tx_time_us);
+    uint8_t v[96];
+
+    /* 4: sync parameters */
+    memset(v, 0, sizeof(v));
+    v[0] = self->channel;
+    put16(v + 1, self->tx_counter);
+    v[3] = self->channel;
+    v[4] = 0;
+    put16(v + 5, AWDL_AW_TU);
+    put16(v + 7, AWDL_AF_PERIOD_TU);
+    put16(v + 9, 0x1800);
+    put16(v + 11, AWDL_AW_TU);
+    put16(v + 13, AWDL_AW_TU);
+    put16(v + 15, self->aw_remaining);
+    v[17] = v[18] = v[19] = v[20] = 3;
+    memcpy(v + 21, self->master, 6);
+    v[27] = 4;
+    v[28] = 0;
+    put16(v + 29, self->aw_seq);
+    put16(v + 31, 0);
+    size_t sync_len = 33 + chanseq(v + 33, self);
+    p += tlv(p, AWDL_TLV_SYNC_PARAMS, v, (uint16_t)sync_len);
+
+    /* 5: election parameters (v1) */
+    memset(v, 0, sizeof(v));
+    v[3] = (uint8_t)self->distance;
+    memcpy(v + 5, self->master, 6);
+    put32(v + 11, self->master_metric);
+    put32(v + 15, self->self_metric);
+    p += tlv(p, AWDL_TLV_ELECTION_PARAMS, v, 21);
+
+    /* 18: channel sequence */
+    p += tlv(p, AWDL_TLV_CHAN_SEQ, v, (uint16_t)chanseq(v, self));
+
+    /* 24: election parameters v2 */
+    memset(v, 0, sizeof(v));
+    memcpy(v, self->master, 6);
+    memcpy(v + 6, self->sync_from, 6);
+    put32(v + 12, self->master_counter);
+    put32(v + 16, self->distance);
+    put32(v + 20, self->master_metric);
+    put32(v + 24, self->self_metric);
+    put32(v + 36, self->self_counter);
+    p += tlv(p, AWDL_TLV_ELECTION_PARAMS_V2, v, 40);
+
+    /* 6: service parameters (nothing in them) */
+    memset(v, 0, 9);
+    p += tlv(p, AWDL_TLV_SERVICE_PARAMS, v, 9);
+
+    /* 7: HT capabilities, one stream */
+    memset(v, 0, 8);
+    put16(v + 2, 0x11ce);
+    v[4] = 0x1b;
+    v[5] = 0xff;
+    p += tlv(p, AWDL_TLV_HT_CAPS, v, 8);
+
+    /* 16: ARPA (MIF only): our name, then a pointer to ".local" */
+    if (subtype == AWDL_SUBTYPE_MIF) {
+        size_t name = strnlen(self->hostname, 60);
+        v[0] = 3;
+        v[1] = (uint8_t)name;
+        memcpy(v + 2, self->hostname, name);
+        v[2 + name] = 0xc0;
+        v[3 + name] = 0x0c;
+        p += tlv(p, AWDL_TLV_ARPA, v, (uint16_t)(name + 4));
+    }
+
+    /* 12: data path state: country, the social channels we are on, our AWDL address */
+    memset(v, 0, sizeof(v));
+    put16(v, 0x0100 | 0x0200 | 0x0004);
+    v[2] = 'X';
+    v[3] = '0';
+    v[4] = 0;
+    put16(v + 5, self->channel == 6 ? 0x0001 : self->channel == 44 ? 0x0002 : 0x0004);
+    memcpy(v + 7, self->mac, 6);
+    p += tlv(p, AWDL_TLV_DATA_PATH_STATE, v, 13);
+
+    /* 21: version: AWDL 3.4, a Mac */
+    v[0] = 0x34;
+    v[1] = AWDL_DEV_MACOS;
+    p += tlv(p, AWDL_TLV_VERSION, v, 2);
+    return (size_t)(p - buffer);
+}
+
+size_t awdl_build_psf(uint8_t *buffer, size_t size, const uint8_t mac[6], const char *hostname, uint16_t sequence)
+{
+    if (size < 256)
+        return 0;
+    uint8_t *p = action_header(buffer, mac, sequence, AWDL_SUBTYPE_PSF, 0);
     const uint8_t version[2] = {0x34, AWDL_DEV_MACOS};
     p += tlv(p, AWDL_TLV_VERSION, version, sizeof(version));
-    /* ARPA: flags, the host name as one DNS label, then a pointer to ".local" */
     uint8_t arpa[70];
     size_t name = strnlen(hostname, 60);
     arpa[0] = 3;
@@ -165,6 +332,98 @@ size_t awdl_build_psf(uint8_t *buffer, size_t size, const uint8_t mac[6], const 
     arpa[3 + name] = 0x0c;
     p += tlv(p, AWDL_TLV_ARPA, arpa, (uint16_t)(name + 4));
     return (size_t)(p - buffer);
+}
+
+size_t awdl_wrap_data(uint8_t *buffer, size_t size, const uint8_t *ether, size_t length, uint16_t sequence)
+{
+    if (length < 14 || 8 + 24 + 8 + 8 + (length - 14) > size)
+        return 0;
+    uint8_t *p = buffer;
+    memset(p, 0, 8);
+    p[2] = 8;
+    p += 8;
+    /* data frame, no DS bits: receiver, transmitter, BSSID */
+    p[0] = 0x08;
+    p[1] = 0;
+    put16(p + 2, 0);
+    memcpy(p + 4, ether, 6);
+    memcpy(p + 10, ether + 6, 6);
+    memcpy(p + 16, AWDL_BSSID, 6);
+    put16(p + 22, (uint16_t)(sequence << 4));
+    p += 24;
+    memcpy(p, SNAP, 8);
+    p += 8;
+    /* AWDL data header: 0x0403, sequence, padding, ethertype (big endian, as in the Ethernet frame) */
+    put16(p, 0x0403);
+    put16(p + 2, sequence);
+    put16(p + 4, 0);
+    p[6] = ether[12];
+    p[7] = ether[13];
+    p += 8;
+    memcpy(p, ether + 14, length - 14);
+    p += length - 14;
+    return (size_t)(p - buffer);
+}
+
+/* One body (from the SNAP header on) as an Ethernet frame. */
+static int deliver_body(const uint8_t *dst, const uint8_t *src, const uint8_t *body, size_t length, awdl_deliver deliver,
+    void *context)
+{
+    if (length < 16 || memcmp(body, SNAP, 8) != 0 || le16(body + 8) != 0x0403)
+        return 0;
+    uint8_t ether[2400];
+    size_t payload = length - 16;
+    if (14 + payload > sizeof(ether))
+        return 0;
+    memcpy(ether, dst, 6);
+    memcpy(ether + 6, src, 6);
+    ether[12] = body[14];
+    ether[13] = body[15];
+    memcpy(ether + 14, body + 16, payload);
+    deliver(ether, 14 + payload, context);
+    return 1;
+}
+
+int awdl_unwrap_data(const uint8_t *packet, size_t length, uint8_t src[6], awdl_deliver deliver, void *context)
+{
+    int rssi, fcs;
+    size_t rt = radiotap(packet, length, &rssi, &fcs);
+    if (!rt || length < rt + 24)
+        return 0;
+    const uint8_t *f = packet + rt;
+    size_t n = length - rt - (fcs ? 4 : 0);
+    /* data frames (type 2): plain (subtype 0) or QoS (subtype 8); no DS bits; the AWDL BSSID */
+    if ((f[0] & 0x0c) != 0x08 || (f[1] & 0x03) != 0 || memcmp(f + 16, AWDL_BSSID, 6) != 0)
+        return 0;
+    int qos = (f[0] & 0x80) != 0;
+    size_t header = 24 + (qos ? 2 : 0);
+    if (f[1] & 0x80)          /* order bit: an HT control field follows */
+        header += 4;
+    if (n <= header)
+        return 0;
+    if (src)
+        memcpy(src, f + 10, 6);
+    const uint8_t *body = f + header;
+    size_t body_len = n - header;
+    int amsdu = qos && (f[24] & 0x80);
+    if (!amsdu)
+        return deliver_body(f + 4, f + 10, body, body_len, deliver, context);
+    /* A-MSDU: subframes of DA, SA, length (big endian), body, padded to 4 bytes */
+    int count = 0;
+    size_t at = 0;
+    while (at + 14 <= body_len && count < 16) {
+        size_t sub = (size_t)(body[at + 12] << 8 | body[at + 13]);
+        if (at + 14 + sub > body_len)
+            break;
+        count += deliver_body(body + at, body + at + 6, body + at + 14, sub, deliver, context);
+        at += (14 + sub + 3) & ~(size_t)3;
+    }
+    return count;
+}
+
+void awdl_link_local(const uint8_t mac[6], char *out, size_t size)
+{
+    snprintf(out, size, "fe80::%02x%02x:%02xff:fe%02x:%02x%02x", mac[0] ^ 0x02, mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
 const char *awdl_tlv_name(int type)

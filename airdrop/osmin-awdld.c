@@ -1,0 +1,679 @@
+/*
+ * osmin-awdld: an AWDL node for AirDrop in Osmin. Needs root (a monitor interface and a TAP interface).
+ *
+ *   sudo osmin-awdld [--channel 149|44|6] [--take-card] [--name NAME] [--verbose]
+ *
+ * Connected to Wi-Fi it shares the access point's channel (which must then be 6, 44 or 149); not connected, it tunes
+ * the card to --channel (149 by default). --take-card also tells NetworkManager to leave the card alone while it runs
+ * (no scanning that moves the channel), and gives it back afterwards.
+ *
+ * What it does:
+ *  - adds a monitor interface (osminawdl) beside the Wi-Fi one, and a TAP interface awdl0 with the Wi-Fi card's MAC
+ *    (the card acknowledges frames sent to its own address), which gets its IPv6 link-local address from it;
+ *  - follows the AWDL schedule of the Apple devices nearby (their sync parameters) and, in the windows where they are
+ *    on our channel, sends our PSF/MIF and the data waiting for them; with nobody to follow it announces itself in
+ *    bursts so that they notice it;
+ *  - Apple devices that sent a MIF and a version become neighbours: awdl0 gets a fixed IPv6 neighbour entry for them,
+ *    so the AirDrop server (airdrop.py) can talk to them over plain IPv6.
+ * Every few seconds it writes what it hears and sends, for testing.
+ */
+#define _GNU_SOURCE
+#include "awdl.h"
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/if_packet.h>
+#include <linux/if_tun.h>
+#include <net/ethernet.h>
+#include <net/if.h>
+#include <poll.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <time.h>
+#include <unistd.h>
+
+#define MONITOR "osminawdl"
+#define TAP "awdl0"
+#define MAX_PEERS 32
+#define QUEUE 128
+#define PEER_TIMEOUT_US 5000000LL
+#define GUARD_US (3 * AWDL_TU_US)
+#define AW_US ((int64_t)AWDL_AW_TU * AWDL_TU_US)
+
+static char wifi[IFNAMSIZ];
+static char phy[32];
+static int verbose;
+static int took_card;
+static volatile sig_atomic_t stop;
+
+static void on_signal(int sig) { (void)sig; stop = 1; }
+
+static int64_t now_us(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (int64_t)t.tv_sec * 1000000 + t.tv_nsec / 1000;
+}
+
+static void say(const char *format, ...)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    struct tm tm;
+    localtime_r(&t.tv_sec, &tm);
+    printf("%02d:%02d:%02d.%03ld ", tm.tm_hour, tm.tm_min, tm.tm_sec, t.tv_nsec / 1000000);
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+    putchar('\n');
+    fflush(stdout);
+}
+
+static int sh(const char *format, ...)
+{
+    char command[512];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(command, sizeof(command), format, args);
+    va_end(args);
+    if (verbose)
+        say("$ %s", command);
+    return system(command);
+}
+
+static int read_line(const char *path, char *out, size_t size)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return 0;
+    int ok = fgets(out, (int)size, f) != NULL;
+    fclose(f);
+    if (ok)
+        out[strcspn(out, "\n")] = 0;
+    return ok;
+}
+
+static int find_wifi(void)
+{
+    FILE *p = popen("ls /sys/class/net", "r");
+    char name[64];
+    int found = 0;
+    while (p && !found && fgets(name, sizeof(name), p)) {
+        name[strcspn(name, "\n")] = 0;
+        char path[256];
+        snprintf(path, sizeof(path), "/sys/class/net/%.40s/phy80211/name", name);
+        if (strcmp(name, MONITOR) != 0 && read_line(path, phy, sizeof(phy))) {
+            snprintf(wifi, sizeof(wifi), "%.15s", name);
+            found = 1;
+        }
+    }
+    if (p)
+        pclose(p);
+    return found;
+}
+
+static int current_channel(void)
+{
+    char command[128], line[256];
+    snprintf(command, sizeof(command), "iw dev %s info 2>/dev/null", wifi);
+    FILE *p = popen(command, "r");
+    int channel = 0;
+    while (p && fgets(line, sizeof(line), p)) {
+        char *at = strstr(line, "channel ");
+        if (at)
+            sscanf(at, "channel %d", &channel);
+    }
+    if (p)
+        pclose(p);
+    return channel;
+}
+
+static int read_mac(const char *ifname, uint8_t mac[6])
+{
+    char path[128], text[32];
+    snprintf(path, sizeof(path), "/sys/class/net/%s/address", ifname);
+    return read_line(path, text, sizeof(text)) &&
+        sscanf(text, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6;
+}
+
+static const char *mac_text(const uint8_t m[6])
+{
+    static char buffers[4][18];
+    static int next;
+    char *b = buffers[next++ & 3];
+    snprintf(b, 18, "%02x:%02x:%02x:%02x:%02x:%02x", m[0], m[1], m[2], m[3], m[4], m[5]);
+    return b;
+}
+
+/* --- peers -------------------------------------------------------------------------------------------------- */
+
+struct frame { uint8_t data[2400]; size_t length; };
+
+struct peer {
+    uint8_t mac[6];
+    char hostname[64];
+    int devclass;
+    int seen_mif, valid;
+    int64_t heard;            /* last time anything came from it */
+    uint8_t chanseq[AWDL_SLOTS];
+    int has_chanseq;
+    /* its schedule: AW number `seq` started at `start` */
+    int has_sync;
+    int64_t sync_start;
+    uint16_t sync_seq;
+    uint8_t master[6];
+    uint32_t master_metric, master_counter, distance;
+    /* data waiting for its next window on our channel */
+    struct frame *queue[QUEUE];
+    int queued;
+    long rx_frames, rx_data, tx_data;
+};
+
+static struct peer peers[MAX_PEERS];
+static int n_peers;
+static struct frame *multicast[QUEUE];
+static int n_multicast;
+
+static struct awdl_self self;
+static int monitor_fd = -1, tap_fd = -1;
+static uint16_t sequence;
+static long sent_af, sent_data, send_errors, rx_af, rx_data, tap_in;
+
+static struct peer *find_peer(const uint8_t mac[6])
+{
+    for (int i = 0; i < n_peers; i++) {
+        if (memcmp(peers[i].mac, mac, 6) == 0)
+            return &peers[i];
+    }
+    return NULL;
+}
+
+static struct peer *add_peer(const uint8_t mac[6])
+{
+    struct peer *p = find_peer(mac);
+    if (p || n_peers == MAX_PEERS)
+        return p;
+    p = &peers[n_peers++];
+    memset(p, 0, sizeof(*p));
+    memcpy(p->mac, mac, 6);
+    p->devclass = -1;
+    return p;
+}
+
+static void neighbour(const struct peer *p, int add)
+{
+    char ll[64];
+    awdl_link_local(p->mac, ll, sizeof(ll));
+    if (add)
+        sh("ip -6 neigh replace %s lladdr %s dev %s nud permanent 2>/dev/null", ll, mac_text(p->mac), TAP);
+    else
+        sh("ip -6 neigh del %s dev %s 2>/dev/null", ll, TAP);
+}
+
+static void drop_queue(struct frame **queue, int *count)
+{
+    for (int i = 0; i < *count; i++)
+        free(queue[i]);
+    *count = 0;
+}
+
+static void forget_peer(int index)
+{
+    struct peer *p = &peers[index];
+    if (p->valid) {
+        neighbour(p, 0);
+        say("gone: %s %s", mac_text(p->mac), p->hostname);
+    }
+    drop_queue(p->queue, &p->queued);
+    peers[index] = peers[--n_peers];
+}
+
+/* --- schedule ----------------------------------------------------------------------------------------------- */
+
+/* Our clock of AWs: AW number `seq` starts at `start` (µs); everything else follows from AW_US. */
+static int64_t clock_start;
+static uint16_t clock_seq;
+static uint8_t sync_source[6];
+static int synced;
+
+/* The AW we are in at `t`: its number and when it started. */
+static void aw_at(int64_t t, uint16_t *seq, int64_t *start)
+{
+    int64_t delta = t - clock_start;
+    int64_t index = delta >= 0 ? delta / AW_US : -((-delta + AW_US - 1) / AW_US);
+    *seq = (uint16_t)(clock_seq + index);
+    *start = clock_start + index * AW_US;
+}
+
+/* Whether a peer listens on our channel in AW `seq` (its channel sequence, 4 AWs per slot). */
+static int peer_here(const struct peer *p, uint16_t seq)
+{
+    if (!p->has_chanseq)
+        return 1;
+    return p->chanseq[(seq / AWDL_AWS_PER_SLOT) % AWDL_SLOTS] == self.channel;
+}
+
+/* Follows the best master we hear: the one with the highest metric (then counter) among valid peers. */
+static void elect(void)
+{
+    struct peer *best = NULL;
+    for (int i = 0; i < n_peers; i++) {
+        struct peer *p = &peers[i];
+        if (!p->valid || !p->has_sync)
+            continue;
+        if (!best || p->master_metric > best->master_metric ||
+            (p->master_metric == best->master_metric && p->master_counter > best->master_counter) ||
+            (p->master_metric == best->master_metric && p->master_counter == best->master_counter && p->distance < best->distance))
+            best = p;
+    }
+    if (!best) {
+        if (synced)
+            say("no Apple device to follow: announcing ourselves");
+        synced = 0;
+        memcpy(self.master, self.mac, 6);
+        memcpy(self.sync_from, self.mac, 6);
+        self.master_metric = self.self_metric;
+        self.master_counter = self.self_counter;
+        self.distance = 0;
+        return;
+    }
+    if (!synced || memcmp(sync_source, best->mac, 6) != 0)
+        say("following %s %s (master %s, metric %u)", mac_text(best->mac), best->hostname, mac_text(best->master), best->master_metric);
+    synced = 1;
+    memcpy(sync_source, best->mac, 6);
+    clock_start = best->sync_start;
+    clock_seq = best->sync_seq;
+    memcpy(self.master, best->master, 6);
+    memcpy(self.sync_from, best->mac, 6);
+    self.master_metric = best->master_metric;
+    self.master_counter = best->master_counter;
+    self.distance = best->distance + 1;
+}
+
+/* --- sending ------------------------------------------------------------------------------------------------ */
+
+static void send_raw(const uint8_t *frame, size_t length, long *counter)
+{
+    if (send(monitor_fd, frame, length, 0) == (ssize_t)length)
+        (*counter)++;
+    else {
+        send_errors++;
+        if (verbose)
+            say("send failed: %s", strerror(errno));
+    }
+}
+
+static void send_action(int subtype)
+{
+    int64_t t = now_us();
+    uint16_t seq;
+    int64_t start;
+    aw_at(t, &seq, &start);
+    int64_t next = start + AW_US;
+    self.tx_counter = (uint16_t)((next - t) / AWDL_TU_US);
+    self.aw_seq = (uint16_t)(seq + 1);
+    self.aw_remaining = self.tx_counter;
+    uint8_t frame[1024];
+    size_t length = awdl_build_action(frame, sizeof(frame), &self, subtype, sequence++, (uint32_t)t);
+    if (length)
+        send_raw(frame, length, &sent_af);
+}
+
+static void send_ether(const uint8_t *ether, size_t length)
+{
+    uint8_t frame[2600];
+    size_t n = awdl_wrap_data(frame, sizeof(frame), ether, length, sequence++);
+    if (n)
+        send_raw(frame, n, &sent_data);
+}
+
+static void enqueue(struct frame **queue, int *count, const uint8_t *data, size_t length)
+{
+    if (length > sizeof(queue[0]->data))
+        return;
+    if (*count == QUEUE) {
+        free(queue[0]);
+        memmove(queue, queue + 1, sizeof(queue[0]) * (QUEUE - 1));
+        (*count)--;
+    }
+    struct frame *f = malloc(sizeof(*f));
+    if (!f)
+        return;
+    memcpy(f->data, data, length);
+    f->length = length;
+    queue[(*count)++] = f;
+}
+
+/* In an AW where `p` is on our channel: what waits for it goes now. */
+static void flush_peer(struct peer *p)
+{
+    for (int i = 0; i < p->queued; i++) {
+        send_ether(p->queue[i]->data, p->queue[i]->length);
+        p->tx_data++;
+    }
+    drop_queue(p->queue, &p->queued);
+}
+
+/* --- receiving ---------------------------------------------------------------------------------------------- */
+
+static void on_action(const struct awdl_frame *f, int64_t t)
+{
+    rx_af++;
+    if (memcmp(f->src, self.mac, 6) == 0)
+        return;
+    struct peer *p = add_peer(f->src);
+    if (!p)
+        return;
+    p->heard = t;
+    p->rx_frames++;
+    if (f->hostname[0])
+        snprintf(p->hostname, sizeof(p->hostname), "%s", f->hostname);
+    if (f->devclass >= 0)
+        p->devclass = f->devclass;
+    if (f->subtype == AWDL_SUBTYPE_MIF)
+        p->seen_mif = 1;
+    if (f->has_chanseq) {
+        memcpy(p->chanseq, f->chanseq, AWDL_SLOTS);
+        p->has_chanseq = 1;
+    }
+    if (f->has_sync && f->aw_period) {
+        /* its next AW (number aw_seq) starts tx_counter TU after it sent this */
+        p->has_sync = 1;
+        p->sync_start = t + (int64_t)f->tx_counter * AWDL_TU_US - AW_US;
+        p->sync_seq = (uint16_t)(f->aw_seq - 1);
+    }
+    if (f->has_election) {
+        memcpy(p->master, f->master, 6);
+        p->master_metric = f->master_metric;
+        p->master_counter = f->master_counter;
+        p->distance = f->distance;
+    }
+    if (!p->valid && p->seen_mif && f->awdl_version > 0 && f->devclass > 0) {
+        p->valid = 1;
+        neighbour(p, 1);
+        char ll[64];
+        awdl_link_local(p->mac, ll, sizeof(ll));
+        say("neighbour: %s %s (%s) %d dBm, %s%%%s", mac_text(p->mac), p->hostname, awdl_devclass_name(p->devclass), f->rssi, ll, TAP);
+        if (verbose && f->has_sync)
+            say("  sync: next AW %u in %u TU on channel %u, master channel %u, sequence %s%s", f->aw_seq, f->tx_counter,
+                f->next_aw_channel, f->master_channel, p->has_chanseq ? "" : "(none)", "");
+        if (verbose && p->has_chanseq) {
+            char text[128] = "";
+            for (int i = 0; i < AWDL_SLOTS; i++)
+                snprintf(text + strlen(text), sizeof(text) - strlen(text), "%d ", p->chanseq[i]);
+            say("  channels per slot: %s", text);
+        }
+    }
+}
+
+static void to_tap(const uint8_t *ether, size_t length, void *context)
+{
+    (void)context;
+    /* ours (unicast) or multicast */
+    if (memcmp(ether, self.mac, 6) != 0 && !(ether[0] & 1))
+        return;
+    if (write(tap_fd, ether, length) < 0 && verbose)
+        say("tap write: %s", strerror(errno));
+    rx_data++;
+}
+
+static void on_monitor(int64_t t)
+{
+    uint8_t packet[4096];
+    ssize_t n = recv(monitor_fd, packet, sizeof(packet), MSG_DONTWAIT);
+    if (n <= 0)
+        return;
+    struct awdl_frame f;
+    if (awdl_parse(packet, (size_t)n, &f)) {
+        on_action(&f, t);
+        return;
+    }
+    uint8_t src[6];
+    if (awdl_unwrap_data(packet, (size_t)n, src, to_tap, NULL)) {
+        struct peer *p = find_peer(src);
+        if (p) {
+            p->heard = t;
+            p->rx_data++;
+        }
+    }
+}
+
+static void on_tap(void)
+{
+    uint8_t ether[2400];
+    ssize_t n = read(tap_fd, ether, sizeof(ether));
+    if (n < 14)
+        return;
+    tap_in++;
+    if (ether[0] & 1) {
+        enqueue(multicast, &n_multicast, ether, (size_t)n);
+        return;
+    }
+    struct peer *p = find_peer(ether);
+    if (p && p->valid)
+        enqueue(p->queue, &p->queued, ether, (size_t)n);
+}
+
+/* --- setup -------------------------------------------------------------------------------------------------- */
+
+static int open_tap(void)
+{
+    int fd = open("/dev/net/tun", O_RDWR | O_NONBLOCK);
+    if (fd < 0)
+        return -1;
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", TAP);
+    if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+static void cleanup(void)
+{
+    for (int i = n_peers - 1; i >= 0; i--)
+        forget_peer(i);
+    drop_queue(multicast, &n_multicast);
+    if (tap_fd >= 0)
+        close(tap_fd);
+    if (monitor_fd >= 0)
+        close(monitor_fd);
+    sh("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
+    if (took_card)
+        sh("nmcli device set %s managed yes 2>/dev/null", wifi);
+}
+
+int main(int argc, char **argv)
+{
+    int want_channel = 149, take_card = 0;
+    const char *name = NULL;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--channel") == 0 && i + 1 < argc)
+            want_channel = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--take-card") == 0)
+            take_card = 1;
+        else if (strcmp(argv[i], "--name") == 0 && i + 1 < argc)
+            name = argv[++i];
+        else if (strcmp(argv[i], "--verbose") == 0)
+            verbose = 1;
+        else {
+            fprintf(stderr, "usage: osmin-awdld [--channel 149|44|6] [--take-card] [--name NAME] [--verbose]\n");
+            return 1;
+        }
+    }
+    if (geteuid() != 0) {
+        fprintf(stderr, "osmin-awdld needs root\n");
+        return 1;
+    }
+    if (!find_wifi()) {
+        fprintf(stderr, "no Wi-Fi card found\n");
+        return 1;
+    }
+    memset(&self, 0, sizeof(self));
+    if (!read_mac(wifi, self.mac)) {
+        fprintf(stderr, "cannot read the MAC of %s\n", wifi);
+        return 1;
+    }
+    char host[64];
+    gethostname(host, sizeof(host));
+    snprintf(self.hostname, sizeof(self.hostname), "%.60s", name ? name : host);
+
+    int connected = current_channel();
+    int channel = connected ? connected : want_channel;
+    if (channel != 6 && channel != 44 && channel != 149) {
+        fprintf(stderr, "%s is on channel %d; AWDL needs 6, 44 or 149. Set the router to 149, or disconnect from Wi-Fi.\n", wifi, channel);
+        return 1;
+    }
+    self.channel = (uint8_t)channel;
+    self.opclass = channel == 6 ? 0x51 : 0x80;
+    self.self_metric = 60;
+    self.self_counter = 0;
+    memcpy(self.master, self.mac, 6);
+    memcpy(self.sync_from, self.mac, 6);
+    self.master_metric = 60;
+
+    signal(SIGINT, on_signal);
+    signal(SIGTERM, on_signal);
+    signal(SIGPIPE, SIG_IGN);
+
+    if (take_card && !connected) {
+        sh("nmcli device set %s managed no 2>/dev/null", wifi);
+        took_card = 1;
+    }
+    sh("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
+    if (sh("iw phy %s interface add %s type monitor flags active 2>/dev/null || iw phy %s interface add %s type monitor", phy, MONITOR, phy, MONITOR) != 0 ||
+        sh("ip link set %s up", MONITOR) != 0) {
+        fprintf(stderr, "could not add a monitor interface beside %s\n", wifi);
+        cleanup();
+        return 1;
+    }
+    if (!connected) {
+        /* the whole card is ours: the primary channel, 80 MHz on 5 GHz so that wide frames are heard too */
+        if (channel == 149)
+            sh("iw dev %s set freq 5745 80 5775 2>/dev/null || iw dev %s set channel 149", MONITOR, MONITOR);
+        else if (channel == 44)
+            sh("iw dev %s set freq 5220 80 5210 2>/dev/null || iw dev %s set channel 44", MONITOR, MONITOR);
+        else
+            sh("iw dev %s set channel 6", MONITOR);
+    }
+    monitor_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+    struct sockaddr_ll where = {.sll_family = AF_PACKET, .sll_protocol = htons(ETH_P_ALL), .sll_ifindex = (int)if_nametoindex(MONITOR)};
+    if (monitor_fd < 0 || bind(monitor_fd, (struct sockaddr *)&where, sizeof(where)) < 0) {
+        perror("monitor socket");
+        cleanup();
+        return 1;
+    }
+    tap_fd = open_tap();
+    if (tap_fd < 0) {
+        perror("awdl0 (TAP)");
+        cleanup();
+        return 1;
+    }
+    sh("nmcli device set %s managed no 2>/dev/null", TAP);
+    sh("sysctl -qw net.ipv6.conf.%s.accept_ra=0 net.ipv6.conf.%s.dad_transmits=0 net.ipv6.conf.%s.addr_gen_mode=0 2>/dev/null", TAP, TAP, TAP);
+    sh("ip link set %s address %s mtu 1450 up", TAP, mac_text(self.mac));
+
+    char ll[64];
+    awdl_link_local(self.mac, ll, sizeof(ll));
+    say("AWDL on %s channel %d (%s), %s %s, name %s", wifi, channel, connected ? "shared with the Wi-Fi connection" : "the card is ours",
+        TAP, ll, self.hostname);
+    say("open the share sheet on the iPhone (AirDrop: Everyone for 10 minutes)");
+
+    clock_start = now_us();
+    clock_seq = 0;
+    int64_t next_report = now_us() + 5000000, burst_at = now_us();
+    int burst_left = 64;
+    uint16_t last_aw = 0xffff;
+    while (!stop) {
+        int64_t t = now_us();
+        uint16_t seq;
+        int64_t start;
+        aw_at(t, &seq, &start);
+
+        /* forget the silent */
+        for (int i = n_peers - 1; i >= 0; i--) {
+            if (t - peers[i].heard > PEER_TIMEOUT_US)
+                forget_peer(i);
+        }
+        elect();
+        aw_at(t, &seq, &start);
+
+        if (!synced) {
+            /* nobody to follow: bursts of MIFs, one every AW, then a pause */
+            if (t >= burst_at) {
+                send_action(AWDL_SUBTYPE_MIF);
+                burst_at = t + AW_US;
+                if (--burst_left == 0) {
+                    burst_left = 64;
+                    burst_at = t + 3000000;
+                }
+            }
+            drop_queue(multicast, &n_multicast);
+        } else if (seq != last_aw && t >= start + GUARD_US && t < start + AW_US - GUARD_US) {
+            /* a new AW: who is on our channel now? */
+            int anyone = 0;
+            for (int i = 0; i < n_peers; i++) {
+                if (peers[i].valid && peer_here(&peers[i], seq))
+                    anyone = 1;
+            }
+            if (anyone) {
+                last_aw = seq;
+                send_action(seq % 4 == 0 ? AWDL_SUBTYPE_MIF : AWDL_SUBTYPE_PSF);
+                for (int i = 0; i < n_multicast; i++)
+                    send_ether(multicast[i]->data, multicast[i]->length);
+                drop_queue(multicast, &n_multicast);
+                for (int i = 0; i < n_peers; i++) {
+                    if (peers[i].valid && peer_here(&peers[i], seq))
+                        flush_peer(&peers[i]);
+                }
+            }
+        }
+
+        if (t >= next_report) {
+            next_report = t + 5000000;
+            say("heard %ld AWDL frames, %ld data in; sent %ld AWDL frames, %ld data out, %ld failed; %d device(s), %s",
+                rx_af, rx_data, sent_af, sent_data, send_errors, n_peers, synced ? "in sync" : "announcing");
+            for (int i = 0; i < n_peers; i++) {
+                struct peer *p = &peers[i];
+                say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d", mac_text(p->mac), p->hostname,
+                    awdl_devclass_name(p->devclass), p->valid ? "neighbour" : (p->seen_mif ? "no version yet" : "no MIF yet"),
+                    p->rx_frames, p->rx_data, p->tx_data, p->queued);
+            }
+        }
+
+        /* wait for a frame, a packet to send, or the next AW */
+        int64_t wake = synced ? start + AW_US + GUARD_US : burst_at;
+        int timeout = (int)((wake - now_us()) / 1000);
+        if (timeout < 0)
+            timeout = 0;
+        if (timeout > 20)
+            timeout = 20;
+        struct pollfd fds[2] = {{.fd = monitor_fd, .events = POLLIN}, {.fd = tap_fd, .events = POLLIN}};
+        if (poll(fds, 2, timeout) > 0) {
+            int64_t when = now_us();
+            if (fds[0].revents & POLLIN) {
+                for (int k = 0; k < 64; k++) {
+                    struct pollfd one = {.fd = monitor_fd, .events = POLLIN};
+                    if (poll(&one, 1, 0) <= 0)
+                        break;
+                    on_monitor(when);
+                }
+            }
+            if (fds[1].revents & POLLIN)
+                on_tap();
+        }
+    }
+    say("stopping");
+    cleanup();
+    return 0;
+}
