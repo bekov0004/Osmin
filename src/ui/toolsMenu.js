@@ -96,15 +96,27 @@ export class ToolsMenu {
         logo.add_child(mark);
         root.add_child(logo);
 
-        // The icon tabs.
-        const tabs = new St.BoxLayout({style_class: 'osmin-menu-tabs', x_expand: true});
+        // The icon tabs: they keep their size; when there are more than fit, the row scrolls sideways (wheel, touchpad,
+        // and the chosen tab is brought into view), its ends fading out.
+        const tabsFrame = new St.Bin({style_class: 'osmin-menu-tabs', x_expand: true});
+        this._tabsScroll = new St.ScrollView({
+            style_class: 'osmin-menu-tabs-scroll',
+            hscrollbar_policy: St.PolicyType.EXTERNAL,
+            vscrollbar_policy: St.PolicyType.NEVER,
+            overlay_scrollbars: true,
+            x_expand: true,
+        });
+        const tabs = new St.BoxLayout({style_class: 'osmin-menu-tabs-row', x_expand: true});
         this._widgets.forEach((widget, index) => {
             const tab = createButton({iconName: widget.constructor.iconName, styleClass: 'osmin-menu-tab', expand: true, onClick: () => this._select(index)});
             tab.accessible_name = widget.constructor.title;
             tabs.add_child(tab);
             this._tabs.push(tab);
         });
-        root.add_child(tabs);
+        this._tabsScroll.set_child(tabs);
+        this._tabsScroll.connect('scroll-event', (_a, event) => this._scrollTabs(event));
+        tabsFrame.set_child(this._tabsScroll);
+        root.add_child(tabsFrame);
 
         const titleRow = new St.BoxLayout({x_expand: true, style_class: 'osmin-menu-titlerow'});
         this._title = new St.Label({style_class: 'osmin-menu-title', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
@@ -180,6 +192,47 @@ export class ToolsMenu {
         this._button.container.get_parent()?.insert_child_above(this._readingsButton, this._button.container);
     }
 
+    /** The wheel (up and down too) and the touchpad move the tab row sideways. */
+    _scrollTabs(event) {
+        const adjustment = this._tabsScroll.hadjustment;
+        if (adjustment.upper - adjustment.page_size <= 0)
+            return Clutter.EVENT_PROPAGATE;
+        let delta = 0;
+        switch (event.get_scroll_direction()) {
+        case Clutter.ScrollDirection.UP:
+        case Clutter.ScrollDirection.LEFT:
+            delta = -60;
+            break;
+        case Clutter.ScrollDirection.DOWN:
+        case Clutter.ScrollDirection.RIGHT:
+            delta = 60;
+            break;
+        case Clutter.ScrollDirection.SMOOTH: {
+            const [dx, dy] = event.get_scroll_delta();
+            delta = (Math.abs(dx) > Math.abs(dy) ? dx : dy) * 30;
+            break;
+        }
+        default:
+            return Clutter.EVENT_PROPAGATE;
+        }
+        adjustment.value = Math.max(adjustment.lower, Math.min(adjustment.value + delta, adjustment.upper - adjustment.page_size));
+        return Clutter.EVENT_STOP;
+    }
+
+    /** The chosen tab in view (half a tab of the next one showing, so it is plain there is more). */
+    _showTab(index) {
+        const tab = this._tabs[index];
+        const adjustment = this._tabsScroll?.hadjustment;
+        if (!tab || !adjustment || !tab.get_stage())
+            return;
+        const box = tab.get_allocation_box();
+        const margin = tab.width * 0.6;
+        if (box.x1 - margin < adjustment.value)
+            adjustment.ease(Math.max(adjustment.lower, box.x1 - margin), {duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+        else if (box.x2 + margin > adjustment.value + adjustment.page_size)
+            adjustment.ease(Math.min(adjustment.upper - adjustment.page_size, box.x2 + margin - adjustment.page_size), {duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+    }
+
     /** The customize mode of a page: its rows get handles and eyes. */
     _setCustomizing(on) {
         const widget = this._widgets[this._current];
@@ -199,6 +252,12 @@ export class ToolsMenu {
     }
 
     _onOpenChanged(open) {
+        if (open) {
+            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                this._showTab(this._current);
+                return GLib.SOURCE_REMOVE;
+            });
+        }
         const widget = this._widgets[this._current];
         if (open)
             widget?.onPageShown();
@@ -227,6 +286,7 @@ export class ToolsMenu {
         });
         this._customize.visible = !!widget.customizable;
         this._scroll.vadjustment.value = 0;
+        this._showTab(index);
         if (open)
             widget.onPageShown();
     }

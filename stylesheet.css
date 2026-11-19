@@ -1872,8 +1872,15 @@
     spacing: 12px;
 }
 
-.osmin-menu-tabs {
+.osmin-menu-tabs-row {
     spacing: 2px;
+}
+
+.osmin-menu-tabs-scroll {
+    -st-hfade-offset: 22px;
+}
+
+.osmin-menu-tabs {
     padding: 5px;
     border-radius: 18px;
     background-color: rgba(255, 255, 255, 0.04);
@@ -1882,6 +1889,7 @@
 
 .osmin-button.osmin-menu-tab {
     height: 40px;
+    min-width: 40px;
     border-radius: 13px;
     padding: 0;
     background-color: transparent;
