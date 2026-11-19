@@ -641,11 +641,12 @@
 }
 
 .osmin-tray-clear {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 9px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 10px;
     font-weight: 600;
-    padding: 0 6px;
-    border-radius: 8px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.09);
 }
 
 .osmin-tray-clear:hover {
@@ -1206,7 +1207,7 @@
 
 .osmin-dnd:checked {
     color: white;
-    background-color: rgba(255, 255, 255, 0.18);
+    background-color: rgba(53, 132, 228, 0.6);
 }
 
 /* Vertical slider (the enlarged mirror's zoom) */
@@ -1520,7 +1521,8 @@
 }
 
 .osmin-lsv-on {
-    color: #4d8dff;
+    color: white;
+    background-color: rgba(53, 132, 228, 0.6);
 }
 
 /* Quick toggles */
@@ -2297,3 +2299,11 @@
 .osmin-glyph-box { spacing: 2px; }
 .osmin-glyph-cell { background-color: rgba(255, 255, 255, 0.55); border-radius: 1px; }
 .osmin-glyph-icon { color: rgba(255, 255, 255, 0.8); padding: 3px 0; }
+
+/* Sound: the volume lines sit in the card like the other rows */
+.osmin-menu .osmin-sound-row { padding: 2px 14px 6px 14px; }
+.osmin-menu .osmin-sound-percent { min-width: 38px; text-align: right; font-size: 9pt; }
+
+/* Arrows at the ends of the tab row while there are more tabs that way */
+.osmin-menu-tabs-arrow { width: 22px; height: 40px; border-radius: 10px; color: rgba(255, 255, 255, 0.75); }
+.osmin-menu-tabs-arrow:hover { background-color: rgba(255, 255, 255, 0.10); color: white; }

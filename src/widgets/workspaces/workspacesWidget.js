@@ -69,23 +69,23 @@ export class WorkspacesWidget extends OsminWidget {
         const behaviour = menuCard();
         this._dynamic = switchRow({
             title: 'Dynamic desktops',
-            subtitle: 'On: an empty desktop is always kept at the end and extra empty ones disappear. Off: the desktops you make stay.',
+            subtitle: 'An empty desktop waits at the end; empty ones in between go away.',
             onToggle: on => this._mutter.set_boolean('dynamic-workspaces', on),
         });
         behaviour.add_child(this._dynamic.row);
         behaviour.add_child(menuDivider());
         this._perMonitorRow = switchRow({
             title: 'Separate desktops for every monitor',
-            subtitle: 'Each monitor has its own desktops: switching on one does not touch the others. The main monitor keeps GNOME\'s desktops; on the others Osmin hides the windows of the other desktops. Keys and gestures switch the monitor you are working on.',
+            subtitle: 'Each monitor switches on its own. Keys and gestures act on the monitor under the pointer.',
             state: this._perMonitor,
             onToggle: on => this.context.settings?.gsettings?.set_boolean('desktops-per-monitor', on),
         });
         behaviour.add_child(this._perMonitorRow.row);
         behaviour.add_child(menuDivider());
         this._everywhere = switchRow({
-            title: 'Desktops on every monitor',
-            subtitle: 'Off: only the main monitor switches desktops, the others show the same windows.',
-            onToggle: on => this._mutter.set_boolean('workspaces-only-on-primary', !on),
+            title: 'Desktops only on the main monitor',
+            subtitle: 'The other monitors keep showing the same windows.',
+            onToggle: on => this._mutter.set_boolean('workspaces-only-on-primary', on),
         });
         behaviour.add_child(this._everywhere.row);
         root.add_child(behaviour);
@@ -112,7 +112,7 @@ export class WorkspacesWidget extends OsminWidget {
 
     _sync() {
         this._dynamic?.set(this._mutter.get_boolean('dynamic-workspaces'));
-        this._everywhere?.set(!this._mutter.get_boolean('workspaces-only-on-primary'));
+        this._everywhere?.set(this._mutter.get_boolean('workspaces-only-on-primary'));
     }
 
     _windowsOn(workspace) {

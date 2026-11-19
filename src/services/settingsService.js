@@ -7,6 +7,8 @@ export const DEFAULTS = Object.freeze({
     'corner-radius': 32,
     'background-opacity': 0.96,
     'animation-speed': 1.0,
+    'open-delay': 150,
+    'close-delay': 300,
     'localsend-receive': false,
     'freed-bindings': '',
     'saved-message-tray-binding': [],

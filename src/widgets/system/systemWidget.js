@@ -133,6 +133,10 @@ export class SystemWidget extends MonitorWidget {
             this._tempB.actor.get_first_child().get_last_child().text = 'Disk';
             this._tempB.set(formatTemperature(disk, unit));
         }
+        // a temperature the computer does not give is left out, not shown as "n/a"
+        this._tempA.actor.visible = s.temp != null;
+        this._tempB.actor.visible = s.gpu?.temp != null || disk != null;
+        this._tempBlock.visible = blocks.has('temps') && (this._tempA.actor.visible || this._tempB.actor.visible);
         this._cpu.set(s.cpu, s.cpu >= 90);
         this._cpuGraph.graph.setValues(s.history.cpu);
         this._fillApps(s.apps ?? []);

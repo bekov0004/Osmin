@@ -67,8 +67,10 @@ export class SoundWidget extends OsminWidget {
 
         // Microphone.
         this._micPick = dropdown({items: [], onPick: id => this._setInput(id)});
-        card.add_child(this._labelled('audio-input-microphone-symbolic', 'Microphone', this._micPick));
+        this._micRow = this._labelled('audio-input-microphone-symbolic', 'Microphone', this._micPick);
+        card.add_child(this._micRow);
         const mic = new St.BoxLayout({style_class: 'osmin-sound-row', x_expand: true});
+        this._micSliderRow = mic;
         this._micIcon = new St.Icon({icon_name: 'audio-input-microphone-symbolic', style_class: 'osmin-meter-icon', y_align: Clutter.ActorAlign.CENTER});
         const micButton = new St.Button({reactive: true, child: this._micIcon, y_align: Clutter.ActorAlign.CENTER});
         micButton.connect('clicked', () => this._toggleMic());
@@ -165,7 +167,10 @@ export class SoundWidget extends OsminWidget {
             this._outputPick.setCurrent(String(sink.id));
         }
         const source = this._mixer.get_default_source();
-        if (source) {
+        // no microphone at all: no empty list and no slider for it
+        const hasMic = !!source && this._mixer.get_sources().some(s => !/monitor/i.test(s.name ?? ''));
+        this._micRow.visible = this._micSliderRow.visible = hasMic;
+        if (source && hasMic) {
             this._micSlider.max = norm;
             this._micSlider.value = source.volume;
             this._micPercent.text = source.is_muted ? 'muted' : `${Math.round(100 * source.volume / norm)}%`;

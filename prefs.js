@@ -896,8 +896,12 @@ export default class OsminPreferences extends ExtensionPreferences {
         this._rule(form);
         this._row(form, _('Collapsed width'), this._slider(settings, 'collapsed-width-adjust', [-30, 80, 1]),
             _('Fine tune the width of the collapsed capsule, in pixels.'));
-        this._row(form, _('Animation speed'), this._slider(settings, 'animation-speed', [0.5, 2.0, 0.1], 1),
-            _('Higher is faster.'));
+        this._row(form, _('Animation speed'), this._slider(settings, 'animation-speed', [0.25, 4.0, 0.25], 2),
+            _('How fast the capsule grows and shrinks. 2 is twice as fast.'));
+        this._row(form, _('Open after'), this._slider(settings, 'open-delay', [0, 1500, 50]),
+            _('Milliseconds the pointer rests on the capsule before it opens. 0: at once.'));
+        this._row(form, _('Close after'), this._slider(settings, 'close-delay', [0, 3000, 50]),
+            _('Milliseconds it stays open after the pointer left it.'));
 
         this._rule(form);
         for (const [key, title] of [
@@ -1475,7 +1479,7 @@ export default class OsminPreferences extends ExtensionPreferences {
             network: _('Internet speed and its graph.'), disks: _('Free space and disk activity.'),
             power: _('Battery, charging and power use.'), utilities: _('Screenshots, colour picker and other tools.'),
             controls: _('Switches for mouse, keyboard and windows.'), toggles: _('Dark mode, microphone, trash and more.'),
-            windows: _('Live previews, snap and move windows.'), workspaces: _('Create, switch and remove desktops.'),
+            windows: _('A picture of each screen and desktop: drag windows, split them into columns or rows.'), workspaces: _('Create, switch and remove desktops.'),
             focus: _('A focus timer and a stopwatch.'), input: _('Mouse and keyboard switches.'),
             downloads: _('Files arriving in Downloads.'), agents: _('Claude Code and Codex at work.'),
         };

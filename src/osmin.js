@@ -858,7 +858,7 @@ export class Osmin {
         callback?.();
         // The pointer may be elsewhere by now: collapse after the usual delay.
         if (this._state === State.OPEN && !this._actor?.hover)
-            this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
+            this._timers.set('leave', this._closeDelay(), () => this._settle());
     }
 
     _onTick(now) {
@@ -920,14 +920,14 @@ export class Osmin {
                     }
                     this._setState(State.HOVER);
                     if (this._settings.get('open-on-hover'))
-                        this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
+                        this._timers.set('dwell', this._openDelay(), () => this._setState(State.OPEN));
                 });
             }
             break;
         case State.HOVER:
             if (hovered) {
                 if (this._settings.get('open-on-hover'))
-                    this._timers.set('dwell', OPEN_DWELL_MS, () => this._setState(State.OPEN));
+                    this._timers.set('dwell', this._openDelay(), () => this._setState(State.OPEN));
             } else {
                 this._timers.clear('dwell');
                 this._timers.set('hover', HOVER_LEAVE_MS, () => this._setState(State.CLOSED));
@@ -940,7 +940,7 @@ export class Osmin {
             } else if (!this._pinned && !this._grab && this._settings.get('auto-collapse')) {
                 const recent = GLib.get_monotonic_time() - this._lastInteraction <
                     INTERACTION_GRACE_MS * 1000;
-                this._timers.set('leave', OPEN_LEAVE_MS + (recent ? INTERACTION_GRACE_MS : 0),
+                this._timers.set('leave', this._closeDelay() + (recent ? INTERACTION_GRACE_MS : 0),
                     () => this._settle());
             }
             break;
@@ -953,7 +953,7 @@ export class Osmin {
                 this._cards.resume();
                 // The card that hovering brought goes away as soon as the pointer does.
                 if (this._hoverCard)
-                    this._timers.set('leave', OPEN_LEAVE_MS, () => this._cards.hideCurrent());
+                    this._timers.set('leave', this._closeDelay(), () => this._cards.hideCurrent());
             }
             break;
         }
@@ -1282,7 +1282,7 @@ export class Osmin {
                 this._timers.set('leave', this._closeSoon, () => this._settle());
                 this._closeSoon = 0;
             } else if (!this._actor.hover && !this._pinned && this._settings.get('auto-collapse')) {
-                this._timers.set('leave', OPEN_LEAVE_MS, () => this._settle());
+                this._timers.set('leave', this._closeDelay(), () => this._settle());
             }
         } else {
             this._pinned = false;
@@ -1373,6 +1373,18 @@ export class Osmin {
         // Collapsed it floats inside the bar; expanded it hangs from the top edge.
         const y = HANGING.has(state) ? geo.top : geo.top + scaled(Layout.PANEL_INSET);
         return {x, y, ...size};
+    }
+
+    /** How long the pointer rests on the capsule before it opens (Settings → General). */
+    _openDelay() {
+        const ms = this._settings.get('open-delay');
+        return Number.isFinite(ms) ? Math.max(0, ms) : OPEN_DWELL_MS;
+    }
+
+    /** How long the open capsule waits after the pointer left before it closes (Settings → General). */
+    _closeDelay() {
+        const ms = this._settings.get('close-delay');
+        return Number.isFinite(ms) ? Math.max(0, ms) : OPEN_LEAVE_MS;
     }
 
     _applyGeometry({duration, mode = Clutter.AnimationMode.EASE_OUT_CUBIC, delay = 0}) {

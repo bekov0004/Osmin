@@ -71,8 +71,14 @@ export class DisplaysWidget extends OsminWidget {
             const {row} = iconRow({icon, title, control: toggle, onClick: () => set(!toggle.state)});
             row.add_style_class_name('osmin-option-line');
             card.add_child(row);
-            card.add_child(menuDivider());
+            const divider = menuDivider();
+            card.add_child(divider);
             this._switches.push({toggle, get});
+            // automatic brightness needs a light sensor: without one the switch would do nothing
+            if (title === 'Automatic brightness') {
+                row.visible = divider.visible = false;
+                this._whenLightSensor(() => (row.visible = divider.visible = true));
+            }
         }
         this._color?.connectObject('changed::night-light-enabled', () => this._sync(), this);
         this._power?.connectObject('changed', () => this._sync(), this);
@@ -124,6 +130,20 @@ export class DisplaysWidget extends OsminWidget {
         this._syncDisplays();
         this._sync();
         return root;
+    }
+
+    /** Calls back when the computer has an ambient light sensor (iio-sensor-proxy says so). */
+    _whenLightSensor(callback) {
+        Gio.DBusProxy.new_for_bus(Gio.BusType.SYSTEM, Gio.DBusProxyFlags.DO_NOT_AUTO_START_AT_CONSTRUCTION, null,
+            'net.hadess.SensorProxy', '/net/hadess/SensorProxy', 'net.hadess.SensorProxy', this._cancellable, (_o, result) => {
+                try {
+                    const proxy = Gio.DBusProxy.new_for_bus_finish(result);
+                    if (proxy.get_cached_property('HasAmbientLight')?.unpack())
+                        callback();
+                } catch (e) {
+                    // no sensor service
+                }
+            });
     }
 
     get _displays() {

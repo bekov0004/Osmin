@@ -92,7 +92,7 @@ export class WindowsWidget extends OsminWidget {
         row.add_child(this._column(RIGHT));
         card.add_child(row);
         const hint = new St.Label({
-            text: 'Drag a window: at an edge it takes half or a quarter of the screen, at the top all of it; onto a tab or a monitor to send it there.',
+            text: 'Drag a window to an edge for half, a corner for a quarter, the top for the whole screen. Drop it on a tab or a monitor to move it there.',
             style_class: 'osmin-hint',
         });
         hint.clutter_text.line_wrap = true;

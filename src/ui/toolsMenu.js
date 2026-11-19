@@ -115,7 +115,23 @@ export class ToolsMenu {
         });
         this._tabsScroll.set_child(tabs);
         this._tabsScroll.connect('scroll-event', (_a, event) => this._scrollTabs(event));
-        tabsFrame.set_child(this._tabsScroll);
+        // arrows at the ends while there is more that way
+        const arrow = (icon, way) => {
+            const button = new St.Button({style_class: 'osmin-menu-tabs-arrow', can_focus: true, reactive: true, track_hover: true,
+                child: new St.Icon({icon_name: icon, icon_size: 14}), y_align: Clutter.ActorAlign.CENTER, visible: false});
+            button.connect('clicked', () => this._pageTabs(way));
+            return button;
+        };
+        this._tabsLeft = arrow('go-previous-symbolic', -1);
+        this._tabsRight = arrow('go-next-symbolic', 1);
+        const tabsLine = new St.BoxLayout({x_expand: true});
+        tabsLine.add_child(this._tabsLeft);
+        tabsLine.add_child(this._tabsScroll);
+        tabsLine.add_child(this._tabsRight);
+        const adjustment = this._tabsScroll.hadjustment;
+        for (const property of ['value', 'upper', 'page-size'])
+            adjustment.connect(`notify::${property}`, () => this._syncTabArrows());
+        tabsFrame.set_child(tabsLine);
         root.add_child(tabsFrame);
 
         const titleRow = new St.BoxLayout({x_expand: true, style_class: 'osmin-menu-titlerow'});
@@ -190,6 +206,22 @@ export class ToolsMenu {
             this._select(0);
         Main.panel.addToStatusArea(ROLE, this._button, 0, 'right');
         this._button.container.get_parent()?.insert_child_above(this._readingsButton, this._button.container);
+    }
+
+    _syncTabArrows() {
+        const adjustment = this._tabsScroll?.hadjustment;
+        if (!adjustment || !this._tabsLeft)
+            return;
+        const room = adjustment.upper - adjustment.page_size;
+        this._tabsLeft.visible = room > 1 && adjustment.value > 1;
+        this._tabsRight.visible = room > 1 && adjustment.value < room - 1;
+    }
+
+    /** An arrow pressed: most of a row's width that way. */
+    _pageTabs(way) {
+        const adjustment = this._tabsScroll.hadjustment;
+        const target = adjustment.value + way * adjustment.page_size * 0.7;
+        adjustment.ease(Math.max(adjustment.lower, Math.min(target, adjustment.upper - adjustment.page_size)), {duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
     /** The wheel (up and down too) and the touchpad move the tab row sideways. */

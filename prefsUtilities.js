@@ -496,11 +496,7 @@ export const utilityMethods = {
         this._hint(form, _('The window of the top-bar button with your favorite tools, summoned by a shortcut from anywhere.'));
         this._hint(form, _('Use the Customize button in the window to choose, hide and drag the tools around.'));
         this._shortcutPair(form, settings, 'shortcut-quickpanel', '<Control><Super>q');
-        this._togglesPage(settings, form);
-        this._micPage(settings, form);
-        this._cameraPage(settings, form);
-        this._scratchpadPage(settings, form);
-        this._cleaningPage(settings, form);
+        // Quick toggles, the microphone, the camera, the scratchpad and Cleaning Mode have pages of their own
         return body;
     },
 

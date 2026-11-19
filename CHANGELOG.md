@@ -7,10 +7,12 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Settings → General: "Open after" and "Close after" set how long the pointer rests on the capsule before it opens and how long it stays open after the pointer left; Animation speed now goes from 0.25 to 4.
 - Displays (quick panel): a brightness slider for every monitor (GNOME's own control, ddcutil, or Osmin dimming the picture of a monitor that has none), and the arrangement: a picture of the monitors to drag them to any side, Left / Right / Above / Below buttons, the main monitor, and Join / Mirror / Only one. Moving monitors applies at once; Mirror and Only one ask GNOME's "Keep these display settings?" and go back by themselves.
 - Touchpad gestures everywhere (Settings → Touchpad gestures): every three- and four-finger swipe, pinch and rest can be given an action. Three fingers sideways switch apps like Alt+Tab (the switcher follows the fingers), three up and down the overview, four sideways the workspaces (GNOME's own, following the fingers); more than fifty actions, including any keys. Two fingers stay with the apps.
 
 ### Changed
+- UX pass of the quick panel, the capsule and the settings: arrows at the ends of the tab row when there are more tabs; temperatures, battery health and a microphone the computer does not have are left out instead of "n/a" or an empty list; automatic brightness only shows with a light sensor; the volume lines sit in the card like the other rows; the small actions of LocalSend, the Tray and Alerts (Add from Tray, Refresh, Receiving, Clear, Do Not Disturb) look like buttons; the empty Tray says what it is for; one wording for "Desktops only on the main monitor" everywhere, shorter hints; the Quick panel settings page no longer repeats the pages of Quick toggles, the microphone, the camera, the scratchpad and Cleaning Mode; up-to-date descriptions of Displays, Windows and Desktops.
 - Windows: a desktop's tab only changes the picture, not the screen, so the windows of every desktop can be arranged from where you are; the desktop on the screen has a dot.
 - The quick panel and the dark settings window have the capsule's own colours: black, with dark grey cards, buttons and the chosen tab, instead of blue-grey.
 - Quick panel: the icon tabs keep their size; when there are more than fit, the row scrolls sideways (mouse wheel, touchpad), its ends fade out, and the chosen tab is brought into view.

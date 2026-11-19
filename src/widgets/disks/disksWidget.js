@@ -147,6 +147,7 @@ export class DisksWidget extends MonitorWidget {
         this._sizeText.text = `${formatBytes(disk.total - disk.free)} / ${formatBytes(disk.total)}`;
         this._type.set(disk.type);
         this._temp.set(formatTemperature(disk.temp, this.context.settings?.get('temp-unit') ?? 'C'));
+        this._temp.actor.visible = disk.temp != null;
         this._free.set(formatBytes(disk.free));
         this._device.set(disk.device);
         this._toolName.text = disk.name;

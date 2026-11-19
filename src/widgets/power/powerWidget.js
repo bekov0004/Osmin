@@ -98,13 +98,15 @@ export class PowerWidget extends MonitorWidget {
         this._battery.setLabel(`Battery${left}`);
         this._chargeGraph.graph.setValues(s.history.bat);
         this._fillApps(s.apps ?? []);
-        this._temp.set(power?.temp ? formatTemperature(power.temp, this.context.settings?.get('temp-unit') ?? 'C') : 'n/a');
+        this._temp.set(power?.temp ? formatTemperature(power.temp, this.context.settings?.get('temp-unit') ?? 'C') : '–');
+        this._temp.actor.visible = !!power?.temp;
         this._drawRow.set(power ? `${power.watts} W` : '–');
         this._wattGraph.graph.setValues(s.history.watts);
         this._wattGraph.scale.text = `${Math.max(1, Math.ceil(this._wattGraph.graph.peak))} W`;
         this._adapter.set(power?.mains ? 'Plugged in' : 'Not plugged in', 'Power source');
         this._charging.set(power ? `${power.watts} W` : '–', battery.status === 'Full' ? 'Full' : battery.charging ? 'Charging' : 'Discharging');
-        this._health.set(power?.health ? `${power.health}%` : 'n/a', power?.cycles ? `${power.cycles} Cycles` : 'Capacity');
+        this._health.set(power?.health ? `${power.health}%` : '–', power?.cycles ? `${power.cycles} cycles` : 'Capacity');
+        this._health.actor.visible = !!power?.health;
 
         this._devicesBox.destroy_all_children();
         s.devices?.forEach(device => {

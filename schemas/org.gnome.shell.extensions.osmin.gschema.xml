@@ -23,9 +23,23 @@
       <description>How opaque the capsule background is.</description>
     </key>
 
+    <key name="open-delay" type="i">
+      <default>150</default>
+      <range min="0" max="1500"/>
+      <summary>Open after</summary>
+      <description>Milliseconds the pointer rests on the capsule before it opens.</description>
+    </key>
+
+    <key name="close-delay" type="i">
+      <default>300</default>
+      <range min="0" max="3000"/>
+      <summary>Close after</summary>
+      <description>Milliseconds the open capsule waits after the pointer left it before it closes.</description>
+    </key>
+
     <key name="animation-speed" type="d">
       <default>1.0</default>
-      <range min="0.5" max="2.0"/>
+      <range min="0.25" max="4.0"/>
       <summary>Animation speed</summary>
       <description>Multiplier for the speed of all capsule animations.</description>
     </key>
