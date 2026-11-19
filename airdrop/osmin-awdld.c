@@ -501,14 +501,40 @@ static int looks_awdl_data(const uint8_t *packet, size_t length, uint8_t src[6])
     return 1;
 }
 
+/* One line about an IPv6 packet (for the log): TCP ports and flags, ICMPv6 type. */
+static void describe(const char *direction, const uint8_t *ether, size_t length)
+{
+    if (length < 14 + 40 || ether[12] != 0x86 || ether[13] != 0xdd)
+        return;
+    const uint8_t *ip = ether + 14;
+    int next = ip[6];
+    char what[96];
+    if (next == 6 && length >= 14 + 40 + 14) {
+        const uint8_t *t = ip + 40;
+        int flags = t[13] | (t[12] & 1) << 8;
+        snprintf(what, sizeof(what), "TCP %u->%u %s%s%s%s%s", t[0] << 8 | t[1], t[2] << 8 | t[3],
+            flags & 0x02 ? "SYN " : "", flags & 0x10 ? "ACK " : "", flags & 0x01 ? "FIN " : "", flags & 0x04 ? "RST " : "",
+            flags & 0x08 ? "PSH" : "");
+    } else if (next == 58) {
+        snprintf(what, sizeof(what), "ICMPv6 type %u", ip[40]);
+    } else if (next == 17 && length >= 14 + 48) {
+        snprintf(what, sizeof(what), "UDP %u->%u", ip[40] << 8 | ip[41], ip[42] << 8 | ip[43]);
+    } else {
+        snprintf(what, sizeof(what), "IPv6 next header %d", next);
+    }
+    say("%s %s %s (%zu bytes)", direction, mac_text(ether[0] & 1 ? ether + 6 : direction[0] == '<' ? ether + 6 : ether), what, length);
+}
+
 static void to_tap(const uint8_t *ether, size_t length, void *context)
 {
     (void)context;
     /* ours (unicast) or multicast */
     if (memcmp(ether, self.mac, 6) != 0 && !(ether[0] & 1))
         return;
-    if (write(tap_fd, ether, length) < 0 && verbose)
-        say("tap write: %s", strerror(errno));
+    if (!(ether[0] & 1))
+        describe("awdl0 <-", ether, length);
+    if (write(tap_fd, ether, length) < 0)
+        say("awdl0 write failed: %s", strerror(errno));
     rx_data++;
 }
 
@@ -560,8 +586,11 @@ static void on_tap(void)
         return;
     }
     struct peer *p = find_peer(ether);
+    describe("awdl0 ->", ether, (size_t)n);
     if (p && p->valid)
         enqueue(p->queue, &p->queued, ether, (size_t)n);
+    else
+        say("  dropped: %s is not an AWDL neighbour (now)", mac_text(ether));
 }
 
 /* --- setup -------------------------------------------------------------------------------------------------- */
