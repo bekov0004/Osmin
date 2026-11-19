@@ -29,7 +29,7 @@ import {NotesService} from './services/notesService.js';
 import {NotificationsService} from './services/notificationsService.js';
 import {PanelService} from './services/panelService.js';
 import {ToolActions} from './tools/toolActions.js';
-import {SystemService, barReadings} from './services/systemService.js';
+import {SystemService} from './services/systemService.js';
 import {TimerService} from './services/timerService.js';
 import {TodoService} from './services/todoService.js';
 import {EventType, Priority} from './utils/events.js';
@@ -37,6 +37,7 @@ import {latinAccel, restoreFreedBindings, syncFreedBindings} from './utils/freed
 import {targetMonitors} from './utils/monitors.js';
 import {SignalTracker} from './utils/signals.js';
 import {MonitorDesktops} from './windows/monitorDesktops.js';
+import {BarReadings} from './ui/barReadings.js';
 import {DisplayService} from './displays/displayService.js';
 
 const SHORTCUTS = [
@@ -498,10 +499,20 @@ export class OsminHost {
     _showBarMetrics() {
         const state = this._services?.system.state;
         const ids = this._settings.get('bar-metrics') ?? [];
-        this._menu?.setReadings(this._barMetricsOn && state?.cpu !== undefined ? barReadings(state, ids) : []);
+        if (!this._menu)
+            return;
+        // every reading is a top-bar item of its own, with a small window of its own (see barReadings.js)
+        this._readings ??= new BarReadings({
+            anchor: () => this._menu?.button ?? null,
+            openPage: id => this._menu?.openOn(id),
+            unit: () => this._settings.get('temp-unit') ?? 'C',
+        });
+        this._readings.sync(this._barMetricsOn && state?.cpu !== undefined ? state : null, ids);
     }
 
     _destroyMenu() {
+        this._readings?.destroy();
+        this._readings = null;
         this._menu?.destroy();
         this._menu = null;
         this._menuWidgets.forEach(widget => widget.destroy());

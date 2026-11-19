@@ -2307,3 +2307,17 @@
 /* Arrows at the ends of the tab row while there are more tabs that way */
 .osmin-menu-tabs-arrow { width: 22px; height: 40px; border-radius: 10px; color: rgba(255, 255, 255, 0.75); }
 .osmin-menu-tabs-arrow:hover { background-color: rgba(255, 255, 255, 0.10); color: white; }
+
+/* A reading of the top bar (CPU, memory ...) and its small window */
+.osmin-reading-button { -natural-hpadding: 8px; -minimum-hpadding: 5px; }
+.osmin-reading-root { padding: 14px; spacing: 10px; }
+.osmin-reading-head { spacing: 12px; padding: 0 2px; }
+.osmin-reading-icon { icon-size: 22px; color: #5aa9ff; background-color: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 9px; }
+.osmin-reading-title { font-size: 8pt; font-weight: bold; letter-spacing: 1px; color: rgba(255, 255, 255, 0.5); }
+.osmin-reading-big-line { spacing: 8px; }
+.osmin-reading-value { font-size: 20pt; font-weight: 800; color: white; }
+.osmin-reading-sub { font-size: 10pt; color: rgba(255, 255, 255, 0.55); padding-bottom: 4px; }
+.osmin-reading-card { width: auto; spacing: 0; padding: 6px 0; border-radius: 16px; }
+.osmin-reading-graph { padding: 4px 14px 6px 14px; }
+.osmin-reading-more { border-radius: 12px; padding: 8px; font-size: 9.5pt; font-weight: 600; color: rgba(255, 255, 255, 0.85); background-color: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.10); }
+.osmin-reading-more:hover { background-color: rgba(255, 255, 255, 0.13); color: white; }

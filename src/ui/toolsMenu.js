@@ -49,12 +49,15 @@ export class ToolsMenu {
     }
 
     /** Writes short readings next to the icon ([] removes them): [{label, value}]. */
-    setReadings(readings) {
-        if (!this._readings)
-            return;
-        const esc = text => GLib.markup_escape_text(text, -1);
-        this._readingsButton.visible = readings.length > 0;
-        this._readings.clutter_text.set_markup(readings.map(r => `<span size="x-small" alpha="60%">${esc(r.label)}</span> <b>${esc(r.value)}</b>`).join('   '));
+    /** The top-bar item of the button (the readings are placed after it). */
+    get button() {
+        return this._button;
+    }
+
+    /** Opens the window on the page of the widget with this id. */
+    openOn(id) {
+        this.openPage(id);
+        this._button?.menu.open();
     }
 
     /** While the computer is kept awake the icon of the button changes (icon null: back to normal). */
@@ -71,17 +74,6 @@ export class ToolsMenu {
         this._button = new PanelMenu.Button(0.5, 'Osmin', false);
         this._icon = new St.Icon({icon_name: this._baseIcon, style_class: 'system-status-icon'});
         this._button.add_child(this._icon);
-        // The readings (CPU, temperature ...) are a top-bar item of their own, beside the button: pressing the button
-        // lights only the button. Pressing the readings opens the System page.
-        this._readings = new St.Label({style_class: 'osmin-bar-readings', y_align: Clutter.ActorAlign.CENTER});
-        this._readingsButton = new St.Button({
-            style_class: 'panel-button osmin-bar-readings-button', reactive: true, can_focus: true, track_hover: true,
-            child: this._readings, visible: false, accessible_name: 'System readings',
-        });
-        this._readingsButton.connect('clicked', () => {
-            this.openPage('system');
-            this._button.menu.open();
-        });
         this._button.menu.actor.add_style_class_name('osmin-menu');
 
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false, activate: false});
@@ -205,7 +197,6 @@ export class ToolsMenu {
         if (this._widgets.length > 0)
             this._select(0);
         Main.panel.addToStatusArea(ROLE, this._button, 0, 'right');
-        this._button.container.get_parent()?.insert_child_above(this._readingsButton, this._button.container);
     }
 
     _syncTabArrows() {
@@ -326,9 +317,6 @@ export class ToolsMenu {
     destroy() {
         if (this._button?.menu.isOpen)
             this._widgets[this._current]?.onPageHidden();
-        this._readingsButton?.destroy();
-        this._readingsButton = null;
-        this._readings = null;
         this._button?.destroy();
         this._button = null;
         this._tabs = [];
