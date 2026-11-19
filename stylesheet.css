@@ -2203,7 +2203,8 @@
 .osmin-menu .osmin-card { spacing: 0; width: auto; }
 .osmin-group-head { padding: 6px 8px; border-radius: 8px; }
 .osmin-group-title { color: rgba(255, 255, 255, 0.55); font-size: 8.5pt; font-weight: bold; letter-spacing: 1px; }
-.osmin-bar-readings { font-size: 9pt; padding-left: 6px; }
+.osmin-bar-readings { font-size: 9pt; }
+.osmin-bar-readings-button { -natural-hpadding: 8px; -minimum-hpadding: 6px; }
 
 /* The small option lines under "Options" of Keep awake: grey icon, small text */
 .osmin-option-line .osmin-icon-square-icon { icon-size: 14px; color: rgba(255, 255, 255, 0.72); }
