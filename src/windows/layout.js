@@ -20,6 +20,22 @@ function remember(window) {
     }
 }
 
+/** Puts a window at x, y with this size (remembered first, for "put it back"). */
+export function placeWindow(window, x, y, width, height) {
+    place(window, x, y, width, height);
+}
+
+/** Maximizes a window (remembered first, for "put it back"). */
+export function maximizeWindow(window) {
+    remember(window);
+    window.maximize();
+}
+
+/** Lets "put it back" restore these windows (after they were placed one by one). */
+export function rememberTiled(windows) {
+    tiled = windows;
+}
+
 function place(window, x, y, width, height) {
     remember(window);
     if (window.is_maximized())

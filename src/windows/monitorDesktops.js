@@ -192,6 +192,15 @@ export class MonitorDesktops {
         this._changed();
     }
 
+    /** Sends a window to a desktop of its monitor without going there (it is put away when that is not shown). */
+    sendWindow(window, desktop) {
+        const monitor = window.get_monitor();
+        desktop = Math.max(0, Math.min(desktop, this.count(monitor) - 1));
+        this._desktop.set(window, desktop);
+        this._apply();
+        this._changed();
+    }
+
     /** GNOME's desktop keys: on the main monitor what GNOME does, on another one its own desktops. */
     _onKey(display, window, event, binding) {
         const name = binding.get_name();

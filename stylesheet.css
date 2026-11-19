@@ -2257,3 +2257,33 @@
 .osmin-arrange-name { font-size: 7.5pt; color: rgba(255, 255, 255, 0.8); max-width: 110px; }
 .osmin-arrange-main { font-size: 7pt; color: rgba(255, 255, 255, 0.6); }
 .osmin-arrange-which { font-size: 9.5pt; color: rgba(255, 255, 255, 0.75); padding: 2px 14px 4px 14px; }
+
+/* Windows: a picture of the screen with its windows */
+.osmin-winmap-card { padding-top: 6px; }
+.osmin-winmap-tabs { spacing: 4px; padding: 2px 10px 6px 10px; }
+.osmin-winmap-tab { border-radius: 8px; padding: 5px 6px; font-size: 9pt; color: rgba(255, 255, 255, 0.75); background-color: rgba(255, 255, 255, 0.05); }
+.osmin-winmap-tab:hover { background-color: rgba(255, 255, 255, 0.12); }
+.osmin-winmap-tab:checked { background-color: rgba(53, 132, 228, 0.55); color: white; }
+.osmin-winmap-tab-count { color: rgba(255, 255, 255, 0.5); font-size: 8pt; }
+.osmin-drop-target { border: 1px dashed rgba(120, 175, 245, 0.95); }
+.osmin-winmap-row { spacing: 6px; padding: 0 8px; }
+.osmin-winmap-frame { background-color: rgba(0, 0, 0, 0.30); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.10); }
+.osmin-winmap { border-radius: 8px; }
+.osmin-winmap-window { background-color: rgba(60, 60, 64, 0.95); border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 4px; }
+.osmin-winmap-window:hover { border-color: rgba(120, 175, 245, 0.95); }
+.osmin-winmap-window:active { border-color: rgba(120, 175, 245, 1); background-color: rgba(53, 132, 228, 0.35); }
+.osmin-winmap-badge { background-color: rgba(0, 0, 0, 0.62); border-radius: 0 4px 0 3px; padding: 1px 4px; spacing: 3px; max-width: 110px; }
+.osmin-winmap-title { font-size: 7pt; color: white; }
+.osmin-winmap-close { background-color: rgba(0, 0, 0, 0.7); border-radius: 99px; padding: 2px; margin: 2px; color: white; }
+.osmin-winmap-close:hover { background-color: rgba(224, 27, 36, 0.9); }
+.osmin-winmap-zone { background-color: rgba(53, 132, 228, 0.35); border: 1px solid rgba(120, 175, 245, 0.95); border-radius: 4px; }
+.osmin-winmap-empty { color: rgba(255, 255, 255, 0.4); font-size: 9pt; }
+.osmin-winmap-side { spacing: 6px; }
+.osmin-winmap-side-button { border-radius: 8px; padding: 5px 3px; width: 50px; }
+.osmin-winmap-side-button:hover { background-color: rgba(255, 255, 255, 0.10); }
+.osmin-winmap-side-button:active { background-color: rgba(53, 132, 228, 0.45); }
+.osmin-winmap-side-label { font-size: 7pt; color: rgba(255, 255, 255, 0.7); padding-top: 3px; }
+.osmin-glyph { width: 30px; height: 21px; border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 3px; padding: 2px; }
+.osmin-glyph-box { spacing: 2px; }
+.osmin-glyph-cell { background-color: rgba(255, 255, 255, 0.55); border-radius: 1px; }
+.osmin-glyph-icon { color: rgba(255, 255, 255, 0.8); padding: 3px 0; }
