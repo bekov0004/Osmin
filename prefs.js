@@ -12,7 +12,7 @@ import {assignShortcut, focusLeftWindow, grabSystemKeys, shortcutFor, utilityMet
 
 // --- theme -----------------------------------------------------------------
 // One place for every colour of the settings window (layered surfaces, a quiet blue accent, a dark
-// "capsule" preview). Both schemes follow the system setting.
+// "capsule" preview). Both schemes follow the system setting; the dark one has the capsule's own colours.
 const SETTINGS_THEME = {
     light: {
         BACKGROUND: '#f2f2f4',
@@ -32,13 +32,14 @@ const SETTINGS_THEME = {
         CAPSULE_BLOCK: '#232327',
         TRACK: 'rgba(0, 0, 0, 0.16)',
     },
+    // the colours of the capsule itself: black, with dark grey blocks on it
     dark: {
-        BACKGROUND: '#212122',
-        TOOLBAR: '#2c2c2f',
-        SURFACE: '#2c2c2c',
-        CARD: '#363638',
-        CONTROL: '#3c3c3d',
-        BORDER: 'rgba(255, 255, 255, 0.08)',
+        BACKGROUND: '#000000',
+        TOOLBAR: '#0f0f11',
+        SURFACE: '#151517',
+        CARD: '#1d1d20',
+        CONTROL: '#29292c',
+        BORDER: 'rgba(255, 255, 255, 0.09)',
         HOVER: 'rgba(255, 255, 255, 0.07)',
         SELECTED: 'rgba(255, 255, 255, 0.12)',
         TEXT: '#f5f5f7',
@@ -48,7 +49,7 @@ const SETTINGS_THEME = {
         ACCENT_SOFT: 'rgba(18, 131, 255, 0.2)',
         CAPSULE: '#050507',
         CAPSULE_BLOCK: '#1d1d21',
-        TRACK: '#454545',
+        TRACK: '#3a3a3d',
     },
 };
 
