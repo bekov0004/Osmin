@@ -5,14 +5,20 @@ import St from 'gi://St';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {HorizontalSlider} from '../../ui/horizontalSlider.js';
-import {checkRow, collapsible, iconRow, menuCard, menuDivider} from '../../ui/menuKit.js';
+import {dropAt, placeSide, SIDES, sideOf} from '../../displays/arrange.js';
+import {ArrangeMap} from '../../displays/arrangeMap.js';
+import {checkRow, collapsible, iconRow, menuCard, menuChip, menuChips, menuDivider, menuHeader, setChecked} from '../../ui/menuKit.js';
 import {OsminWidget} from '../widget.js';
 
 const POWER_SCHEMA = 'org.gnome.settings-daemon.plugins.power';
+const SIDE_LABELS = {left: 'Left', right: 'Right', above: 'Above', below: 'Below'};
+const SIDE_ICONS = {left: 'go-previous-symbolic', right: 'go-next-symbolic', above: 'go-up-symbolic', below: 'go-down-symbolic'};
+const SIDE_WORDS = {left: 'left of', right: 'right of', above: 'above', below: 'below'};
 
 /**
- * Displays: the brightness of the built-in screen, of external monitors that answer DDC (when
- * `ddcutil` is installed) and of the keyboard light, plus night light and automatic brightness.
+ * Displays: the brightness of every monitor (see displayService.js: GNOME's control, ddcutil, or Osmin dimming the
+ * picture) and of the keyboard light, night light and automatic brightness, and where the monitors stand: a picture to
+ * drag them around, a side for each one, the main one, and join / mirror / only one.
  */
 export class DisplaysWidget extends OsminWidget {
     static id = 'displays';
@@ -22,10 +28,8 @@ export class DisplaysWidget extends OsminWidget {
 
     constructor(context) {
         super(context);
-        this._screen = null;
         this._keyboard = null;
         this._cancellable = new Gio.Cancellable();
-        this._monitors = [];   // {label, slider, value, set}
         try {
             this._color = new Gio.Settings({schema_id: 'org.gnome.settings-daemon.plugins.color'});
         } catch (e) {
@@ -73,29 +77,61 @@ export class DisplaysWidget extends OsminWidget {
         this._color?.connectObject('changed::night-light-enabled', () => this._sync(), this);
         this._power?.connectObject('changed', () => this._sync(), this);
 
-        const options = collapsible('Options', {open: true});
+        const options = collapsible('Options', {open: false});
         card.add_child(options.actor);
         if (this._power) {
             this._dim = checkRow({title: 'Dim the screen when inactive', subtitle: 'The screen gets darker after a while without activity.', state: this._power.get_boolean('idle-dim'), onToggle: on => this._power.set_boolean('idle-dim', on)});
             options.body.add_child(this._dim.row);
         }
-        if (this._hasDdc()) {
-            this._note = null;
-        } else {
-            this._note = new St.Label({text: 'Install ddcutil to control the brightness of external monitors.', style_class: 'osmin-hint'});
-            options.body.add_child(this._note);
-        }
+
+        this._arrangeBox = new St.BoxLayout({vertical: true, x_expand: true});
+        this._arrangeBox.add_child(menuHeader('Arrangement'));
+        const arrange = menuCard();
+        this._arrangeBox.add_child(arrange);
+        this._map = new ArrangeMap({
+            onSelect: id => {
+                this._selected = id;
+                this._syncArrangement();
+            },
+            onDrop: (id, x, y) => this._drop(id, x, y),
+        });
+        const mapWrap = new St.BoxLayout({style_class: 'osmin-card-pad', x_expand: true});
+        mapWrap.add_child(this._map);
+        arrange.add_child(mapWrap);
+        this._which = new St.Label({style_class: 'osmin-arrange-which', x_expand: true});
+        arrange.add_child(this._which);
+        const sides = SIDES.map(side => ({id: side, label: SIDE_LABELS[side], icon: SIDE_ICONS[side]}));
+        const {actor: sideChips, buttons: sideButtons} = menuChips(sides, side => this._placeSide(side), {perRow: 4});
+        this._sideButtons = sideButtons;
+        const sideWrap = new St.BoxLayout({style_class: 'osmin-card-pad', x_expand: true});
+        sideWrap.add_child(sideChips);
+        arrange.add_child(sideWrap);
+        this._mainChip = menuChip({label: 'Make it the main monitor', icon: 'starred-symbolic', onClick: () => this._makeMain()});
+        const mainRow = new St.BoxLayout({style_class: 'osmin-chips-row osmin-card-pad', x_expand: true});
+        mainRow.add_child(this._mainChip);
+        arrange.add_child(mainRow);
+        arrange.add_child(menuDivider());
+        this._modes = new St.BoxLayout({vertical: true, x_expand: true, style_class: 'osmin-card-pad'});
+        arrange.add_child(this._modes);
+        this._arrangeNote = new St.Label({style_class: 'osmin-hint', visible: false});
+        this._arrangeNote.clutter_text.line_wrap = true;
+        arrange.add_child(this._arrangeNote);
+        root.add_child(this._arrangeBox);
 
         this._firstDivider.visible = false;
-        this._connectScreen();
         this._connectKeyboard();
-        this._probeExternal();
+        this._stopWatching = this._displays?.watch(() => this._syncDisplays()) ?? null;
+        this._syncDisplays();
         this._sync();
         return root;
     }
 
-    /** A named slider with the percent and a power button on the right. */
-    _sliderRow(icon, name, onChange) {
+    get _displays() {
+        return this.context.services?.displays ?? null;
+    }
+
+    /** A named slider with the percent on the right (and a note under it). */
+    _sliderRow(icon, name, onChange, note = '') {
         const actor = new St.BoxLayout({vertical: true, x_expand: true});
         const head = new St.BoxLayout({style_class: 'osmin-value-row', x_expand: true});
         head.add_child(new St.Icon({icon_name: icon, style_class: 'osmin-meter-icon', y_align: Clutter.ActorAlign.CENTER}));
@@ -110,6 +146,11 @@ export class DisplaysWidget extends OsminWidget {
         const wrap = new St.BoxLayout({style_class: 'osmin-slider-row', x_expand: true});
         wrap.add_child(slider);
         actor.add_child(wrap);
+        if (note) {
+            const label = new St.Label({text: note, style_class: 'osmin-hint'});
+            label.clutter_text.line_wrap = true;
+            actor.add_child(label);
+        }
         return {actor, slider, set: value => {
             slider.value = value;
             percent.text = `${Math.round(value)}%`;
@@ -121,36 +162,131 @@ export class DisplaysWidget extends OsminWidget {
         this._dim?.set(this._power?.get_boolean('idle-dim') ?? false);
     }
 
-    // The built-in screen, through GNOME's power settings service.
-    _connectScreen() {
-        Gio.DBusProxy.new_for_bus(Gio.BusType.SESSION, Gio.DBusProxyFlags.NONE, null, 'org.gnome.SettingsDaemon.Power',
-            '/org/gnome/SettingsDaemon/Power', 'org.gnome.SettingsDaemon.Power.Screen', this._cancellable, (_o, result) => {
-                try {
-                    this._screen = Gio.DBusProxy.new_for_bus_finish(result);
-                } catch (e) {
-                    return;
-                }
-                this._screen.connectObject('g-properties-changed', () => this._syncScreen(), this);
-                this._syncScreen();
-            });
-    }
+    // --- the monitors ------------------------------------------------------------------------------------------
 
-    _syncScreen() {
-        const value = this._screen?.get_cached_property('Brightness')?.get_int32() ?? -1;
-        if (value < 0)
+    _syncDisplays() {
+        if (!this._list)
             return;
-        if (!this._builtin) {
-            this._builtin = this._sliderRow('computer-symbolic', 'Built-in display', percent => this._setScreen(percent));
-            this._list.insert_child_at_index(this._builtin.actor, 0);
-        }
-        this._builtin.set(value);
-        this._firstDivider.visible = true;
+        this._syncBrightness();
+        this._syncArrangement();
     }
 
-    _setScreen(percent) {
-        this._screen?.get_connection().call(this._screen.get_name(), this._screen.get_object_path(), 'org.freedesktop.DBus.Properties', 'Set',
-            new GLib.Variant('(ssv)', ['org.gnome.SettingsDaemon.Power.Screen', 'Brightness', new GLib.Variant('i', percent)]),
-            null, Gio.DBusCallFlags.NONE, -1, null, null);
+    /** A slider for every monitor that is on (made again only when the monitors change, not while one is dragged). */
+    _syncBrightness() {
+        const entries = this._displays?.brightness() ?? [];
+        const key = entries.map(e => `${e.connector}:${e.kind}:${e.name}`).join('|');
+        if (key !== this._brightnessKey) {
+            this._brightnessKey = key;
+            this._list.destroy_all_children();
+            this._rows = new Map();
+            entries.forEach((entry, i) => {
+                if (i > 0)
+                    this._list.add_child(menuDivider());
+                const note = entry.kind === 'osmin' ? 'This monitor has no brightness control of its own: Osmin dims the picture.' : '';
+                const row = this._sliderRow(entry.builtin ? 'computer-symbolic' : 'video-display-symbolic', entry.name, percent => {
+                    this._displays?.brightness().find(e => e.connector === entry.connector)?.set(Math.max(entry.min ?? 0, percent));
+                }, note);
+                this._list.add_child(row.actor);
+                this._rows.set(entry.connector, row);
+            });
+        }
+        for (const entry of entries)
+            this._rows.get(entry.connector)?.set(entry.value);
+        this._firstDivider.visible = entries.length > 0;
+    }
+
+    _syncArrangement() {
+        const displays = this._displays;
+        const rects = displays?.rects() ?? [];
+        this._arrangeBox.visible = (displays?.monitorCount ?? 0) > 1;
+        if (!this._arrangeBox.visible)
+            return;
+        if (!rects.some(r => r.id === this._selected))
+            this._selected = (rects.find(r => !r.primary) ?? rects[0])?.id ?? null;
+        this._map.set(rects, this._selected);
+        const selected = rects.find(r => r.id === this._selected);
+        const main = rects.find(r => r.primary);
+        const other = selected?.primary ? rects.find(r => !r.primary) : main;
+        const side = selected && other ? sideOf(selected, other) : null;
+        this._which.text = !selected ? ''
+            : rects.length < 2 ? `${selected.names.join(' + ')}`
+                : `${selected.names.join(' + ')}${side ? ` is ${SIDE_WORDS[side]} ${selected.primary ? other.names.join(' + ') : 'the main monitor'}` : ''}`;
+        for (const [id, button] of this._sideButtons) {
+            setChecked(button, id === side);
+            button.reactive = rects.length > 1;
+        }
+        this._mainChip.visible = !!selected && !selected.primary;
+
+        // Join, mirror, or only one monitor on.
+        this._modes.destroy_all_children();
+        const mode = displays.mode;
+        const items = [
+            {id: 'join', label: 'Join', icon: 'view-dual-symbolic'},
+            {id: 'mirror', label: 'Mirror', icon: 'view-mirror-symbolic'},
+            ...displays.state.monitors.map(m => ({id: `only:${m.connector}`, label: `Only ${displays.nameOf(m.connector)}`, icon: m.builtin ? 'computer-symbolic' : 'video-display-symbolic'})),
+        ];
+        const {actor, buttons} = menuChips(items, id => this._setMode(id), {perRow: 2});
+        buttons.forEach((button, id) => setChecked(button, id === mode));
+        this._modes.add_child(actor);
+    }
+
+    _note(text) {
+        this._arrangeNote.text = text ?? '';
+        this._arrangeNote.visible = !!text;
+    }
+
+    async _run(work) {
+        if (this._busy)
+            return;
+        this._busy = true;
+        this._note(null);
+        try {
+            await work();
+        } catch (e) {
+            this._note(e.message.replace(/^GDBus\.Error:[^ ]+ /, ''));
+            this._map.settle();
+        } finally {
+            this._busy = false;
+        }
+    }
+
+    _drop(id, x, y) {
+        const rects = this._displays.rects();
+        const placed = dropAt(rects, id, x, y);
+        if (!placed) {
+            this._map.settle();
+            return;
+        }
+        this._selected = id;
+        this._run(() => this._displays.arrange(placed));
+    }
+
+    _placeSide(side) {
+        const rects = this._displays.rects();
+        const selected = rects.find(r => r.id === this._selected);
+        if (!selected || rects.length < 2)
+            return;
+        const anchor = selected.primary ? rects.find(r => !r.primary) : rects.find(r => r.primary);
+        const placed = placeSide(rects, selected.id, side, anchor.id);
+        if (placed)
+            this._run(() => this._displays.arrange(placed));
+    }
+
+    _makeMain() {
+        if (this._selected)
+            this._run(() => this._displays.setPrimary(this._selected));
+    }
+
+    _setMode(id) {
+        const displays = this._displays;
+        if (id === displays.mode)
+            return;
+        if (id === 'join')
+            this._run(() => displays.join());
+        else if (id === 'mirror')
+            this._run(() => displays.mirror());
+        else
+            this._run(() => displays.only(id.slice('only:'.length)));
     }
 
     // The keyboard light, through UPower.
@@ -185,58 +321,8 @@ export class DisplaysWidget extends OsminWidget {
         this._keyboard?.call('SetBrightness', new GLib.Variant('(i)', [Math.round((this._kbdMax ?? 1) * percent / 100)]), Gio.DBusCallFlags.NONE, 500, null, null);
     }
 
-    // External monitors through DDC/CI (needs ddcutil).
-    _hasDdc() {
-        return !!GLib.find_program_in_path('ddcutil');
-    }
-
-    _probeExternal() {
-        if (!this._hasDdc())
-            return;
-        try {
-            const proc = Gio.Subprocess.new(['ddcutil', 'detect', '--brief'], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
-            proc.communicate_utf8_async(null, this._cancellable, (_p, result) => {
-                try {
-                    const [, out] = proc.communicate_utf8_finish(result);
-                    for (const block of out.split(/\n(?=Display )/)) {
-                        const number = block.match(/^Display (\d+)/)?.[1];
-                        const name = block.match(/Monitor:\s+\S*?:([^:\n]+)/)?.[1]?.trim() || `Monitor ${number}`;
-                        if (number)
-                            this._addExternal(Number(number), name);
-                    }
-                } catch (e) {
-                    // no DDC monitors
-                }
-            });
-        } catch (e) {
-            // ddcutil is not usable
-        }
-    }
-
-    _addExternal(number, name) {
-        const row = this._sliderRow('video-display-symbolic', name, percent => {
-            GLib.spawn_async(null, ['ddcutil', '--display', String(number), 'setvcp', '10', String(percent)], null, GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.STDOUT_TO_DEV_NULL | GLib.SpawnFlags.STDERR_TO_DEV_NULL, null);
-        });
-        this._list.add_child(row.actor);
-        try {
-            const proc = Gio.Subprocess.new(['ddcutil', '--display', String(number), 'getvcp', '10', '--brief'], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
-            proc.communicate_utf8_async(null, this._cancellable, (_p, result) => {
-                try {
-                    const [, out] = proc.communicate_utf8_finish(result);
-                    const m = out.match(/VCP 10 C (\d+) (\d+)/);
-                    if (m)
-                        row.set(Math.round(100 * Number(m[1]) / Number(m[2])));
-                } catch (e) {
-                    // unreadable
-                }
-            });
-        } catch (e) {
-            // ignore
-        }
-    }
-
     onPageShown() {
-        this._syncScreen();
+        this._displays?.refresh();
         if (this._keyboard)
             this._syncKeyboard();
         this._sync();
@@ -246,7 +332,8 @@ export class DisplaysWidget extends OsminWidget {
         this._cancellable.cancel();
         this._color?.disconnectObject(this);
         this._power?.disconnectObject(this);
-        this._screen?.disconnectObject(this);
+        this._stopWatching?.();
+        this._stopWatching = null;
         this._keyboard?.disconnectObject(this);
         super.destroy();
     }

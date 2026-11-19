@@ -573,6 +573,12 @@
       <description>Each monitor has its own desktops: switching on one monitor does not change the others.</description>
     </key>
 
+    <key name="display-dim" type="a{si}">
+      <default>{}</default>
+      <summary>Monitors Osmin dims</summary>
+      <description>For monitors without a brightness control of their own: connector -> brightness in percent (20-99) that Osmin gives the picture.</description>
+    </key>
+
     <key name="desktops-set-only-primary" type="b">
       <default>false</default>
       <summary>Osmin turned on GNOME's "workspaces only on primary"</summary>

@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Displays (quick panel): a brightness slider for every monitor (GNOME's own control, ddcutil, or Osmin dimming the picture of a monitor that has none), and the arrangement: a picture of the monitors to drag them to any side, Left / Right / Above / Below buttons, the main monitor, and Join / Mirror / Only one. Moving monitors applies at once; Mirror and Only one ask GNOME's "Keep these display settings?" and go back by themselves.
 - Touchpad gestures everywhere (Settings → Touchpad gestures): every three- and four-finger swipe, pinch and rest can be given an action. Three fingers sideways switch apps like Alt+Tab (the switcher follows the fingers), three up and down the overview, four sideways the workspaces (GNOME's own, following the fingers); more than fifty actions, including any keys. Two fingers stay with the apps.
 
 ### Changed

@@ -1469,7 +1469,7 @@ export default class OsminPreferences extends ExtensionPreferences {
         const MENU_ORDER = ['awake', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
         const info = id => menuInfo.find(w => w.id === id);
         const SHORT = {
-            awake: _('Keeps your computer awake for as long as you want.'), phone: _('Phone screen on the computer, with control.'), displays: _('Brightness of your screens.'),
+            awake: _('Keeps your computer awake for as long as you want.'), phone: _('Phone screen on the computer, with control.'), displays: _('Brightness of every monitor, and where the monitors stand (drag them, mirror, only one).'),
             sound: _('Volume of each app, one slider each.'), system: _('Processor, graphics and memory at a glance.'),
             network: _('Internet speed and its graph.'), disks: _('Free space and disk activity.'),
             power: _('Battery, charging and power use.'), utilities: _('Screenshots, colour picker and other tools.'),

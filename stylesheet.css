@@ -2246,3 +2246,14 @@
 
 .osmin-phone-ring { border-radius: 999px; background-color: rgba(10, 10, 14, 0.72); border: 1px solid rgba(255, 255, 255, 0.12); }
 .osmin-phone-ring-label { color: white; font-size: 9pt; font-weight: 600; text-align: center; }
+
+/* Displays: the picture of the monitors to drag around */
+.osmin-arrange-map { background-color: rgba(0, 0, 0, 0.22); border-radius: 12px; }
+.osmin-arrange-tile { background-color: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 6px; }
+.osmin-arrange-tile:hover { background-color: rgba(255, 255, 255, 0.16); }
+.osmin-arrange-tile:checked { background-color: rgba(53, 132, 228, 0.55); border-color: rgba(120, 175, 245, 0.95); }
+.osmin-arrange-tile:active { background-color: rgba(53, 132, 228, 0.75); }
+.osmin-arrange-number { font-size: 12pt; font-weight: bold; color: white; }
+.osmin-arrange-name { font-size: 7.5pt; color: rgba(255, 255, 255, 0.8); max-width: 110px; }
+.osmin-arrange-main { font-size: 7pt; color: rgba(255, 255, 255, 0.6); }
+.osmin-arrange-which { font-size: 9.5pt; color: rgba(255, 255, 255, 0.75); padding: 2px 14px 4px 14px; }

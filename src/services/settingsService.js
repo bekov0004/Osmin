@@ -81,6 +81,7 @@ export const DEFAULTS = Object.freeze({
     'activity-timer': true,
     'desktops-per-monitor': false,
     'desktops-set-only-primary': false,
+    'display-dim': {},
     'monitor-interval': 2,
     'temp-unit': 'C',
     'bar-metrics': [],
