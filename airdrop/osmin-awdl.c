@@ -4,7 +4,9 @@
  *
  *   osmin-awdl doctor                 what the card, its driver and the channel allow (no root needed)
  *   sudo osmin-awdl probe [seconds]   listens for AWDL frames of Apple devices nearby (open the share sheet on the
- *        [--inject]                   iPhone, AirDrop set to "Everyone for 10 minutes"); --inject also sends frames
+ *        [--inject] [--channel N]     iPhone, AirDrop set to "Everyone for 10 minutes"); --inject also sends frames.
+ *                                     Not connected to any Wi-Fi: the card is free, it listens on channel 149 itself
+ *                                     ("exclusive mode", no router needed: AirDrop is a direct link).
  *
  * It adds a monitor interface (osminawdl) beside the normal one for as long as it runs and removes it afterwards.
  * Nothing is changed on the normal connection.
@@ -137,8 +139,10 @@ static int doctor(void)
     printf("Wi-Fi interface : %s (%s, driver %s)\n", wifi, phy, driver[0] ? driver : "?");
     printf("channel         : %d%s (width %d MHz)\n", channel, channel ? "" : " (not connected)", width);
     int good = channel == 6 || channel == 44 || channel == 149;
-    printf("AWDL channel    : %s\n", good ? "yes: AWDL can share it"
-        : "NO: Apple devices use AWDL on channels 6, 44 and 149. Set the router's channel to 149 (5 GHz) or 6 (2.4 GHz).");
+    printf("AWDL channel    : %s\n", !channel ? "free: not connected, AWDL can use channel 149 on its own (no router needed)"
+        : good ? "yes: AWDL can share it with the connection"
+        : "NO while connected: AWDL uses 6, 44 or 149. Either set the router to 149, or disconnect from Wi-Fi (AirDrop needs no router).");
+    good = good || !channel;
     char command[160], line[256];
     snprintf(command, sizeof(command), "iw phy %s info 2>/dev/null", phy);
     FILE *p = popen(command, "r");
@@ -195,7 +199,7 @@ static void remove_monitor(void)
     run("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
 }
 
-static int probe(int seconds, int inject)
+static int probe(int seconds, int inject, int want_channel)
 {
     char driver[64];
     if (geteuid() != 0) {
@@ -208,7 +212,15 @@ static int probe(int seconds, int inject)
     }
     int width;
     int channel = current_channel(&width);
-    printf("listening on %s, channel %d (%d MHz), %d s%s\n", wifi, channel, width, seconds, inject ? ", sending test frames" : "");
+    /* not connected: nothing holds the card on a channel, AWDL gets it alone */
+    int exclusive = channel == 0;
+    if (exclusive)
+        channel = want_channel ? want_channel : 149;
+    printf("listening on %s, channel %d%s, %d s%s\n", wifi, channel,
+        exclusive ? " (not connected to Wi-Fi: the card is ours)" : " (shared with the Wi-Fi connection)",
+        seconds, inject ? ", sending test frames" : "");
+    if (!exclusive && want_channel && want_channel != channel)
+        printf("note: connected on channel %d, so --channel %d cannot be used (disconnect from Wi-Fi first)\n", channel, want_channel);
     if (channel != 6 && channel != 44 && channel != 149)
         printf("note: channel %d is not an AWDL channel (6, 44, 149): Apple devices will most likely not be heard\n", channel);
 
@@ -224,6 +236,12 @@ static int probe(int seconds, int inject)
         fprintf(stderr, "could not bring %s up\n", MONITOR);
         remove_monitor();
         return 1;
+    }
+    if (exclusive) {
+        char number[16];
+        snprintf(number, sizeof(number), "%d", channel);
+        if (run("iw dev %s set channel %s", MONITOR, number) != 0)
+            printf("note: could not tune to channel %d (is NetworkManager scanning? try: nmcli radio wifi on, no network)\n", channel);
     }
 
     int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -338,14 +356,16 @@ int main(int argc, char **argv)
     if (argc >= 2 && strcmp(argv[1], "doctor") == 0)
         return doctor();
     if (argc >= 2 && strcmp(argv[1], "probe") == 0) {
-        int seconds = 30, inject = 0;
+        int seconds = 30, inject = 0, channel = 0;
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--inject") == 0)
                 inject = 1;
+            else if (strcmp(argv[i], "--channel") == 0 && i + 1 < argc)
+                channel = atoi(argv[++i]);
             else if (atoi(argv[i]) > 0)
                 seconds = atoi(argv[i]);
         }
-        return probe(seconds, inject);
+        return probe(seconds, inject, channel);
     }
     fprintf(stderr, "usage: osmin-awdl doctor | probe [seconds] [--inject]\n");
     return 1;
