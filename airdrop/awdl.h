@@ -142,6 +142,9 @@ size_t awdl_dns_text(const uint8_t *p, size_t length, char *out, size_t size);
 /* A Service Response TLV (2) as text ("PTR name -> target", "SRV name -> target:port", "TXT name: a b"). */
 void awdl_service_text(const uint8_t *v, size_t length, char *out, size_t size);
 
+/* CRC-8 (polynomial 0x07) of a name in DNS wire format (the values in the Service Parameters TLV). */
+uint8_t awdl_name_crc(const char *name);
+
 /* Writes a Service Response TLV (header included) for one record; returns its length. */
 size_t awdl_service_record(uint8_t *p, const char *name, uint8_t type, const uint8_t *rdata, size_t length);
 

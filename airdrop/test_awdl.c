@@ -37,8 +37,8 @@ static void test_full(void)
         assert(f.chanseq[i] == 149);
     assert(f.has_election && memcmp(f.master, master, 6) == 0 && f.master_metric == 520 && f.self_metric == 60 && f.distance == 1);
     assert(f.devclass == AWDL_DEV_MACOS);
-    /* the order of the TLVs: 4 5 18 24 6 7 16 12 21 */
-    const uint8_t order[] = {4, 5, 18, 24, 6, 7, 16, 12, 21};
+    /* the order of the TLVs, as an iPhone sends them: 4 5 18 24 12 7 16 21 6 */
+    const uint8_t order[] = {4, 5, 18, 24, 12, 7, 16, 21, 6};
     assert(f.n_tlvs == 9);
     assert(memcmp(f.tlvs, order, 9) == 0);
     /* a PSF has no ARPA */
@@ -117,6 +117,10 @@ static void test_dns(void)
     size_t len = awdl_build_action(frame, sizeof frame, &me, AWDL_SUBTYPE_MIF, 1, 0);
     struct awdl_frame f;
     assert(awdl_parse(frame, len, &f) == 1 && f.n_tlvs == 12);
+    /* the CRC-8 values an iPhone put in its Service Parameters for its own services */
+    assert(awdl_name_crc("_applicationservicepairing._tcp.local") == 32);
+    assert(awdl_name_crc("_appsvcprepair._tcp.local") == 45);
+    assert(awdl_name_crc("_airdrop._tcp.local") == 158);
     uint8_t rec[300];
     size_t r = awdl_service_record(rec, "a1b2c3d4e5f6._airdrop._tcp.local", 33, (const uint8_t[]){0, 0, 0, 0, 0x22, 0x43, 7, 'P', 'r', 'o', 'B', 'o', 'o', 'k', 0xc0, 0x0c}, 16);
     awdl_service_text(rec + 3, r - 3, t, sizeof t);

@@ -185,6 +185,58 @@ static size_t tlv(uint8_t *p, uint8_t type, const uint8_t *value, uint16_t lengt
     return 3 + (size_t)length;
 }
 
+/* CRC-8 (polynomial 0x07, start 0) of a name in DNS wire format: what the Service Parameters TLV is made of. */
+uint8_t awdl_name_crc(const char *name)
+{
+    uint8_t wire[160];
+    size_t n = 0;
+    const char *at = name;
+    while (*at && n < sizeof(wire) - 66) {
+        const char *dot = strchr(at, '.');
+        size_t len = dot ? (size_t)(dot - at) : strlen(at);
+        wire[n++] = (uint8_t)len;
+        memcpy(wire + n, at, len);
+        n += len;
+        at += len + (dot ? 1 : 0);
+    }
+    wire[n++] = 0;
+    uint8_t c = 0;
+    for (size_t i = 0; i < n; i++) {
+        c ^= wire[i];
+        for (int b = 0; b < 8; b++)
+            c = (uint8_t)(c & 0x80 ? (c << 1) ^ 0x07 : c << 1);
+    }
+    return c;
+}
+
+/* Service Parameters: 3 reserved bytes, the update counter, a bitmask of which groups of 8 values are present, then a
+ * byte for each such group with the values' bits. The values: the CRC-8 of each record name we answer for. */
+static size_t service_params(uint8_t *p, const struct awdl_self *self)
+{
+    uint8_t v[48];
+    memset(v, 0, sizeof(v));
+    uint8_t groups[32];
+    memset(groups, 0, sizeof(groups));
+    if (self->service[0]) {
+        char instance[96];
+        snprintf(instance, sizeof(instance), "%s._airdrop._tcp.local", self->service);
+        uint8_t values[2] = {awdl_name_crc("_airdrop._tcp.local"), awdl_name_crc(instance)};
+        for (int i = 0; i < 2; i++)
+            groups[values[i] / 8] |= (uint8_t)(1 << (values[i] % 8));
+        put16(v + 3, 1);                  /* update counter */
+    }
+    uint32_t mask = 0;
+    size_t n = 9;
+    for (int g = 0; g < 32; g++) {
+        if (groups[g]) {
+            mask |= 1u << g;
+            v[n++] = groups[g];
+        }
+    }
+    put32(v + 5, mask);
+    return tlv(p, AWDL_TLV_SERVICE_PARAMS, v, (uint16_t)n);
+}
+
 /* Radiotap (no fields) and the 802.11 header of an action frame to everyone in the AWDL BSS. */
 static uint8_t *action_header(uint8_t *p, const uint8_t mac[6], uint16_t sequence, int subtype, uint32_t tx_time_us)
 {
@@ -277,9 +329,17 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
     put32(v + 36, self->self_counter);
     p += tlv(p, AWDL_TLV_ELECTION_PARAMS_V2, v, 40);
 
-    /* 6: service parameters (nothing in them) */
-    memset(v, 0, 9);
-    p += tlv(p, AWDL_TLV_SERVICE_PARAMS, v, 9);
+    /* 12: data path state: country, the social channels, the channel we are on, our AWDL address */
+    memset(v, 0, sizeof(v));
+    put16(v, 0x0100 | 0x0200 | 0x0001 | 0x0004);
+    v[2] = 'X';
+    v[3] = '0';
+    v[4] = 0;
+    put16(v + 5, 0x0007);                 /* 6, 44, 149 */
+    memset(v + 7, 0, 6);                  /* infrastructure BSSID (as iPhones send it: zero) */
+    put16(v + 13, self->channel);         /* and the channel we stay on */
+    memcpy(v + 15, self->mac, 6);
+    p += tlv(p, AWDL_TLV_DATA_PATH_STATE, v, 21);
 
     /* 7: HT capabilities, one stream */
     memset(v, 0, 8);
@@ -288,7 +348,7 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
     v[5] = 0xff;
     p += tlv(p, AWDL_TLV_HT_CAPS, v, 8);
 
-    /* 16: ARPA (MIF only): our name, then a pointer to ".local" */
+    /* 16: ARPA (MIF only): our name, then "local" from the dictionary */
     if (subtype == AWDL_SUBTYPE_MIF) {
         size_t name = strnlen(self->hostname, 60);
         v[0] = 3;
@@ -299,20 +359,13 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
         p += tlv(p, AWDL_TLV_ARPA, v, (uint16_t)(name + 4));
     }
 
-    /* 12: data path state: country, the social channels we are on, our AWDL address */
-    memset(v, 0, sizeof(v));
-    put16(v, 0x0100 | 0x0200 | 0x0004);
-    v[2] = 'X';
-    v[3] = '0';
-    v[4] = 0;
-    put16(v + 5, self->channel == 6 ? 0x0001 : self->channel == 44 ? 0x0002 : 0x0004);
-    memcpy(v + 7, self->mac, 6);
-    p += tlv(p, AWDL_TLV_DATA_PATH_STATE, v, 13);
-
     /* 21: version: AWDL 3.4, a Mac */
     v[0] = 0x34;
     v[1] = AWDL_DEV_MACOS;
     p += tlv(p, AWDL_TLV_VERSION, v, 2);
+
+    /* 6: service parameters: which record names we answer for, as a set of their CRC-8 values */
+    p += service_params(p, self);
 
     /* 2: our AirDrop service, as mDNS records (PTR, SRV, TXT) */
     if (subtype == AWDL_SUBTYPE_MIF && self->service[0]) {
@@ -320,7 +373,13 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
         snprintf(instance, sizeof(instance), "%s._airdrop._tcp.local", self->service);
         snprintf(target, sizeof(target), "%s.local", self->hostname);
         uint8_t rdata[200];
-        size_t n = awdl_dns_encode(instance, rdata, sizeof(rdata));
+        /* PTR: the instance's own label, then the "same name" mark (0xC000), as iPhones send it */
+        size_t label = strnlen(self->service, 31);
+        rdata[0] = (uint8_t)label;
+        memcpy(rdata + 1, self->service, label);
+        rdata[1 + label] = 0xc0;
+        rdata[2 + label] = 0x00;
+        size_t n = label + 3;
         p += awdl_service_record(p, "_airdrop._tcp.local", 12, rdata, n);
         rdata[0] = rdata[1] = rdata[2] = rdata[3] = 0;          /* priority, weight */
         rdata[4] = (uint8_t)(self->service_port >> 8);

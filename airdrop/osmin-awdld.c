@@ -568,16 +568,13 @@ int main(int argc, char **argv)
         connected = 0;
     }
     int channel = connected ? connected : want_channel;
-    if (channel != 6 && channel != 44 && channel != 149) {
-        fprintf(stderr, "%s is on channel %d; AWDL needs 6, 44 or 149. Use --take-card (the card leaves the network while "
-            "AirDrop runs), or set the router to 149.\n", wifi, channel);
-        return 1;
-    }
+    /* An iPhone connected to a network spends many of its AWDL slots on that network's channel: sharing the card's
+     * channel works on any channel the iPhone's network uses too. */
     self.channel = (uint8_t)channel;
     snprintf(self.service, sizeof(self.service), "%s", self_service);
     snprintf(self.txt, sizeof(self.txt), "%s", self_txt);
     self.service_port = (uint16_t)self_port;
-    self.opclass = channel == 6 ? 0x51 : 0x80;
+    self.opclass = channel <= 14 ? 0x51 : 0x80;
     self.self_metric = 60;
     self.self_counter = 0;
     memcpy(self.master, self.mac, 6);
@@ -657,23 +654,19 @@ int main(int argc, char **argv)
                 }
             }
             drop_queue(multicast, &n_multicast);
-        } else if (seq != last_aw && t >= start + GUARD_US && t < start + AW_US - GUARD_US) {
-            /* a new AW: who is on our channel now? */
-            int anyone = 0;
-            for (int i = 0; i < n_peers; i++) {
-                if (peers[i].valid && peer_here(&peers[i], seq))
-                    anyone = 1;
-            }
-            if (anyone) {
+        } else {
+            /* We stay on our channel all the time, and the Apple device comes to it in some of its slots (we do not
+             * rely on knowing which): a MIF every AW (16 TU), and data at once. */
+            if (seq != last_aw) {
                 last_aw = seq;
-                send_action(seq % 4 == 0 ? AWDL_SUBTYPE_MIF : AWDL_SUBTYPE_PSF);
-                for (int i = 0; i < n_multicast; i++)
-                    send_ether(multicast[i]->data, multicast[i]->length);
-                drop_queue(multicast, &n_multicast);
-                for (int i = 0; i < n_peers; i++) {
-                    if (peers[i].valid && peer_here(&peers[i], seq))
-                        flush_peer(&peers[i]);
-                }
+                send_action(AWDL_SUBTYPE_MIF);
+            }
+            for (int i = 0; i < n_multicast; i++)
+                send_ether(multicast[i]->data, multicast[i]->length);
+            drop_queue(multicast, &n_multicast);
+            for (int i = 0; i < n_peers; i++) {
+                if (peers[i].valid && peers[i].queued)
+                    flush_peer(&peers[i]);
             }
         }
 
@@ -683,9 +676,9 @@ int main(int argc, char **argv)
                 rx_af, rx_data, sent_af, sent_data, send_errors, n_peers, synced ? "in sync" : "announcing");
             for (int i = 0; i < n_peers; i++) {
                 struct peer *p = &peers[i];
-                say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d", mac_text(p->mac), p->hostname,
+                say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d%s", mac_text(p->mac), p->hostname,
                     awdl_devclass_name(p->devclass), p->valid ? "neighbour" : (p->seen_mif ? "no version yet" : "no MIF yet"),
-                    p->rx_frames, p->rx_data, p->tx_data, p->queued);
+                    p->rx_frames, p->rx_data, p->tx_data, p->queued, peer_here(p, seq) ? ", on our channel now" : "");
             }
         }
 
