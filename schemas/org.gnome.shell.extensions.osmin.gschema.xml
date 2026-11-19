@@ -573,6 +573,12 @@
       <description>Each monitor has its own desktops: switching on one monitor does not change the others.</description>
     </key>
 
+    <key name="desktops-set-only-primary" type="b">
+      <default>false</default>
+      <summary>Osmin turned on GNOME's "workspaces only on primary"</summary>
+      <description>Set while separate desktops are on and Osmin changed the GNOME setting, so it is turned back off afterwards (also after a restart).</description>
+    </key>
+
     <key name="activity-timer" type="b">
       <default>true</default>
       <summary>Timer activity</summary>

@@ -15,6 +15,7 @@ follows [Semantic Versioning](https://semver.org/).
 - Shortcuts: any keys can be given to an Osmin shortcut; when GNOME already uses them (Super+V, for example), Osmin takes them while it runs and gives them back afterwards. The "Free Super+V from GNOME" switch is gone (what it had taken is given back). While a shortcut is being recorded the keys go to the settings window, not to GNOME.
 
 ### Fixed
+- Separate desktops for every monitor really are separate: switching desktops on the laptop (keys, gestures, the overview) no longer switches the other monitor. The main monitor keeps GNOME's desktops; every other monitor has its own, switched by the same keys (Super+Page Up/Down, Ctrl+Alt+arrows, Super+number, with Shift to take the window) and four-finger swipes while the pointer is on it, with a small "Desktop 2" sign.
 - Shortcuts recorded with the Russian (or another non-Latin) layout on were saved as Cyrillic keys and did not work; they are recorded as the Latin key now, and old ones are corrected. Two shortcuts can no longer have the same keys (the Quick panel's suggested keys were the Clipboard's: now Ctrl+Super+Q); the new one takes them and says from which. Shift+letter alone is refused (it would stop that letter from being typed); F-keys and Print work alone.
 
 ### Added

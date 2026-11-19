@@ -50,10 +50,14 @@ export function keysOf(accel) {
  * screen, GNOME keeps its gestures.
  */
 export class GestureService {
-    /** @param {{gsettings: Gio.Settings, run: (action: string) => void}} params run: an action of Osmin's own */
-    constructor({gsettings, run}) {
+    /**
+     * @param {{gsettings: Gio.Settings, run: (action: string) => void, desktops?: object}} params run: an action of
+     *   Osmin's own; desktops: the separate desktops of every monitor (monitorDesktops.js), if any
+     */
+    constructor({gsettings, run, desktops = null}) {
         this._gsettings = gsettings;
         this._run = run;
+        this._desktops = desktops;
         this._touchpad = new Gio.Settings({schema_id: 'org.gnome.desktop.peripherals.touchpad'});
         this._recognizer = new GestureRecognizer({
             resolve: id => actionOf(this._map()[id]),
@@ -113,6 +117,9 @@ export class GestureService {
         try {
             if (action.id === 'app-switcher' || action.id === 'window-switcher')
                 return this._switcher(action.id, info);
+            // over a monitor with desktops of its own, the desktops switch once (_do), not GNOME's
+            if (action.id === 'workspaces' && this._desktops?.ownsMonitor(global.display.get_current_monitor()))
+                return null;
             if (action.id === 'workspaces' || action.id === 'overview')
                 return this._native(action.id, info);
         } catch (e) {
@@ -220,6 +227,11 @@ export class GestureService {
         case 'workspace-left':
         case 'workspace-right': {
             const left = action.id === 'workspace-left' || (action.id === 'workspaces' && (direction === 'right' || direction === 'down') === this._touchpad.get_boolean('natural-scroll'));
+            const monitor = global.display.get_current_monitor();
+            if (this._desktops?.ownsMonitor(monitor)) {
+                this._desktops.step(monitor, left ? -1 : 1);
+                break;
+            }
             workspace.get_neighbor(left ? Meta.MotionDirection.LEFT : Meta.MotionDirection.RIGHT).activate(time);
             break;
         }

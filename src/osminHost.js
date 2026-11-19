@@ -36,6 +36,7 @@ import {EventType, Priority} from './utils/events.js';
 import {latinAccel, restoreFreedBindings, syncFreedBindings} from './utils/freedBindings.js';
 import {targetMonitors} from './utils/monitors.js';
 import {SignalTracker} from './utils/signals.js';
+import {MonitorDesktops} from './windows/monitorDesktops.js';
 
 const SHORTCUTS = [
     ['shortcut-osmin', 'osmin'],
@@ -116,6 +117,7 @@ export class OsminHost {
             todo: new TodoService(this._backend.todo),
             notes: new NotesService(this._backend.notes),
             notifications: new NotificationsService(),
+            desktops: new MonitorDesktops({gsettings: this._settings.gsettings ?? null}),
             camera: new CameraService(),
             localSend: new LocalSendService(this._backend.localSend),
             clipboard: new ClipboardService(this._backend.clipboard, {
@@ -136,7 +138,7 @@ export class OsminHost {
         this._syncReceiving();
         if (this._settings.gsettings) {
             try {
-                this._gestures = new GestureService({gsettings: this._settings.gsettings, run: id => this._runAction(id)});
+                this._gestures = new GestureService({gsettings: this._settings.gsettings, run: id => this._runAction(id), desktops: this._services.desktops});
             } catch (e) {
                 console.warn(`[osmin] touchpad gestures: ${e.message}`);
             }
@@ -199,6 +201,7 @@ export class OsminHost {
             services.todo.destroy();
             services.notes.destroy();
             services.camera.destroy();
+            services.desktops.destroy();
             services.localSend.destroy();
             this._backend.shutdown();
             this._backend = null;

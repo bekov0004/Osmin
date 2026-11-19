@@ -2,11 +2,11 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {createButton} from '../../ui/button.js';
 import {menuCard, menuChip, menuChips, menuDivider, menuHeader, menuRow, setChecked, switchRow} from '../../ui/menuKit.js';
 import {targetWindow} from '../../windows/layout.js';
-import {MonitorDesktops} from '../../windows/monitorDesktops.js';
 import {OsminWidget} from '../widget.js';
 
 /**
@@ -25,8 +25,12 @@ export class WorkspacesWidget extends OsminWidget {
         this._mutter = new Gio.Settings({schema_id: 'org.gnome.mutter'});
         this._manager = global.workspace_manager;
         this._target = null;
-        this._monitors = null;
         this._monitor = 0;
+    }
+
+    /** The separate desktops of every monitor (one for the whole shell, see monitorDesktops.js). */
+    get _monitors() {
+        return this.context.services?.desktops?.enabled ? this.context.services.desktops : null;
     }
 
     get _perMonitor() {
@@ -35,18 +39,11 @@ export class WorkspacesWidget extends OsminWidget {
 
     start() {
         this.context.settings?.connectObject('changed', (_s, key) => key === 'desktops-per-monitor' && this._syncMode(), this);
+        this._stopWatching = this.context.services?.desktops?.watch(() => this._rebuild()) ?? null;
         this._syncMode();
     }
 
-    /** Turns the separate desktops of every monitor on or off to match the setting. */
     _syncMode() {
-        if (this._perMonitor && !this._monitors) {
-            this._monitors = new MonitorDesktops(() => this._rebuild());
-            this._monitors.enable();
-        } else if (!this._perMonitor && this._monitors) {
-            this._monitors.disable();
-            this._monitors = null;
-        }
         this._perMonitorRow?.set(this._perMonitor);
         if (this._everywhere)
             this._everywhere.row.visible = !this._perMonitor;
@@ -79,7 +76,7 @@ export class WorkspacesWidget extends OsminWidget {
         behaviour.add_child(menuDivider());
         this._perMonitorRow = switchRow({
             title: 'Separate desktops for every monitor',
-            subtitle: 'Each monitor has its own desktops: switching on one does not touch the others. Osmin hides the windows of the other desktops.',
+            subtitle: 'Each monitor has its own desktops: switching on one does not touch the others. The main monitor keeps GNOME\'s desktops; on the others Osmin hides the windows of the other desktops. Keys and gestures switch the monitor you are working on.',
             state: this._perMonitor,
             onToggle: on => this.context.settings?.gsettings?.set_boolean('desktops-per-monitor', on),
         });
@@ -128,8 +125,11 @@ export class WorkspacesWidget extends OsminWidget {
         this._list.destroy_all_children();
         this._monitorChips.destroy_all_children();
         if (this._monitors) {
-            this._rebuildMonitor();
-            return;
+            this._monitorChipsFor(this._shownMonitor());
+            if (this._monitors.ownsMonitor(this._shownMonitor())) {
+                this._rebuildMonitor();
+                return;
+            }
         }
         const count = this._manager.get_n_workspaces();
         const active = this._manager.get_active_workspace_index();
@@ -159,10 +159,13 @@ export class WorkspacesWidget extends OsminWidget {
         }
     }
 
-    /** The list for one monitor, when every monitor has its own desktops. */
-    _rebuildMonitor() {
+    _shownMonitor() {
+        return Math.max(0, Math.min(this._monitor, Main.layoutManager.monitors.length - 1));
+    }
+
+    /** The monitors to choose from, when every monitor has its own desktops. */
+    _monitorChipsFor(monitor) {
         const md = this._monitors;
-        const monitor = Math.min(this._monitor, md.monitorCount - 1);
         if (md.monitorCount > 1) {
             const primary = global.display.get_primary_monitor();
             const items = Array.from({length: md.monitorCount}, (_v, i) => ({id: String(i), label: i === primary ? `Monitor ${i + 1} (main)` : `Monitor ${i + 1}`}));
@@ -173,6 +176,12 @@ export class WorkspacesWidget extends OsminWidget {
             buttons.forEach((chip, id) => setChecked(chip, Number(id) === monitor));
             this._monitorChips.add_child(actor);
         }
+    }
+
+    /** The list for a monitor with desktops of its own. */
+    _rebuildMonitor() {
+        const md = this._monitors;
+        const monitor = this._shownMonitor();
         const count = md.count(monitor);
         const current = md.current(monitor);
         for (let i = 0; i < count; i++) {
@@ -192,9 +201,10 @@ export class WorkspacesWidget extends OsminWidget {
 
     /** @param {boolean} withWindow also send the window you were working in to it */
     _create(withWindow) {
-        if (this._monitors) {
+        const own = withWindow && this._target && !this._target.is_destroyed?.() ? this._target.get_monitor() : this._shownMonitor();
+        if (this._monitors?.ownsMonitor(own)) {
             const window = withWindow && this._target && !this._target.is_destroyed?.() ? this._target : null;
-            const monitor = window ? window.get_monitor() : this._monitor;
+            const monitor = own;
             const fresh = this._monitors.count(monitor) - 1;
             if (window)
                 this._monitors.moveWindow(window, fresh);
@@ -221,8 +231,8 @@ export class WorkspacesWidget extends OsminWidget {
 
     destroy() {
         this.context.settings?.disconnectObject(this);
-        this._monitors?.disable();
-        this._monitors = null;
+        this._stopWatching?.();
+        this._stopWatching = null;
         this._manager?.disconnectObject(this);
         this._mutter?.disconnectObject(this);
         this._list = null;
