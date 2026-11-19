@@ -313,7 +313,45 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
     v[0] = 0x34;
     v[1] = AWDL_DEV_MACOS;
     p += tlv(p, AWDL_TLV_VERSION, v, 2);
+
+    /* 2: our AirDrop service, as mDNS records (PTR, SRV, TXT) */
+    if (subtype == AWDL_SUBTYPE_MIF && self->service[0]) {
+        char instance[96], target[96];
+        snprintf(instance, sizeof(instance), "%s._airdrop._tcp.local", self->service);
+        snprintf(target, sizeof(target), "%s.local", self->hostname);
+        uint8_t rdata[200];
+        size_t n = awdl_dns_encode(instance, rdata, sizeof(rdata));
+        p += awdl_service_record(p, "_airdrop._tcp.local", 12, rdata, n);
+        rdata[0] = rdata[1] = rdata[2] = rdata[3] = 0;          /* priority, weight */
+        rdata[4] = (uint8_t)(self->service_port >> 8);
+        rdata[5] = (uint8_t)self->service_port;
+        n = 6 + awdl_dns_encode(target, rdata + 6, sizeof(rdata) - 6);
+        p += awdl_service_record(p, instance, 33, rdata, n);
+        size_t t = strnlen(self->txt, 60);
+        rdata[0] = (uint8_t)t;
+        memcpy(rdata + 1, self->txt, t);
+        p += awdl_service_record(p, instance, 16, rdata, t + 1);
+    }
     return (size_t)(p - buffer);
+}
+
+size_t awdl_service_record(uint8_t *p, const char *name, uint8_t type, const uint8_t *rdata, size_t length)
+{
+    uint8_t encoded[128];
+    size_t n = awdl_dns_encode(name, encoded, sizeof(encoded));
+    if (!n)
+        return 0;
+    size_t value = 2 + n + 1 + 2 + 2 + length;
+    p[0] = AWDL_TLV_SERVICE_RESPONSE;
+    put16(p + 1, (uint16_t)value);
+    uint8_t *v = p + 3;
+    put16(v, (uint16_t)(n + 1));          /* the name and the type byte */
+    memcpy(v + 2, encoded, n);
+    v[2 + n] = type;
+    put16(v + 3 + n, (uint16_t)length);   /* the record data */
+    put16(v + 5 + n, 0);                  /* two bytes of unknown meaning */
+    memcpy(v + 7 + n, rdata, length);
+    return 3 + value;
 }
 
 size_t awdl_build_psf(uint8_t *buffer, size_t size, const uint8_t mac[6], const char *hostname, uint16_t sequence)
@@ -424,6 +462,128 @@ int awdl_unwrap_data(const uint8_t *packet, size_t length, uint8_t src[6], awdl_
 void awdl_link_local(const uint8_t mac[6], char *out, size_t size)
 {
     snprintf(out, size, "fe80::%02x%02x:%02xff:fe%02x:%02x%02x", mac[0] ^ 0x02, mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+int awdl_walk_tlvs(const uint8_t *packet, size_t length, awdl_tlv_visit visit, void *context)
+{
+    struct awdl_frame f;
+    if (!awdl_parse(packet, length, &f))
+        return 0;
+    int rssi, fcs;
+    size_t rt = radiotap(packet, length, &rssi, &fcs);
+    const uint8_t *body = packet + rt + 24;
+    size_t total = length - rt - (fcs ? 4 : 0) - 24;
+    size_t at = 16;
+    while (at + 3 <= total) {
+        uint16_t len = le16(body + at + 1);
+        if (at + 3 + len > total)
+            break;
+        visit(body[at], body + at + 3, len, context);
+        at += 3 + len;
+    }
+    return 1;
+}
+
+static const char *DICTIONARY[] = {
+    "", "_airplay._tcp.local", "_airplay._udp.local", "_airplay", "_raop._tcp.local", "_raop._udp.local", "_raop",
+    "_airdrop._tcp.local", "_airdrop._udp.local", "_airdrop", "_tcp.local", "_udp.local", "local", "ip6.arpa", "ip4.arpa",
+};
+#define DICTIONARY_SIZE (sizeof(DICTIONARY) / sizeof(DICTIONARY[0]))
+
+size_t awdl_dns_text(const uint8_t *p, size_t length, char *out, size_t size)
+{
+    size_t at = 0, written = 0;
+    out[0] = 0;
+    while (at < length) {
+        const char *part;
+        char label[64];
+        if (p[at] & 0xc0) {
+            if (at + 2 > length)
+                break;
+            unsigned key = (unsigned)(p[at] << 8 | p[at + 1]);
+            at += 2;
+            part = (key & 0xff) < DICTIONARY_SIZE && (key & 0xff00) == 0xc000 ? DICTIONARY[key & 0xff] : "<?>";
+        } else {
+            size_t n = p[at++];
+            if (n == 0 || at + n > length)
+                break;
+            snprintf(label, sizeof(label), "%.*s", (int)(n < 63 ? n : 63), (const char *)p + at);
+            at += n;
+            part = label;
+        }
+        if (!*part)
+            continue;
+        written += (size_t)snprintf(out + written, written < size ? size - written : 0, "%s%s", written ? "." : "", part);
+        if (written >= size)
+            break;
+    }
+    return at;
+}
+
+void awdl_service_text(const uint8_t *v, size_t length, char *out, size_t size)
+{
+    out[0] = 0;
+    if (length < 2)
+        return;
+    size_t name_len = le16(v);
+    if (name_len < 1 || 2 + name_len + 4 > length) {
+        snprintf(out, size, "(short)");
+        return;
+    }
+    char name[200], data[300] = "";
+    awdl_dns_text(v + 2, name_len - 1, name, sizeof(name));
+    uint8_t type = v[2 + name_len - 1];
+    size_t data_len = le16(v + 2 + name_len);
+    const uint8_t *r = v + 2 + name_len + 4;      /* after the data length and two unknown bytes */
+    size_t room = length - (2 + name_len + 4);
+    if (data_len > room)
+        data_len = room;
+    if (type == 12) {
+        awdl_dns_text(r, data_len, data, sizeof(data));
+        snprintf(out, size, "PTR %s -> %s", name, data);
+    } else if (type == 33 && data_len >= 6) {
+        awdl_dns_text(r + 6, data_len - 6, data, sizeof(data));
+        snprintf(out, size, "SRV %s -> %s port %u", name, data, (unsigned)(r[4] << 8 | r[5]));
+    } else if (type == 16) {
+        size_t at = 0, w = 0;
+        while (at < data_len && w < sizeof(data) - 2) {
+            size_t n = r[at++];
+            if (at + n > data_len)
+                break;
+            w += (size_t)snprintf(data + w, sizeof(data) - w, "%s%.*s", w ? " | " : "", (int)n, (const char *)r + at);
+            at += n;
+        }
+        snprintf(out, size, "TXT %s: %s", name, data);
+    } else {
+        snprintf(out, size, "type %u %s (%zu bytes)", type, name, data_len);
+    }
+}
+
+size_t awdl_dns_encode(const char *name, uint8_t *out, size_t size)
+{
+    size_t used = 0;
+    const char *at = name;
+    while (*at) {
+        /* the longest known suffix that matches the rest */
+        for (size_t k = 1; k < DICTIONARY_SIZE; k++) {
+            if (strcmp(at, DICTIONARY[k]) == 0) {
+                if (used + 2 > size)
+                    return 0;
+                out[used++] = 0xc0;
+                out[used++] = (uint8_t)k;
+                return used;
+            }
+        }
+        const char *dot = strchr(at, '.');
+        size_t n = dot ? (size_t)(dot - at) : strlen(at);
+        if (n == 0 || n > 63 || used + 1 + n > size)
+            return 0;
+        out[used++] = (uint8_t)n;
+        memcpy(out + used, at, n);
+        used += n;
+        at += n + (dot ? 1 : 0);
+    }
+    return used;
 }
 
 const char *awdl_tlv_name(int type)

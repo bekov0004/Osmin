@@ -4,8 +4,9 @@
  *   sudo osmin-awdld [--channel 149|44|6] [--take-card] [--name NAME] [--verbose]
  *
  * Connected to Wi-Fi it shares the access point's channel (which must then be 6, 44 or 149); not connected, it tunes
- * the card to --channel (149 by default). --take-card also tells NetworkManager to leave the card alone while it runs
- * (no scanning that moves the channel), and gives it back afterwards.
+ * the card to --channel (149 by default). --take-card takes the whole card: it turns the radio on if it was off,
+ * leaves the network it is on, tells NetworkManager to keep off the card while it runs (no scanning, no reconnecting),
+ * and afterwards gives it back and joins that network again.
  *
  * What it does:
  *  - adds a monitor interface (osminawdl) beside the Wi-Fi one, and a TAP interface awdl0 with the Wi-Fi card's MAC
@@ -50,6 +51,9 @@ static char wifi[IFNAMSIZ];
 static char phy[32];
 static int verbose;
 static int took_card;
+static char saved_connection[256];
+static char self_service[32], self_txt[64];
+static int self_port = 8771;
 static volatile sig_atomic_t stop;
 
 static void on_signal(int sig) { (void)sig; stop = 1; }
@@ -320,7 +324,7 @@ static void send_action(int subtype)
     self.tx_counter = (uint16_t)((next - t) / AWDL_TU_US);
     self.aw_seq = (uint16_t)(seq + 1);
     self.aw_remaining = self.tx_counter;
-    uint8_t frame[1024];
+    uint8_t frame[1500];
     size_t length = awdl_build_action(frame, sizeof(frame), &self, subtype, sequence++, (uint32_t)t);
     if (length)
         send_raw(frame, length, &sent_af);
@@ -489,8 +493,14 @@ static void cleanup(void)
     if (monitor_fd >= 0)
         close(monitor_fd);
     sh("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
-    if (took_card)
+    if (took_card) {
         sh("nmcli device set %s managed yes 2>/dev/null", wifi);
+        /* back on the network it was on */
+        if (saved_connection[0])
+            sh("(sleep 1; nmcli connection up id '%s' >/dev/null 2>&1) &", saved_connection);
+        else
+            sh("(sleep 1; nmcli device connect %s >/dev/null 2>&1) &", wifi);
+    }
 }
 
 int main(int argc, char **argv)
@@ -506,8 +516,14 @@ int main(int argc, char **argv)
             name = argv[++i];
         else if (strcmp(argv[i], "--verbose") == 0)
             verbose = 1;
+        else if (strcmp(argv[i], "--service") == 0 && i + 1 < argc)
+            snprintf(self_service, sizeof(self_service), "%.30s", argv[++i]);
+        else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
+            self_port = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--txt") == 0 && i + 1 < argc)
+            snprintf(self_txt, sizeof(self_txt), "%.60s", argv[++i]);
         else {
-            fprintf(stderr, "usage: osmin-awdld [--channel 149|44|6] [--take-card] [--name NAME] [--verbose]\n");
+            fprintf(stderr, "usage: osmin-awdld [--channel 149|44|6] [--take-card] [--name NAME] [--service ID --port N --txt flags=N] [--verbose]\n");
             return 1;
         }
     }
@@ -529,12 +545,38 @@ int main(int argc, char **argv)
     snprintf(self.hostname, sizeof(self.hostname), "%.60s", name ? name : host);
 
     int connected = current_channel();
+    if (take_card) {
+        sh("nmcli radio wifi on 2>/dev/null; rfkill unblock wifi 2>/dev/null");
+        if (connected) {
+            char command[160];
+            snprintf(command, sizeof(command), "nmcli -g GENERAL.CONNECTION device show %s 2>/dev/null", wifi);
+            FILE *p = popen(command, "r");
+            if (p && fgets(saved_connection, sizeof(saved_connection), p))
+                saved_connection[strcspn(saved_connection, "\n")] = 0;
+            if (p)
+                pclose(p);
+            for (char *c = saved_connection; *c; c++) {
+                if (*c == '\'')
+                    *c = 0;
+            }
+            say("leaving %s for now (%s); it comes back when this stops", wifi, saved_connection[0] ? saved_connection : "Wi-Fi");
+            sh("nmcli device disconnect %s >/dev/null 2>&1", wifi);
+        }
+        sh("nmcli device set %s managed no 2>/dev/null", wifi);
+        took_card = 1;
+        usleep(500000);
+        connected = 0;
+    }
     int channel = connected ? connected : want_channel;
     if (channel != 6 && channel != 44 && channel != 149) {
-        fprintf(stderr, "%s is on channel %d; AWDL needs 6, 44 or 149. Set the router to 149, or disconnect from Wi-Fi.\n", wifi, channel);
+        fprintf(stderr, "%s is on channel %d; AWDL needs 6, 44 or 149. Use --take-card (the card leaves the network while "
+            "AirDrop runs), or set the router to 149.\n", wifi, channel);
         return 1;
     }
     self.channel = (uint8_t)channel;
+    snprintf(self.service, sizeof(self.service), "%s", self_service);
+    snprintf(self.txt, sizeof(self.txt), "%s", self_txt);
+    self.service_port = (uint16_t)self_port;
     self.opclass = channel == 6 ? 0x51 : 0x80;
     self.self_metric = 60;
     self.self_counter = 0;
@@ -546,10 +588,6 @@ int main(int argc, char **argv)
     signal(SIGTERM, on_signal);
     signal(SIGPIPE, SIG_IGN);
 
-    if (take_card && !connected) {
-        sh("nmcli device set %s managed no 2>/dev/null", wifi);
-        took_card = 1;
-    }
     sh("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
     if (sh("iw phy %s interface add %s type monitor flags active 2>/dev/null || iw phy %s interface add %s type monitor", phy, MONITOR, phy, MONITOR) != 0 ||
         sh("ip link set %s up", MONITOR) != 0) {

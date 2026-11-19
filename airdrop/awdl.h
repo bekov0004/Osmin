@@ -105,6 +105,10 @@ struct awdl_self {
     uint32_t master_counter;
     uint32_t self_counter;
     uint32_t distance;
+    /* the AirDrop service (in the MIF as Service Response TLVs), when service[0] */
+    char service[32];         /* the instance: 12 hex digits */
+    uint16_t service_port;
+    char txt[64];             /* e.g. "flags=137" */
 };
 
 /* Parses a frame as it comes from a monitor interface (radiotap header first). Returns 1 for an AWDL action frame. */
@@ -127,6 +131,22 @@ int awdl_unwrap_data(const uint8_t *packet, size_t length, uint8_t src[6], awdl_
 
 /* The IPv6 link-local address of a MAC (modified EUI-64), written as text. */
 void awdl_link_local(const uint8_t mac[6], char *out, size_t size);
+
+/* Every TLV of an AWDL action frame: callback(type, value, length, context). Returns 1 for an AWDL action frame. */
+typedef void (*awdl_tlv_visit)(int type, const uint8_t *value, size_t length, void *context);
+int awdl_walk_tlvs(const uint8_t *packet, size_t length, awdl_tlv_visit visit, void *context);
+
+/* An AWDL DNS name (labels, and two-byte big-endian keys 0xC0xx of a fixed dictionary) as text; returns bytes used. */
+size_t awdl_dns_text(const uint8_t *p, size_t length, char *out, size_t size);
+
+/* A Service Response TLV (2) as text ("PTR name -> target", "SRV name -> target:port", "TXT name: a b"). */
+void awdl_service_text(const uint8_t *v, size_t length, char *out, size_t size);
+
+/* Writes a Service Response TLV (header included) for one record; returns its length. */
+size_t awdl_service_record(uint8_t *p, const char *name, uint8_t type, const uint8_t *rdata, size_t length);
+
+/* Encodes a name for AWDL: dotted text with the dictionary's known suffixes compressed. Returns the length. */
+size_t awdl_dns_encode(const char *name, uint8_t *out, size_t size);
 
 const char *awdl_tlv_name(int type);
 const char *awdl_devclass_name(int devclass);

@@ -92,6 +92,37 @@ static void test_data(void)
     assert(strcmp(ll, "fe80::ae50:deff:fecf:cdc9") == 0);
 }
 
+static void test_dns(void)
+{
+    uint8_t b[128];
+    char t[200];
+    size_t n = awdl_dns_encode("_airdrop._tcp.local", b, sizeof b);
+    assert(n == 2 && b[0] == 0xc0 && b[1] == 0x07);
+    n = awdl_dns_encode("a1b2c3d4e5f6._airdrop._tcp.local", b, sizeof b);
+    assert(n == 15 && b[0] == 12 && b[13] == 0xc0 && b[14] == 0x07);
+    awdl_dns_text(b, n, t, sizeof t);
+    assert(strcmp(t, "a1b2c3d4e5f6._airdrop._tcp.local") == 0);
+    n = awdl_dns_encode("ProBook.local", b, sizeof b);
+    assert(n == 10 && b[8] == 0xc0 && b[9] == 0x0c);
+    /* our MIF with the service records: they read back */
+    struct awdl_self me;
+    memset(&me, 0, sizeof me);
+    strcpy(me.hostname, "ProBook");
+    me.channel = 149;
+    me.opclass = 0x80;
+    strcpy(me.service, "a1b2c3d4e5f6");
+    me.service_port = 8771;
+    strcpy(me.txt, "flags=137");
+    uint8_t frame[1500];
+    size_t len = awdl_build_action(frame, sizeof frame, &me, AWDL_SUBTYPE_MIF, 1, 0);
+    struct awdl_frame f;
+    assert(awdl_parse(frame, len, &f) == 1 && f.n_tlvs == 12);
+    uint8_t rec[300];
+    size_t r = awdl_service_record(rec, "a1b2c3d4e5f6._airdrop._tcp.local", 33, (const uint8_t[]){0, 0, 0, 0, 0x22, 0x43, 7, 'P', 'r', 'o', 'B', 'o', 'o', 'k', 0xc0, 0x0c}, 16);
+    awdl_service_text(rec + 3, r - 3, t, sizeof t);
+    assert(strcmp(t, "SRV a1b2c3d4e5f6._airdrop._tcp.local -> ProBook.local port 8771") == 0);
+}
+
 int main(void)
 {
     uint8_t mac[6] = {0xac, 0x50, 0xde, 0xcf, 0xcd, 0xc9}, frame[512];
@@ -121,6 +152,7 @@ int main(void)
     assert(awdl_parse(big, h + n - 8 + 4, &f) == 0);
     test_full();
     test_data();
+    test_dns();
     puts("awdl ok");
     return 0;
 }

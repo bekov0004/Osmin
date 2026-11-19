@@ -7,6 +7,7 @@
  *        [--inject] [--channel N]     iPhone, AirDrop set to "Everyone for 10 minutes"); --inject also sends frames.
  *                                     Not connected to any Wi-Fi: the card is free, it listens on channel 149 itself
  *                                     ("exclusive mode", no router needed: AirDrop is a direct link).
+ *                                     --dump writes the raw bytes of the service TLVs (to learn their format).
  *
  * It adds a monitor interface (osminawdl) beside the normal one for as long as it runs and removes it afterwards.
  * Nothing is changed on the normal connection.
@@ -199,6 +200,47 @@ static void remove_monitor(void)
     run("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
 }
 
+/* --dump: every different value of the interesting TLVs, once, as hex (and decoded where we know how). */
+static int dump;
+static uint32_t dumped[2048];
+static int n_dumped, dump_lines;
+static const uint8_t *dump_src;
+
+static uint32_t fnv(const uint8_t *p, size_t n, uint32_t h)
+{
+    for (size_t i = 0; i < n; i++)
+        h = (h ^ p[i]) * 16777619u;
+    return h;
+}
+
+static void dump_tlv(int type, const uint8_t *v, size_t length, void *context)
+{
+    (void)context;
+    if (type != 0 && type != 1 && type != 2 && type != 3 && type != 6 && type != 12 && type != 16 && type != 17 &&
+        type != 19 && type != 21 && type != 22 && type < 25)
+        return;
+    uint32_t h = fnv(dump_src, 6, fnv((const uint8_t *)&type, sizeof(type), fnv(v, length, 2166136261u)));
+    for (int i = 0; i < n_dumped; i++) {
+        if (dumped[i] == h)
+            return;
+    }
+    if (n_dumped == 2048 || dump_lines >= 400)
+        return;
+    dumped[n_dumped++] = h;
+    dump_lines++;
+    printf("TLV %02x:%02x:%02x %-16s %3zu:", dump_src[3], dump_src[4], dump_src[5], awdl_tlv_name(type), length);
+    for (size_t i = 0; i < length && i < 160; i++)
+        printf(" %02x", v[i]);
+    if (length > 160)
+        printf(" ...");
+    if (type == 2) {
+        char text[400];
+        awdl_service_text(v, length, text, sizeof(text));
+        printf("\n    = %s", text);
+    }
+    putchar('\n');
+}
+
 static int probe(int seconds, int inject, int want_channel)
 {
     char driver[64];
@@ -297,6 +339,10 @@ static int probe(int seconds, int inject, int want_channel)
             continue;
         }
         awdl++;
+        if (dump) {
+            dump_src = f.src;
+            awdl_walk_tlvs(buffer, (size_t)n, dump_tlv, NULL);
+        }
         int fresh;
         struct peer *p = peer_for(f.src, &fresh);
         if (!p)
@@ -360,6 +406,8 @@ int main(int argc, char **argv)
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--inject") == 0)
                 inject = 1;
+            else if (strcmp(argv[i], "--dump") == 0)
+                dump = 1;
             else if (strcmp(argv[i], "--channel") == 0 && i + 1 < argc)
                 channel = atoi(argv[++i]);
             else if (atoi(argv[i]) > 0)
@@ -367,6 +415,6 @@ int main(int argc, char **argv)
         }
         return probe(seconds, inject, channel);
     }
-    fprintf(stderr, "usage: osmin-awdl doctor | probe [seconds] [--inject]\n");
+    fprintf(stderr, "usage: osmin-awdl doctor | probe [seconds] [--inject] [--dump] [--channel N]\n");
     return 1;
 }

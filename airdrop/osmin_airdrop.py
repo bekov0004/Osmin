@@ -2,7 +2,10 @@
 """
 AirDrop for Osmin: receiving files from an iPhone over AWDL (osmin-awdld makes the radio link and the awdl0 interface).
 
-    sudo python3 airdrop/osmin_airdrop.py receive [--dir DIR] [--name NAME] [--channel 149] [--take-card] [--ask] [--verbose]
+    sudo python3 airdrop/osmin_airdrop.py receive [--dir DIR] [--name NAME] [--channel 149] [--keep-wifi] [--ask] [--verbose]
+
+By default the Wi-Fi card leaves its network while AirDrop runs (AWDL gets channel 149 to itself, no router needed) and
+joins it again afterwards; --keep-wifi stays connected instead (the router must then be on channel 6, 44 or 149).
 
 It starts osmin-awdld, then on awdl0:
   - announces the AirDrop service over mDNS (_airdrop._tcp, TXT flags) and answers the queries for it;
@@ -562,8 +565,9 @@ def receive(args):
     daemon_path = os.path.join(HERE, "build", "osmin-awdld")
     if not os.path.exists(daemon_path):
         sys.exit("build it first: scripts/build-airdrop.sh")
-    command = [daemon_path, "--channel", str(args.channel), "--name", host]
-    if args.take_card:
+    command = [daemon_path, "--channel", str(args.channel), "--name", host,
+               "--service", instance, "--port", str(AIRDROP_PORT), "--txt", f"flags={FLAGS}"]
+    if not args.keep_wifi:
         command.append("--take-card")
     if args.verbose:
         command.append("--verbose")
@@ -610,7 +614,7 @@ def main():
     r.add_argument("--dir", default="~/Downloads", help="where received files go")
     r.add_argument("--name", help="the name iPhones show (default: the computer's name)")
     r.add_argument("--channel", type=int, default=149)
-    r.add_argument("--take-card", action="store_true", help="keep NetworkManager off the card while running")
+    r.add_argument("--keep-wifi", action="store_true", help="stay connected (the router must be on channel 6, 44 or 149)")
     r.add_argument("--ask", action="store_true", help="ask in the terminal before accepting")
     r.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
