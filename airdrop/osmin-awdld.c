@@ -441,11 +441,20 @@ static void on_action(const struct awdl_frame *f, int64_t t)
         if (verbose && f->has_sync)
             say("  sync: next AW %u in %u TU on channel %u, master channel %u, sequence %s%s", f->aw_seq, f->tx_counter,
                 f->next_aw_channel, f->master_channel, p->has_chanseq ? "" : "(none)", "");
-        if (verbose && p->has_chanseq) {
+        if (p->has_chanseq) {
             char text[128] = "";
-            for (int i = 0; i < AWDL_SLOTS; i++)
+            int ours = 0;
+            for (int i = 0; i < AWDL_SLOTS; i++) {
                 snprintf(text + strlen(text), sizeof(text) - strlen(text), "%d ", p->chanseq[i]);
+                ours += p->chanseq[i] == self.channel;
+            }
             say("  channels per slot: %s", text);
+            if (!ours)
+                say("  NOTE: it does not come to channel %d now. Connect the iPhone to the same Wi-Fi network as this "
+                    "computer (then it uses that channel too), or run with --take-card (AWDL on 149 without the network).",
+                    self.channel);
+            else
+                say("  it comes to channel %d in %d of %d slots", self.channel, ours, AWDL_SLOTS);
         }
     }
 }
@@ -622,6 +631,7 @@ static void cleanup(void)
         close(monitor_fd);
     sh("ip link set %s down 2>/dev/null; iw dev %s del 2>/dev/null", MONITOR, MONITOR);
     if (took_card) {
+        sh("ip link set %s up 2>/dev/null", wifi);
         sh("nmcli device set %s managed yes 2>/dev/null", wifi);
         /* back on the network it was on */
         if (saved_connection[0])
@@ -694,6 +704,8 @@ int main(int argc, char **argv)
             sh("nmcli device disconnect %s >/dev/null 2>&1", wifi);
         }
         sh("nmcli device set %s managed no 2>/dev/null", wifi);
+        /* down, or the card refuses to change channel (EBUSY) */
+        sh("ip link set %s down 2>/dev/null", wifi);
         took_card = 1;
         usleep(500000);
         connected = 0;
@@ -773,8 +785,10 @@ int main(int argc, char **argv)
 
     if (capture_path)
         capture_open(capture_path);
+    /* only the address made from the MAC (what Apple devices derive for us): no random second link-local */
     char ll[64];
     awdl_link_local(self.mac, ll, sizeof(ll));
+    sh("ip -6 addr flush dev %s scope link 2>/dev/null; ip -6 addr add %s/64 dev %s nodad 2>/dev/null", TAP, ll, TAP);
     say("AWDL on %s channel %d (%s), %s %s, name %s", wifi, channel, connected ? "shared with the Wi-Fi connection" : "the card is ours",
         TAP, ll, self.hostname);
     say("open the share sheet on the iPhone (AirDrop: Everyone for 10 minutes)");
