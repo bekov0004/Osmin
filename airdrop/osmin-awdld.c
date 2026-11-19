@@ -80,6 +80,34 @@ static void say(const char *format, ...)
     fflush(stdout);
 }
 
+static FILE *capture;
+static long rx_echo;
+
+/* A pcap file of every AWDL frame heard (ours come back on the monitor interface too), radiotap link type. */
+static void capture_open(const char *path)
+{
+    capture = fopen(path, "wb");
+    if (!capture) {
+        perror(path);
+        return;
+    }
+    uint32_t header[6] = {0xa1b2c3d4, 0x00040002, 0, 0, 65535, 127};
+    fwrite(header, sizeof(header), 1, capture);
+    say("capturing to %s", path);
+}
+
+static void capture_write(const uint8_t *packet, size_t length)
+{
+    if (!capture)
+        return;
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    uint32_t record[4] = {(uint32_t)t.tv_sec, (uint32_t)(t.tv_nsec / 1000), (uint32_t)length, (uint32_t)length};
+    fwrite(record, sizeof(record), 1, capture);
+    fwrite(packet, length, 1, capture);
+    fflush(capture);
+}
+
 static int sh(const char *format, ...)
 {
     char command[512];
@@ -320,10 +348,14 @@ static void send_action(int subtype)
     uint16_t seq;
     int64_t start;
     aw_at(t, &seq, &start);
-    int64_t next = start + AW_US;
+    /* the next slot boundary: AWs counted from our anchor in fours */
+    int64_t slot = (int64_t)AWDL_AWS_PER_SLOT * AW_US;
+    int64_t since = t - clock_start;
+    int64_t into = ((since % slot) + slot) % slot;
+    int64_t next = t + (slot - into);
     self.tx_counter = (uint16_t)((next - t) / AWDL_TU_US);
-    self.aw_seq = (uint16_t)(seq + 1);
-    self.aw_remaining = self.tx_counter;
+    self.aw_seq = (uint16_t)(clock_seq + (since - into + slot) / AW_US);
+    self.aw_remaining = (uint16_t)((start + AW_US - t) / AWDL_TU_US);
     uint8_t frame[1500];
     size_t length = awdl_build_action(frame, sizeof(frame), &self, subtype, sequence++, (uint32_t)t);
     if (length)
@@ -388,10 +420,11 @@ static void on_action(const struct awdl_frame *f, int64_t t)
         p->has_chanseq = 1;
     }
     if (f->has_sync && f->aw_period) {
-        /* its next AW (number aw_seq) starts tx_counter TU after it sent this */
+        /* tx_counter: TU to its next slot boundary (an iPhone sends 25..47, more than one AW); aw_seq: the number of
+         * the AW that starts there */
         p->has_sync = 1;
-        p->sync_start = t + (int64_t)f->tx_counter * AWDL_TU_US - AW_US;
-        p->sync_seq = (uint16_t)(f->aw_seq - 1);
+        p->sync_start = t + (int64_t)f->tx_counter * AWDL_TU_US;
+        p->sync_seq = f->aw_seq;
     }
     if (f->has_election) {
         memcpy(p->master, f->master, 6);
@@ -417,6 +450,21 @@ static void on_action(const struct awdl_frame *f, int64_t t)
     }
 }
 
+/* An 802.11 data frame in the AWDL BSS (whatever its body), and its transmitter. */
+static int looks_awdl_data(const uint8_t *packet, size_t length, uint8_t src[6])
+{
+    if (length < 8)
+        return 0;
+    size_t rt = (size_t)(packet[2] | packet[3] << 8);
+    if (length < rt + 24)
+        return 0;
+    const uint8_t *f = packet + rt;
+    if ((f[0] & 0x0c) != 0x08 || memcmp(f + 16, AWDL_BSSID, 6) != 0)
+        return 0;
+    memcpy(src, f + 10, 6);
+    return 1;
+}
+
 static void to_tap(const uint8_t *ether, size_t length, void *context)
 {
     (void)context;
@@ -436,16 +484,30 @@ static void on_monitor(int64_t t)
         return;
     struct awdl_frame f;
     if (awdl_parse(packet, (size_t)n, &f)) {
-        on_action(&f, t);
+        capture_write(packet, (size_t)n);
+        if (memcmp(f.src, self.mac, 6) == 0)
+            rx_echo++;
+        else
+            on_action(&f, t);
         return;
     }
+    /* data: only what others sent (our own frames come back on the monitor interface too) */
     uint8_t src[6];
-    if (awdl_unwrap_data(packet, (size_t)n, src, to_tap, NULL)) {
+    if (looks_awdl_data(packet, (size_t)n, src)) {
+        capture_write(packet, (size_t)n);
+        if (memcmp(src, self.mac, 6) == 0) {
+            rx_echo++;
+            return;
+        }
         struct peer *p = find_peer(src);
+        int delivered = awdl_unwrap_data(packet, (size_t)n, src, to_tap, NULL);
         if (p) {
             p->heard = t;
             p->rx_data++;
         }
+        if (verbose && (!p || p->rx_data <= 20))
+            say("data frame from %s (%s), %zd bytes, %d packet(s) for awdl0", mac_text(src), p ? "neighbour" : "unknown",
+                n, delivered);
     }
 }
 
@@ -507,6 +569,7 @@ int main(int argc, char **argv)
 {
     int want_channel = 149, take_card = 0;
     const char *name = NULL;
+    const char *capture_path = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--channel") == 0 && i + 1 < argc)
             want_channel = atoi(argv[++i]);
@@ -516,6 +579,8 @@ int main(int argc, char **argv)
             name = argv[++i];
         else if (strcmp(argv[i], "--verbose") == 0)
             verbose = 1;
+        else if (strcmp(argv[i], "--capture") == 0 && i + 1 < argc)
+            capture_path = argv[++i];
         else if (strcmp(argv[i], "--service") == 0 && i + 1 < argc)
             snprintf(self_service, sizeof(self_service), "%.30s", argv[++i]);
         else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
@@ -618,6 +683,8 @@ int main(int argc, char **argv)
     sh("sysctl -qw net.ipv6.conf.%s.accept_ra=0 net.ipv6.conf.%s.dad_transmits=0 net.ipv6.conf.%s.addr_gen_mode=0 2>/dev/null", TAP, TAP, TAP);
     sh("ip link set %s address %s mtu 1450 up", TAP, mac_text(self.mac));
 
+    if (capture_path)
+        capture_open(capture_path);
     char ll[64];
     awdl_link_local(self.mac, ll, sizeof(ll));
     say("AWDL on %s channel %d (%s), %s %s, name %s", wifi, channel, connected ? "shared with the Wi-Fi connection" : "the card is ours",
@@ -672,8 +739,8 @@ int main(int argc, char **argv)
 
         if (t >= next_report) {
             next_report = t + 5000000;
-            say("heard %ld AWDL frames, %ld data in; sent %ld AWDL frames, %ld data out, %ld failed; %d device(s), %s",
-                rx_af, rx_data, sent_af, sent_data, send_errors, n_peers, synced ? "in sync" : "announcing");
+            say("heard %ld AWDL frames and %ld data frames from others (%ld of ours echoed); sent %ld AWDL frames, %ld data, %ld failed; %d device(s), %s",
+                rx_af, rx_data, rx_echo, sent_af, sent_data, send_errors, n_peers, synced ? "in sync" : "announcing");
             for (int i = 0; i < n_peers; i++) {
                 struct peer *p = &peers[i];
                 say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d%s", mac_text(p->mac), p->hostname,
@@ -705,6 +772,8 @@ int main(int argc, char **argv)
         }
     }
     say("stopping");
+    if (capture)
+        fclose(capture);
     cleanup();
     return 0;
 }

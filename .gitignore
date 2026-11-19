@@ -3,3 +3,4 @@ schemas/gschemas.compiled
 dist/
 airdrop/build/
 __pycache__/
+airdrop/captures/

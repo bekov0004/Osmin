@@ -574,6 +574,12 @@ def receive(args):
         command.append("--take-card")
     if args.verbose:
         command.append("--verbose")
+    if args.capture:
+        captures = os.path.join(HERE, "captures")
+        os.makedirs(captures, exist_ok=True)
+        os.chmod(captures, 0o777)
+        path = os.path.join(captures, time.strftime("awdl-%Y%m%d-%H%M%S.pcap"))
+        command += ["--capture", path]
     daemon = subprocess.Popen(command)
     firewall = []
     try:
@@ -620,6 +626,7 @@ def main():
     r.add_argument("--take-card", action="store_true", help="leave the Wi-Fi network while running (AWDL on --channel)")
     r.add_argument("--ask", action="store_true", help="ask in the terminal before accepting")
     r.add_argument("--verbose", action="store_true")
+    r.add_argument("--capture", action="store_true", help="save every AWDL frame to airdrop/captures/*.pcap")
     args = parser.parse_args()
     if args.command == "receive":
         receive(args)
