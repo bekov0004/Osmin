@@ -78,9 +78,10 @@ export class LocalSendServer extends Signals.EventEmitter {
     }
 
     /** @returns {Promise<string|null>} null when it runs, otherwise why it does not */
-    async start() {
+    /** @param {string} [folder] where received files go ('' : Downloads) */
+    async start(folder = '') {
         try {
-            const {problem} = await this._module.call('setReceiving', {on: true});
+            const {problem} = await this._module.call('setReceiving', {on: true, folder});
             return problem ?? null;
         } catch (e) {
             return e.message;
@@ -89,6 +90,10 @@ export class LocalSendServer extends Signals.EventEmitter {
 
     stop() {
         this._module.call('setReceiving', {on: false}).catch(() => {});
+    }
+
+    setFolder(folder) {
+        this._module.call('setFolder', {folder}).catch(() => {});
     }
 
     _onEvent(name, payload) {

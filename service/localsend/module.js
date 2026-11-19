@@ -90,7 +90,14 @@ export class LocalSendModule extends Module {
 
     // --- receiving -------------------------------------------------------------
 
-    async rpc_setReceiving({on}) {
+    /** Where received files are saved ('' : Downloads). */
+    async rpc_setFolder({folder}) {
+        this._server.folder = String(folder ?? '');
+    }
+
+    async rpc_setReceiving({on, folder}) {
+        if (folder !== undefined)
+            this._server.folder = String(folder ?? '');
         if (on) {
             this._receiveError = await this._server.start();
             this._receiving = this._receiveError === null;

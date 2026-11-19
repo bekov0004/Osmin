@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- LocalSend: choose the folder received files are saved in (Settings → General, under LocalSend); Downloads when none is chosen or the chosen one cannot be used.
 - Top bar: every reading (CPU, temperature, GPU, memory, battery, network, disk, disk activity, power) is a button of its own; pressing it opens a small window under it with more about it: a graph of the last minutes, the numbers behind it (the busiest apps, swap, the network and address, time left ...) and a button to its page in the quick panel.
 - Settings → General: "Open after" and "Close after" set how long the pointer rests on the capsule before it opens and how long it stays open after the pointer left; Animation speed now goes from 0.25 to 4.
 - Displays (quick panel): a brightness slider for every monitor (GNOME's own control, ddcutil, or Osmin dimming the picture of a monitor that has none), and the arrangement: a picture of the monitors to drag them to any side, Left / Right / Above / Below buttons, the main monitor, and Join / Mirror / Only one. Moving monitors applies at once; Mirror and Only one ask GNOME's "Keep these display settings?" and go back by themselves.

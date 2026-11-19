@@ -380,7 +380,7 @@ export class OsminHost {
             this._server.connectObject('incoming', (_s, transfer) =>
                 this._capsuleAtPointer()?.showIncoming(transfer), this);
         }
-        const problem = await this._server.start();
+        const problem = await this._server.start(this._settings.get('localsend-folder') ?? '');
         if (problem) {
             console.warn(`[osmin] LocalSend: not receiving: ${problem}`);
             this._events.emit({
@@ -431,6 +431,8 @@ export class OsminHost {
             this._syncBarMetrics();
         else if (key.startsWith('shortcut-'))
             this._syncFreedBindings();
+        else if (key === 'localsend-folder')
+            this._server?.setFolder(this._settings.get('localsend-folder') ?? '');
         else if (key === 'localsend-receive')
             this._syncReceiving();
         else if (key === 'panel-color' || key === 'panel-opacity')

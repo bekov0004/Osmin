@@ -776,6 +776,48 @@ export default class OsminPreferences extends ExtensionPreferences {
         return box;
     }
 
+    /** A folder chooser for a string setting: the folder's name on the button, and a way back to the default. */
+    _folderButton(settings, key) {
+        const box = new Gtk.Box({spacing: 6, halign: Gtk.Align.END, valign: Gtk.Align.CENTER});
+        box._inline = true;
+        const label = new Gtk.Label({ellipsize: 3, max_width_chars: 22});
+        const choose = new Gtk.Button({css_classes: ['osmin-btn']});
+        const inner = new Gtk.Box({spacing: 6});
+        inner.append(new Gtk.Image({icon_name: 'folder-symbolic'}));
+        inner.append(label);
+        choose.set_child(inner);
+        const reset = Gtk.Button.new_from_icon_name('edit-undo-symbolic');
+        reset.add_css_class('osmin-btn');
+        reset.tooltip_text = _('Back to Downloads');
+        const sync = () => {
+            const path = settings.get_string(key);
+            label.label = path ? GLib.path_get_basename(path) : _('Downloads');
+            choose.tooltip_text = path || (GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD) ?? '');
+            reset.visible = !!path;
+        };
+        choose.connect('clicked', () => {
+            const dialog = new Gtk.FileDialog({title: _('Save received files in'), modal: true});
+            const current = settings.get_string(key) || GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD);
+            if (current)
+                dialog.initial_folder = Gio.File.new_for_path(current);
+            dialog.select_folder(choose.get_root(), null, (_d, result) => {
+                try {
+                    const folder = dialog.select_folder_finish(result);
+                    if (folder?.get_path())
+                        settings.set_string(key, folder.get_path());
+                } catch (e) {
+                    // cancelled
+                }
+            });
+        });
+        reset.connect('clicked', () => settings.reset(key));
+        settings.connect(`changed::${key}`, sync);
+        sync();
+        box.append(choose);
+        box.append(reset);
+        return box;
+    }
+
     _button(label, onClick, destructive = false) {
         const button = new Gtk.Button({label, css_classes: destructive ? ['osmin-btn', 'destructive'] : ['osmin-btn']});
         button.connect('clicked', onClick);
@@ -916,7 +958,9 @@ export default class OsminPreferences extends ExtensionPreferences {
         }
 
         this._toggleRow(form, settings, 'localsend-receive', _('LocalSend'), _('Receive files'),
-            _('Makes this computer visible to LocalSend devices on your network (port 53317). Every transfer must be accepted in a card first; files are saved in Downloads. Close the LocalSend app first: only one can listen.'));
+            _('Makes this computer visible to LocalSend devices on your network (port 53317). Every transfer must be accepted in a card first. Close the LocalSend app first: only one can listen.'));
+        this._row(form, _('Save received files in'), this._folderButton(settings, 'localsend-folder'),
+            _('Where the files you accept are saved. Not set: the Downloads folder.'));
 
         this._shortcutPair(form, settings, 'shortcut-awake', '<Control><Alt><Super>k', _('Enable shortcut for “Keep awake”'));
         this._hint(form, _('Works in any app, no extra permissions.'));

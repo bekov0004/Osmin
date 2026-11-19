@@ -65,7 +65,7 @@
     <key name="localsend-receive" type="b">
       <default>false</default>
       <summary>Receive files with LocalSend</summary>
-      <description>Makes this computer visible to LocalSend devices on the network (it listens on port 53317). Every transfer has to be accepted in a card; files are saved in the Downloads folder. Off by default.</description>
+      <description>Makes this computer visible to LocalSend devices on the network (it listens on port 53317). Every transfer has to be accepted in a card; files are saved in the folder chosen in localsend-folder (Downloads by default). Off by default.</description>
     </key>
 
     <key name="freed-bindings" type="s">
@@ -585,6 +585,12 @@
       <default>false</default>
       <summary>Separate desktops for every monitor</summary>
       <description>Each monitor has its own desktops: switching on one monitor does not change the others.</description>
+    </key>
+
+    <key name="localsend-folder" type="s">
+      <default>''</default>
+      <summary>Where LocalSend saves received files</summary>
+      <description>A folder; empty: the Downloads folder.</description>
     </key>
 
     <key name="display-dim" type="a{si}">

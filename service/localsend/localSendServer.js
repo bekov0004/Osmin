@@ -103,6 +103,22 @@ export class LocalSendServer extends EventEmitter {
         this._socketSource = null;
         this._current = null;
         this._files = new Map(); // token -> {transfer, file}
+        this.folder = '';        // where received files go ('' : the Downloads folder)
+    }
+
+    /** The folder received files are saved in: the chosen one if it can be made, else Downloads. */
+    _saveFolder() {
+        const downloads = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD) ?? GLib.get_home_dir();
+        if (!this.folder)
+            return downloads;
+        try {
+            GLib.mkdir_with_parents(this.folder, 0o755);
+            if (GLib.file_test(this.folder, GLib.FileTest.IS_DIR))
+                return this.folder;
+        } catch (e) {
+            // not usable: Downloads
+        }
+        return downloads;
     }
 
     get running() {
@@ -283,7 +299,7 @@ export class LocalSendServer extends EventEmitter {
             return;
         }
 
-        const folder = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD) ?? GLib.get_home_dir();
+        const folder = this._saveFolder();
         const files = entries.map((entry, index) => ({
             id: String(entry.id ?? index),
             name: safeName(entry.fileName),
