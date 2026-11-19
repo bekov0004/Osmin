@@ -36,14 +36,14 @@ static void test_full(void)
     for (int i = 0; i < AWDL_SLOTS; i++)
         assert(f.chanseq[i] == 149);
     assert(f.has_election && memcmp(f.master, master, 6) == 0 && f.master_metric == 520 && f.self_metric == 60 && f.distance == 1);
-    assert(f.devclass == AWDL_DEV_MACOS);
-    /* the order of the TLVs, as an iPhone sends them: 4 5 18 24 12 7 16 21 6 */
-    const uint8_t order[] = {4, 5, 18, 24, 12, 7, 16, 21, 6};
-    assert(f.n_tlvs == 9);
-    assert(memcmp(f.tlvs, order, 9) == 0);
+    assert(f.devclass == AWDL_DEV_MACOS && f.awdl_version == 0xa2);
+    /* the order of the TLVs, as an iPhone sends them: 4 5 18 24 12 7 17 33 16 21 6 */
+    const uint8_t order[] = {4, 5, 18, 24, 12, 7, 17, 33, 16, 21, 6};
+    assert(f.n_tlvs == 11);
+    assert(memcmp(f.tlvs, order, 11) == 0);
     /* a PSF has no ARPA */
     n = awdl_build_action(frame, sizeof frame, &me, AWDL_SUBTYPE_PSF, 4, 99);
-    assert(awdl_parse(frame, n, &f) == 1 && f.n_tlvs == 8 && f.hostname[0] == 0);
+    assert(awdl_parse(frame, n, &f) == 1 && f.n_tlvs == 10 && f.hostname[0] == 0);
 }
 
 static void test_data(void)
@@ -116,7 +116,7 @@ static void test_dns(void)
     uint8_t frame[1500];
     size_t len = awdl_build_action(frame, sizeof frame, &me, AWDL_SUBTYPE_MIF, 1, 0);
     struct awdl_frame f;
-    assert(awdl_parse(frame, len, &f) == 1 && f.n_tlvs == 12);
+    assert(awdl_parse(frame, len, &f) == 1 && f.n_tlvs == 14);
     /* the CRC-8 values an iPhone put in its Service Parameters for its own services */
     assert(awdl_name_crc("_applicationservicepairing._tcp.local") == 32);
     assert(awdl_name_crc("_appsvcprepair._tcp.local") == 45);

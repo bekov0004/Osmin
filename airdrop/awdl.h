@@ -109,6 +109,9 @@ struct awdl_self {
     char service[32];         /* the instance: 12 hex digits */
     uint16_t service_port;
     char txt[64];             /* e.g. "flags=137" */
+    char country[3];          /* regulatory country, e.g. "TJ" */
+    uint8_t legacy_flags;     /* our channel in the legacy encoding: band, width, control (0x1e: 5 GHz, 40 MHz, upper) */
+    uint8_t legacy_channel;   /* and its centre (151 for 153 upper) */
 };
 
 /* Parses a frame as it comes from a monitor interface (radiotap header first). Returns 1 for an AWDL action frame. */

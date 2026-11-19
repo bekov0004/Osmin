@@ -290,21 +290,33 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
     memset(v, 0, sizeof(v));
     v[0] = self->channel;
     put16(v + 1, self->tx_counter);
-    v[3] = self->channel;
+    v[3] = 0;                 /* master channel: iPhones send 0 */
     v[4] = 0;
     put16(v + 5, AWDL_AW_TU);
     put16(v + 7, AWDL_AF_PERIOD_TU);
     put16(v + 9, 0x1800);
     put16(v + 11, AWDL_AW_TU);
     put16(v + 13, AWDL_AW_TU);
-    put16(v + 15, self->aw_remaining);
+    put16(v + 15, 0);         /* remaining AW length: iPhones send 0 */
     v[17] = v[18] = v[19] = v[20] = 3;
     memcpy(v + 21, self->master, 6);
     v[27] = 4;
     v[28] = 0;
     put16(v + 29, self->aw_seq);
     put16(v + 31, 0);
-    size_t sync_len = 33 + chanseq(v + 33, self);
+    /* inside the sync parameters iPhones write the channel sequence in the legacy encoding (flags, channel) */
+    uint8_t *c = v + 33;
+    c[0] = AWDL_SLOTS - 1;
+    c[1] = 1;
+    c[2] = 0;
+    c[3] = AWDL_AWS_PER_SLOT - 1;
+    put16(c + 4, 0xffff);
+    for (int i = 0; i < AWDL_SLOTS; i++) {
+        c[6 + i * 2] = self->legacy_flags;
+        c[7 + i * 2] = self->legacy_channel;
+    }
+    c[6 + AWDL_SLOTS * 2] = c[7 + AWDL_SLOTS * 2] = 0;
+    size_t sync_len = 33 + 6 + AWDL_SLOTS * 2 + 2;
     p += tlv(p, AWDL_TLV_SYNC_PARAMS, v, (uint16_t)sync_len);
 
     /* 5: election parameters (v1) */
@@ -329,24 +341,33 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
     put32(v + 36, self->self_counter);
     p += tlv(p, AWDL_TLV_ELECTION_PARAMS_V2, v, 40);
 
-    /* 12: data path state: country, the social channels, the channel we are on, our AWDL address */
+    /* 12: data path state, laid out as an iPhone's: country, social channels, infrastructure BSSID (zero) and channel,
+     * infrastructure address (ours), unicast options (4 zero bytes); flags: dual band */
     memset(v, 0, sizeof(v));
-    put16(v, 0x0100 | 0x0200 | 0x0001 | 0x0004);
-    v[2] = 'X';
-    v[3] = '0';
+    put16(v, 0x0100 | 0x0200 | 0x0001 | 0x0002 | 0x0020 | 0x1000);
+    v[2] = self->country[0] ? (uint8_t)self->country[0] : 'U';
+    v[3] = self->country[1] ? (uint8_t)self->country[1] : 'S';
     v[4] = 0;
-    put16(v + 5, 0x0007);                 /* 6, 44, 149 */
-    memset(v + 7, 0, 6);                  /* infrastructure BSSID (as iPhones send it: zero) */
-    put16(v + 13, self->channel);         /* and the channel we stay on */
+    put16(v + 5, 0x0007);
+    memset(v + 7, 0, 6);
+    put16(v + 13, self->channel);
     memcpy(v + 15, self->mac, 6);
-    p += tlv(p, AWDL_TLV_DATA_PATH_STATE, v, 21);
+    put16(v + 21, 4);
+    memset(v + 23, 0, 4);
+    p += tlv(p, AWDL_TLV_DATA_PATH_STATE, v, 27);
 
-    /* 7: HT capabilities, one stream */
-    memset(v, 0, 8);
-    put16(v + 2, 0x11ce);
-    v[4] = 0x1b;
-    v[5] = 0xff;
-    p += tlv(p, AWDL_TLV_HT_CAPS, v, 8);
+    /* 7: HT capabilities (as an iPhone's, one stream) */
+    const uint8_t ht[9] = {0x00, 0x00, 0x6f, 0x00, 0x1f, 0xff, 0x00, 0x00, 0x00};
+    p += tlv(p, AWDL_TLV_HT_CAPS, ht, sizeof(ht));
+
+    /* 17: an 802.11 VHT Capabilities element (one stream, MCS 0-9) */
+    const uint8_t vht[14] = {0xbf, 0x0c, 0x36, 0x00, 0x80, 0x03, 0xfe, 0xff, 0x00, 0x00, 0xfe, 0xff, 0x00, 0x00};
+    p += tlv(p, AWDL_TLV_IEEE80211_CONTAINER, vht, sizeof(vht));
+
+    /* 33: unknown, new in current iPhones; theirs, with our channel */
+    uint8_t t33[14] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x7f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    t33[4] = self->channel;
+    p += tlv(p, 33, t33, sizeof(t33));
 
     /* 16: ARPA (MIF only): our name, then "local" from the dictionary */
     if (subtype == AWDL_SUBTYPE_MIF) {
@@ -359,8 +380,8 @@ size_t awdl_build_action(uint8_t *buffer, size_t size, const struct awdl_self *s
         p += tlv(p, AWDL_TLV_ARPA, v, (uint16_t)(name + 4));
     }
 
-    /* 21: version: AWDL 3.4, a Mac */
-    v[0] = 0x34;
+    /* 21: version: the AWDL version current iPhones send (0xa2), a Mac */
+    v[0] = 0xa2;
     v[1] = AWDL_DEV_MACOS;
     p += tlv(p, AWDL_TLV_VERSION, v, 2);
 

@@ -547,6 +547,18 @@ def link_local(interface, timeout=15):
     return None
 
 
+def ping_neighbours():
+    """An ICMPv6 echo to every AWDL neighbour every 3 s: peers learn us from it, and its acknowledgement shows that
+    the iPhone hears our frames."""
+    while True:
+        out = subprocess.run(["ip", "-6", "neigh", "show", "dev", "awdl0", "nud", "permanent"], capture_output=True, text=True).stdout
+        for line in out.splitlines():
+            address = line.split()[0] if line.strip() else None
+            if address and address.startswith("fe80"):
+                subprocess.run(["ping", "-6", "-c", "1", "-W", "1", f"{address}%awdl0"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(3)
+
+
 def safe_host(name):
     keep = "".join(c if c.isalnum() else "-" for c in name).strip("-")
     return keep[:40] or "osmin"
@@ -596,6 +608,7 @@ def receive(args):
         threading.Thread(target=mdns.run, daemon=True).start()
         receiver = Receiver(pretty, folder, user, cert, key, ask=args.ask)
         threading.Thread(target=receiver.serve, args=("::", AIRDROP_PORT, 0), daemon=True).start()
+        threading.Thread(target=ping_neighbours, daemon=True).start()
         log("ready: open the share sheet on the iPhone, AirDrop on Everyone for 10 minutes; Ctrl+C to stop")
         stop = threading.Event()
         signal.signal(signal.SIGINT, lambda *a: stop.set())

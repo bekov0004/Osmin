@@ -450,6 +450,42 @@ static void on_action(const struct awdl_frame *f, int64_t t)
     }
 }
 
+/* The driver reports every frame we sent back on the monitor interface with radiotap TX flags (bit 15: 0x0001
+ * failed, no acknowledgement) and data retries (bit 17). For unicast frames this says whether the peer got them. */
+static long unicast_acked, unicast_failed;
+static void tx_status(const uint8_t *p, size_t length)
+{
+    if (length < 8)
+        return;
+    size_t rt = (size_t)(p[2] | p[3] << 8);
+    uint32_t present = (uint32_t)(p[4] | p[5] << 8 | p[6] << 16 | (uint32_t)p[7] << 24);
+    if (!(present & (1u << 15)) || present & 0x80000000u || length < rt + 24)
+        return;
+    size_t off = 8;
+    static const struct { int bit, size, align; } fields[] = {
+        {0, 8, 8}, {1, 1, 1}, {2, 1, 1}, {3, 4, 2}, {4, 2, 1}, {5, 1, 1}, {6, 1, 1}, {7, 2, 2}, {8, 2, 2}, {9, 2, 2},
+        {10, 1, 1}, {11, 1, 1}, {12, 1, 1}, {13, 1, 1}, {14, 2, 2}, {15, 2, 2},
+    };
+    int flags = -1;
+    for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
+        if (!(present & (1u << fields[i].bit)))
+            continue;
+        off = (off + fields[i].align - 1) & ~(size_t)(fields[i].align - 1);
+        if (off + fields[i].size > rt)
+            return;
+        if (fields[i].bit == 15)
+            flags = p[off] | p[off + 1] << 8;
+        off += fields[i].size;
+    }
+    const uint8_t *f = p + rt;
+    if (flags < 0 || (f[4] & 1))
+        return;                   /* broadcast and multicast are never acknowledged */
+    if (flags & 0x0001)
+        unicast_failed++;
+    else
+        unicast_acked++;
+}
+
 /* An 802.11 data frame in the AWDL BSS (whatever its body), and its transmitter. */
 static int looks_awdl_data(const uint8_t *packet, size_t length, uint8_t src[6])
 {
@@ -497,6 +533,7 @@ static void on_monitor(int64_t t)
         capture_write(packet, (size_t)n);
         if (memcmp(src, self.mac, 6) == 0) {
             rx_echo++;
+            tx_status(packet, (size_t)n);
             return;
         }
         struct peer *p = find_peer(src);
@@ -640,6 +677,28 @@ int main(int argc, char **argv)
     snprintf(self.txt, sizeof(self.txt), "%s", self_txt);
     self.service_port = (uint16_t)self_port;
     self.opclass = channel <= 14 ? 0x51 : 0x80;
+    /* the legacy channel encoding: 2.4 GHz 20 MHz primary, or 5 GHz 40 MHz with 149/153 style pairs */
+    if (channel <= 14) {
+        self.legacy_flags = 0x2b;
+        self.legacy_channel = (uint8_t)channel;
+    } else {
+        int upper = ((channel - 36) / 4) % 2 == 1;   /* 40, 48, ... 153, 161: the upper half of their pair */
+        self.legacy_flags = upper ? 0x1e : 0x1d;
+        self.legacy_channel = (uint8_t)(upper ? channel - 2 : channel + 2);
+    }
+    {
+        FILE *p = popen("iw reg get 2>/dev/null", "r");
+        char line[160];
+        while (p && fgets(line, sizeof(line), p)) {
+            char cc[3];
+            if (sscanf(line, "country %2[A-Z0-9]:", cc) == 1 && strcmp(cc, "00") != 0) {
+                memcpy(self.country, cc, 3);
+                break;
+            }
+        }
+        if (p)
+            pclose(p);
+    }
     self.self_metric = 60;
     self.self_counter = 0;
     memcpy(self.master, self.mac, 6);
@@ -726,7 +785,7 @@ int main(int argc, char **argv)
              * rely on knowing which): a MIF every AW (16 TU), and data at once. */
             if (seq != last_aw) {
                 last_aw = seq;
-                send_action(AWDL_SUBTYPE_MIF);
+                send_action(seq % AWDL_AWS_PER_SLOT == 0 ? AWDL_SUBTYPE_MIF : AWDL_SUBTYPE_PSF);
             }
             for (int i = 0; i < n_multicast; i++)
                 send_ether(multicast[i]->data, multicast[i]->length);
@@ -741,6 +800,8 @@ int main(int argc, char **argv)
             next_report = t + 5000000;
             say("heard %ld AWDL frames and %ld data frames from others (%ld of ours echoed); sent %ld AWDL frames, %ld data, %ld failed; %d device(s), %s",
                 rx_af, rx_data, rx_echo, sent_af, sent_data, send_errors, n_peers, synced ? "in sync" : "announcing");
+            if (unicast_acked || unicast_failed)
+                say("  unicast to Apple devices: %ld acknowledged (they hear us), %ld not", unicast_acked, unicast_failed);
             for (int i = 0; i < n_peers; i++) {
                 struct peer *p = &peers[i];
                 say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d%s", mac_text(p->mac), p->hostname,
