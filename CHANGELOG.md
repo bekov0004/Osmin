@@ -11,6 +11,7 @@ follows [Semantic Versioning](https://semver.org/).
 - Touchpad gestures everywhere (Settings → Touchpad gestures): every three- and four-finger swipe, pinch and rest can be given an action. Three fingers sideways switch apps like Alt+Tab (the switcher follows the fingers), three up and down the overview, four sideways the workspaces (GNOME's own, following the fingers); more than fifty actions, including any keys. Two fingers stay with the apps.
 
 ### Changed
+- Windows: a desktop's tab only changes the picture, not the screen, so the windows of every desktop can be arranged from where you are; the desktop on the screen has a dot.
 - The quick panel and the dark settings window have the capsule's own colours: black, with dark grey cards, buttons and the chosen tab, instead of blue-grey.
 - Quick panel: the icon tabs keep their size; when there are more than fit, the row scrolls sideways (mouse wheel, touchpad), its ends fade out, and the chosen tab is brought into view.
 - Windows (quick panel): instead of the Left / Right / Top / Bottom buttons, a picture of the screen with live miniatures of its windows. Choose the monitor above it and the desktop with its tab; drag a window to move it (at an edge it takes half or a quarter of the screen, at the top all of it), onto another desktop's tab or another monitor to send it there; click it to bring it forward, ✕ to close it. Beside the picture: Columns, Rows, Grid, Main + side and Undo.

@@ -48,7 +48,7 @@ function glyph(kind) {
 
 /**
  * Windows: a picture of one screen with its windows, to arrange them by hand. Choose the monitor above it, and the
- * desktop with its tab; drag a window to move it (at an edge it takes half or a quarter of the screen, at the top all
+ * desktop with its tab (only the picture changes, not the screen); drag a window to move it (at an edge it takes half or a quarter of the screen, at the top all
  * of it), onto another desktop's tab or another monitor to send it there; click it to bring it forward, ✕ to close it.
  * The buttons beside the picture arrange all its windows at once: columns, rows, a grid, one main window with the rest
  * beside it, and undo.
@@ -118,6 +118,7 @@ export class WindowsWidget extends OsminWidget {
         const focus = global.display.focus_window;
         this._target = focus && focus.get_window_type() === Meta.WindowType.NORMAL ? focus : null;
         this._monitor = this._target ? this._target.get_monitor() : global.display.get_current_monitor();
+        this._viewed = null;     // the desktop shown in the picture (null: the one on the screen)
         this._shown = true;
         global.display.connectObject('window-created', () => this._soon(), 'restacked', () => this._soon(), this);
         global.workspace_manager.connectObject(
@@ -174,7 +175,6 @@ export class WindowsWidget extends OsminWidget {
                 count: own.count(monitor),
                 current: own.current(monitor),
                 windowsOn: d => own.windowsOn(monitor, d).filter(normal),
-                switchTo: d => own.switchTo(monitor, d),
                 send: (window, d) => own.sendWindow(window, d),
             };
         }
@@ -183,7 +183,6 @@ export class WindowsWidget extends OsminWidget {
             return {
                 count: 1, current: 0,
                 windowsOn: () => global.display.get_tab_list(Meta.TabList.NORMAL, null).filter(normal),
-                switchTo: () => {},
                 send: () => {},
             };
         }
@@ -191,7 +190,6 @@ export class WindowsWidget extends OsminWidget {
             count: manager.get_n_workspaces(),
             current: manager.get_active_workspace_index(),
             windowsOn: d => manager.get_workspace_by_index(d)?.list_windows().filter(normal) ?? [],
-            switchTo: d => manager.get_workspace_by_index(d)?.activate(global.get_current_time()),
             send: (window, d) => window.change_workspace_by_index(d, false),
         };
     }
@@ -222,6 +220,7 @@ export class WindowsWidget extends OsminWidget {
             const items = monitors.map((_m, i) => ({id: String(i), label: this._monitorName(i), icon: 'video-display-symbolic'}));
             const {actor, buttons} = menuChips(items, id => {
                 this._monitor = Number(id);
+                this._viewed = null;
                 this._rebuild();
             }, {perRow: 2});
             actor.add_style_class_name('osmin-card-pad');
@@ -231,6 +230,7 @@ export class WindowsWidget extends OsminWidget {
         }
 
         const desktops = this._desktops(monitor);
+        const viewed = this._viewedDesktop(desktops);
         this._tabs.destroy_all_children();
         this._tabButtons = [];
         this._tabs.visible = desktops.count > 1;
@@ -238,19 +238,23 @@ export class WindowsWidget extends OsminWidget {
             const n = desktops.windowsOn(d).length;
             const tab = new St.Button({style_class: 'osmin-winmap-tab', can_focus: true, reactive: true, track_hover: true, x_expand: true});
             const content = new St.BoxLayout({x_align: Clutter.ActorAlign.CENTER});
+            // the desktop on the screen now has a dot
+            if (d === desktops.current)
+                content.add_child(new St.Widget({style_class: 'osmin-winmap-tab-dot', y_align: Clutter.ActorAlign.CENTER}));
             content.add_child(new St.Label({text: `Desktop ${d + 1}`, y_align: Clutter.ActorAlign.CENTER}));
             content.add_child(new St.Label({text: n ? ` · ${n}` : ' · empty', style_class: 'osmin-winmap-tab-count', y_align: Clutter.ActorAlign.CENTER}));
             tab.set_child(content);
-            setChecked(tab, d === desktops.current);
+            setChecked(tab, d === viewed);
+            // only the picture changes: the desktops on the screen stay as they are
             tab.connect('clicked', () => {
-                desktops.switchTo(d);
+                this._viewed = d;
                 this._soon();
             });
             this._tabs.add_child(tab);
             this._tabButtons.push(tab);
         }
 
-        const windows = global.display.sort_windows_by_stacking(desktops.windowsOn(desktops.current).filter(w => !w.minimized));
+        const windows = global.display.sort_windows_by_stacking(this._windowsOf(desktops, viewed));
         this._unwatchWindows();
         for (const window of windows) {
             window.connectObject('position-changed', () => this._soon(), 'size-changed', () => this._soon(), 'unmanaged', () => this._soon(), 'notify::minimized', () => this._soon(), this);
@@ -261,7 +265,30 @@ export class WindowsWidget extends OsminWidget {
 
     // --- what the picture and the buttons do --------------------------------------------------------------
 
+    /** The desktop shown in the picture: the one chosen with its tab, else the one on the screen. */
+    _viewedDesktop(desktops) {
+        if (this._viewed === null || this._viewed >= desktops.count)
+            this._viewed = null;
+        return this._viewed ?? desktops.current;
+    }
+
+    /**
+     * The windows of a desktop the picture shows. On the screen's desktop the minimised ones are left out; on another
+     * one all of them (with separate desktops Osmin keeps the windows of the other desktops minimised).
+     */
+    _windowsOf(desktops, desktop) {
+        const own = this.context.services?.desktops?.ownsMonitor(this._monitor);
+        return desktops.windowsOn(desktop).filter(w => !w.minimized || (own && desktop !== desktops.current));
+    }
+
     _raise(window) {
+        // a window of another desktop only comes forward there: the screen does not go to it
+        const desktops = this._desktops(this._monitor);
+        if (this._viewedDesktop(desktops) !== desktops.current) {
+            window.raise();
+            this._soon();
+            return;
+        }
         Main.activateWindow(window);
         this._target = window;
         this._soon();
@@ -330,7 +357,7 @@ export class WindowsWidget extends OsminWidget {
             return;
         }
         const desktops = this._desktops(this._monitor);
-        const windows = desktops.windowsOn(desktops.current).filter(w => !w.minimized);
+        const windows = this._windowsOf(desktops, this._viewedDesktop(desktops));
         if (!windows.length)
             return;
         const anchor = this._target && windows.includes(this._target) ? this._target : global.display.sort_windows_by_stacking(windows).at(-1);
