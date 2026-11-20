@@ -21,9 +21,12 @@ export function iconFor(name) {
     return new Gio.ThemedIcon({name});
 }
 
-/** The Osmin mark, shown at the top of the quick panel. */
+/** The butterfly of the logo on its own (no app-icon square), shown at the top of the quick panel. */
 export const Logo = GObject.registerClass(class Logo extends St.Icon {
     _init({size = 40} = {}) {
-        super._init({style_class: 'osmin-logo', gicon: new Gio.FileIcon({file: logoFile()}), icon_size: size, x_align: Clutter.ActorAlign.CENTER});
+        super._init({
+            style_class: 'osmin-logo', icon_size: size, x_align: Clutter.ActorAlign.CENTER,
+            gicon: new Gio.FileIcon({file: logoFile().get_parent().get_child('osmin-butterfly.svg')}),
+        });
     }
 });
