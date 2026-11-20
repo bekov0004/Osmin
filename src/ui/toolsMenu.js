@@ -6,7 +6,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {createButton} from './button.js';
-import {Logo} from './logo.js';
+import {BUTTERFLY_ICON, iconFor, Logo} from './logo.js';
 import {menuCard, menuHeader} from './menuKit.js';
 
 const ROLE = 'osmin-tools';
@@ -22,7 +22,7 @@ export class ToolsMenu {
      * @param {OsminWidget[]} widgets the pages, in order (already created with a context)
      * @param {{openSettings: Function}} options
      */
-    constructor(widgets, {openSettings, baseIcon = 'view-app-grid-symbolic'}) {
+    constructor(widgets, {openSettings, baseIcon = BUTTERFLY_ICON}) {
         this._baseIcon = baseIcon;
         this._lookIcon = null;
         this._widgets = widgets;
@@ -65,13 +65,13 @@ export class ToolsMenu {
         this._lookColor = color;
         if (!this._icon)
             return;
-        this._icon.icon_name = icon ?? this._baseIcon;
+        this._icon.gicon = iconFor(icon ?? this._baseIcon);
         this._icon.style = icon && color ? `color: ${color};` : '';
     }
 
     enable() {
         this._button = new PanelMenu.Button(0.5, 'Osmin', false);
-        this._icon = new St.Icon({icon_name: this._baseIcon, style_class: 'system-status-icon'});
+        this._icon = new St.Icon({gicon: iconFor(this._baseIcon), style_class: 'system-status-icon'});
         this._button.add_child(this._icon);
         this._button.menu.actor.add_style_class_name('osmin-menu');
 

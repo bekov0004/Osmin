@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Osmin has its own logo: the island hanging from the top edge, with a butterfly in it (the small capsule that opens into a panel, like a chrysalis into a butterfly). It is the icon of the Osmin app, stands at the top of the quick panel (instead of the planet) and on the settings' About page, and above the name in the README.
+- The Osmin button in the top bar shows the logo's butterfly by default (a one-colour icon like the others there) instead of the grid of dots; it is the first choice in Settings → Menu bar → Menu bar icon.
 - README: new screenshots of the Command Bar, the settings app, the AI agents (window and question card), the quick panel and a top-bar reading.
 
 ### Changed

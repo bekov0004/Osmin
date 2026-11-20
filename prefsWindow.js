@@ -278,6 +278,9 @@ export class OsminPreferences {
         window.search_enabled = false;
 
         this._installTheme();
+        // Osmin's own icons (the butterfly of the top-bar button) are found by name
+        Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(
+            Gio.File.new_for_uri(import.meta.url).get_parent().get_child('icons').get_path());
         this._applyScheme(settings);
         settings.connect('changed::color-scheme', () => this._applyScheme(settings));
 
@@ -1668,7 +1671,7 @@ export class OsminPreferences {
         iconCard.append(new Gtk.Label({label: _('Menu bar icon'), css_classes: ['mb-title'], xalign: 0}));
         iconCard.append(this._dim(_('The icon of the Osmin button in the top bar.')));
         const grid = new Gtk.FlowBox({selection_mode: Gtk.SelectionMode.NONE, max_children_per_line: 10, min_children_per_line: 10, homogeneous: true, column_spacing: 6, row_spacing: 6, margin_top: 6});
-        const ICONS = ['view-app-grid-symbolic', 'view-grid-symbolic', 'applications-system-symbolic', 'preferences-system-symbolic', 'weather-clear-night-symbolic', 'starred-symbolic',
+        const ICONS = ['osmin-butterfly-symbolic', 'view-app-grid-symbolic', 'applications-system-symbolic', 'preferences-system-symbolic', 'weather-clear-night-symbolic', 'starred-symbolic',
             'emblem-favorite-symbolic', 'input-gaming-symbolic', 'media-playback-start-symbolic', 'camera-photo-symbolic', 'audio-headphones-symbolic', 'utilities-terminal-symbolic',
             'user-home-symbolic', 'folder-symbolic', 'mail-unread-symbolic', 'network-workgroup-symbolic', 'system-search-symbolic', 'weather-clear-symbolic',
             'face-smile-symbolic', 'bookmark-new-symbolic', 'dialog-information-symbolic', 'security-high-symbolic', 'view-more-symbolic', 'go-home-symbolic',

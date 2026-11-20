@@ -552,7 +552,7 @@
     </key>
 
     <key name="bar-icon" type="s">
-      <default>'view-app-grid-symbolic'</default>
+      <default>'osmin-butterfly-symbolic'</default>
       <summary>Top-bar button icon</summary>
       <description>The icon of the Osmin button in the top bar.</description>
     </key>

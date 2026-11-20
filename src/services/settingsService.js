@@ -96,7 +96,7 @@ export const DEFAULTS = Object.freeze({
     'system-blocks': ['temps', 'cpu', 'gpu', 'memory', 'uptime'],
     'graph-scale': true,
     'color-scheme': 'system',
-    'bar-icon': 'view-app-grid-symbolic',
+    'bar-icon': 'osmin-butterfly-symbolic',
     'awake-icon': 'weather-clear-night-symbolic',
     'awake-color': '#ff9500',
     'menu-hidden': [],
