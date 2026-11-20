@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The top bar can hide (Settings → General → Top bar): never, when a window touches it (the default), or always. Hidden, it comes out when the pointer pushes against the top edge of the screen, also over an app in full screen, and stays while the pointer is on it, a menu of it is open or the capsule is in use; it is always there in the overview. The capsule hides and comes out with it. The monitors without GNOME's top bar have the same choice for their capsule.
+
+### Fixed
+
+- A capsule on a monitor with an app in full screen no longer appears and disappears over and over when the pointer is where it would be: it stays hidden until the pointer pushes against the top edge, then it comes out over the app.
+
 ## [0.3.1] - 2026-11-20
 
 ### Added

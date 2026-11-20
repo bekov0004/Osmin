@@ -63,6 +63,8 @@ export const DEFAULTS = Object.freeze({
     'shortcut-apps': [],
     'shortcut-columns': 1,
     'collapsed-width-adjust': 0,
+    'topbar-hide': 'intellihide',
+    'osmin-bar-hide': 'intellihide',
     'capsule-butterfly': true,
     'butterfly-flap': true,
     'butterfly-flap-every': 30,

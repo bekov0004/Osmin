@@ -354,6 +354,28 @@
       <description>How many columns of shortcuts (two rows each) the widget shows.</description>
     </key>
 
+    <key name="topbar-hide" type="s">
+      <choices>
+        <choice value="never"/>
+        <choice value="intellihide"/>
+        <choice value="always"/>
+      </choices>
+      <default>'intellihide'</default>
+      <summary>Hide the top bar</summary>
+      <description>never: always shown (hidden only for full-screen applications); intellihide: hidden while a window touches it; always: hidden until the pointer pushes against the top edge.</description>
+    </key>
+
+    <key name="osmin-bar-hide" type="s">
+      <choices>
+        <choice value="never"/>
+        <choice value="intellihide"/>
+        <choice value="always"/>
+      </choices>
+      <default>'intellihide'</default>
+      <summary>Hide the bar on the other monitors</summary>
+      <description>Like topbar-hide, for the Osmin bar (and the capsule) on the monitors without GNOME's top bar.</description>
+    </key>
+
     <key name="capsule-butterfly" type="b">
       <default>true</default>
       <summary>Butterfly in the capsule</summary>

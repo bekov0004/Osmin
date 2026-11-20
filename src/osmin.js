@@ -208,9 +208,10 @@ export class Osmin {
         this._buildActor();
         this._applyAppearance();
         this._settings.connectObject('changed', (_s, key) => this._onSettingChanged(key), this);
-        Main.layoutManager.addChrome(this._actor, {trackFullscreen: true});
+        // Full-screen applications hide it through its bar (ui/barHider.js), which can also bring it out over them.
+        Main.layoutManager.addChrome(this._actor, {trackFullscreen: false});
         for (const ear of this._ears)
-            Main.layoutManager.addChrome(ear, {trackFullscreen: true});
+            Main.layoutManager.addChrome(ear, {trackFullscreen: false});
 
         this._signals.connect(St.ThemeContext.get_for_stage(global.stage),
             'notify::scale-factor', () => this._relayout());
@@ -248,6 +249,8 @@ export class Osmin {
             GLib.source_remove(this._flapId);
         this._flapId = 0;
         this._settings?.disconnectObject(this);
+        this._bar?.disconnectObject(this);
+        this._bar = null;
         this._services?.activities.disconnectObject(this);
         this._services?.camera.disconnectObject(this);
         if (this._stageMotionId) {
@@ -388,6 +391,46 @@ export class Osmin {
         }
         for (const ear of this._ears)
             ear.setColor(0, 0, 0, opacity);
+    }
+
+    /** The bar at the top of this monitor (ui/barHider.js): the capsule goes away and comes out with it. */
+    setBar(bar) {
+        this._bar?.disconnectObject(this);
+        this._bar = bar;
+        if (!bar)
+            return;
+        bar.connectObject('changed', (_b, shown) => this._onBarShown(shown), this);
+        this._onBarShown(bar.shown, {animate: false});
+    }
+
+    /** The capsule is busy (open, hovered, a file over it): its bar stays. A card alone does not bring the bar. */
+    get busy() {
+        return this._state !== null && this._state !== State.CLOSED && this._state !== State.CARD;
+    }
+
+    _onBarShown(shown, {animate = true} = {}) {
+        if (!shown && this._state !== State.CLOSED)
+            return;     // it stays while in use; the bar decides again when it closes
+        this._slideWithBar(shown, {animate});
+    }
+
+    _slideWithBar(shown, {animate = true} = {}) {
+        this._barHidden = !shown;
+        if (!shown) {
+            this._approach = false;
+            this._timers.clear('hover');
+        }
+        if (!this._actor)
+            return;
+        const dy = shown ? 0 : -(this._actor.height + scaled(56));     // its shadow too
+        for (const actor of [this._actor, ...this._ears]) {
+            actor.remove_transition('translation-y');
+            actor.ease({
+                translation_y: dy,
+                duration: animate ? animDuration(220) : 0,
+                mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            });
+        }
     }
 
     /** The butterfly of the closed capsule beats its wings every few seconds (Settings → Appearance). */
@@ -922,7 +965,7 @@ export class Osmin {
      * very top edge of the screen) counts as hovering it, so it is easy to hit.
      */
     _onStageMotion(event) {
-        if (this._destroying || !this._actor || this._draggingOut)
+        if (this._destroying || !this._actor || this._draggingOut || this._barHidden)
             return;
         if (this._state !== State.CLOSED && !this._approach)
             return;
@@ -944,8 +987,9 @@ export class Osmin {
     }
 
     _onHoverChanged() {
-        // While a file is dragged out of the tray the capsule is hidden and must stay quiet.
-        if (this._draggingOut)
+        // While a file is dragged out of the tray the capsule is hidden and must stay quiet; and while its bar is away
+        // (a window under it, an app in full screen) it waits for the bar to come out.
+        if (this._draggingOut || (this._barHidden && this._state === State.CLOSED))
             return;
         const hovered = this._hovered();
         this._timers.clear('hover');
@@ -1271,6 +1315,12 @@ export class Osmin {
     _applyState(state, {animate}) {
         const previous = this._state;
         this._state = state;
+        // anything but resting closed shows the capsule, even while its bar is away
+        if (state !== State.CLOSED && this._barHidden)
+            this._slideWithBar(true);
+        else if (state === State.CLOSED && this._bar && !this._bar.shown)
+            this._slideWithBar(false);
+        this._bar?.update();
         this._timers.clear('leave');
         if (state !== State.HOVER)
             this._timers.clear('dwell');

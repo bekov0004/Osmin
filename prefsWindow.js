@@ -949,6 +949,14 @@ export class OsminPreferences {
         form.append(this._dim(_('Applies to the settings window of Osmin, not to the whole desktop.')));
         this._rule(form);
 
+        const HIDE = [['never', _('Never')], ['intellihide', _('When a window touches it')], ['always', _('Always')]];
+        form.append(new Gtk.Label({label: _('Top bar'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
+        this._row(form, _('Hide the top bar'), this._dropdown(settings, 'topbar-hide', HIDE),
+            _('Hidden, it comes out when you push the pointer against the top edge of the screen, also over an app in full screen. The capsule hides and comes out with it.'));
+        this._row(form, _('On the other monitors'), this._dropdown(settings, 'osmin-bar-hide', HIDE),
+            _('The same for the monitors without GNOME\'s top bar.'));
+        this._rule(form);
+
         this._toggleRow(form, settings, 'open-on-hover', _('Osmin'), _('Open on hover'),
             _('Off: the capsule opens on click only.'));
         this._toggleRow(form, settings, 'auto-collapse', '', _('Collapse when the pointer leaves'),

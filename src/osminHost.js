@@ -14,6 +14,7 @@ import {IndicatorActivity} from './ui/indicatorActivity.js';
 import {ToolsMenu} from './ui/toolsMenu.js';
 import {WIDGET_CLASSES} from './widgets/registry.js';
 import {OsminBackend} from './client/moduleClient.js';
+import {BarHider} from './ui/barHider.js';
 import {AgentsService} from './services/agentsService.js';
 import {DownloadsService} from './services/downloadsService.js';
 import {FocusService} from './services/focusService.js';
@@ -231,6 +232,9 @@ export class OsminHost {
         this._events?.destroy();
         this._events = null;
         // Last: brings the GNOME clock back.
+        for (const bar of this._bars?.values() ?? [])
+            bar.destroy();
+        this._bars?.clear();
         this._panel?.destroy();
         this._panel = null;
     }
@@ -440,6 +444,8 @@ export class OsminHost {
             this._syncMonitor();
         else if (key === 'action-request')
             this._runAction(this._settings.get('action-request').split(':')[0]);
+        else if (key === 'topbar-hide' || key === 'osmin-bar-hide')
+            this._bars?.forEach(bar => bar.syncStruts());
         else if (key === 'bar-icon')
             this._menu?.setBaseIcon(this._settings.get('bar-icon'));
         else if (key === 'bar-metrics')
@@ -560,6 +566,7 @@ export class OsminHost {
             this._leaderIndex = wanted[0];
 
             this._syncBar(wanted);
+            this._syncBars(wanted, {rebuild});
             for (const index of wanted) {
                 if (this._capsules.has(index))
                     continue;
@@ -571,6 +578,7 @@ export class OsminHost {
                 });
                 this._capsules.set(index, osmin);
                 osmin.enable();
+                osmin.setBar(this._barFor(index));
             }
             this._capsules.forEach(osmin => osmin._relayout());
         } finally {
@@ -589,6 +597,39 @@ export class OsminHost {
             this._panel.destroy();
             this._barTaken = false;
         }
+    }
+
+    /**
+     * What hides the bar at the top of each monitor (ui/barHider.js): GNOME's top bar on the primary monitor, the
+     * capsule alone on the others; capsules go away and come out with it.
+     */
+    _syncBars(wanted, {rebuild = false} = {}) {
+        this._bars ??= new Map();
+        const primary = Main.layoutManager.primaryIndex;
+        const needed = new Set([primary, ...wanted]);
+        for (const [index, bar] of [...this._bars]) {
+            if (rebuild || !needed.has(index)) {
+                bar.destroy();
+                this._bars.delete(index);
+            }
+        }
+        for (const index of needed) {
+            if (this._bars.has(index))
+                continue;
+            const onPrimary = index === primary;
+            const capsule = () => this._capsules.get(index);
+            this._bars.set(index, new BarHider({
+                monitorIndex: index,
+                box: onPrimary ? Main.layoutManager.panelBox : null,
+                mode: () => this._settings.get(onPrimary ? 'topbar-hide' : 'osmin-bar-hide'),
+                isBusy: () => !!capsule()?.busy || (onPrimary && !!Main.panel.menuManager?.activeMenu),
+                hoverActors: () => [capsule()?._actor].filter(Boolean),
+            }));
+        }
+    }
+
+    _barFor(index) {
+        return this._bars?.get(index) ?? null;
     }
 
     _applyBarLook() {
