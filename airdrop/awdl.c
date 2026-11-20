@@ -454,12 +454,14 @@ size_t awdl_build_psf(uint8_t *buffer, size_t size, const uint8_t mac[6], const 
 
 size_t awdl_wrap_data(uint8_t *buffer, size_t size, const uint8_t *ether, size_t length, uint16_t sequence)
 {
-    if (length < 14 || 8 + 24 + 8 + 8 + (length - 14) > size)
+    if (length < 14 || 11 + 24 + 8 + 8 + (length - 14) > size)
         return 0;
     uint8_t *p = buffer;
-    memset(p, 0, 8);
-    p[2] = 8;
-    p += 8;
+    /* radiotap: TX flags (0: an acknowledgement is wanted) and at most 2 retries, so that a frame the peer misses
+     * does not hold the card's queue for long */
+    static const uint8_t rt[11] = {0x00, 0x00, 0x0b, 0x00, 0x00, 0x80, 0x02, 0x00, 0x00, 0x00, 0x02};
+    memcpy(p, rt, sizeof(rt));
+    p += sizeof(rt);
     /* data frame, no DS bits: receiver, transmitter, BSSID */
     p[0] = 0x08;
     p[1] = 0;

@@ -57,8 +57,8 @@ static void test_data(void)
     for (int i = 14; i < 114; i++)
         ether[i] = (uint8_t)i;
     size_t n = awdl_wrap_data(frame, sizeof frame, ether, 114, 9);
-    assert(n == 8 + 24 + 8 + 8 + 100);
-    assert(frame[8] == 0x08 && memcmp(frame + 8 + 16, AWDL_BSSID, 6) == 0);
+    assert(n == 11 + 24 + 8 + 8 + 100);
+    assert(frame[11] == 0x08 && memcmp(frame + 11 + 16, AWDL_BSSID, 6) == 0);
     got = 0;
     assert(awdl_unwrap_data(frame, n, who, take, NULL) == 1 && got == 1);
     assert(last_len == 114 && memcmp(last, ether, 114) == 0 && memcmp(who, src, 6) == 0);
@@ -75,18 +75,18 @@ static void test_data(void)
     q[at + 24] = 0x80;                 /* QoS control: A-MSDU present */
     at += 26;
     for (int k = 0; k < 2; k++) {
-        size_t body = n - 8 - 24;     /* SNAP + AWDL header + payload */
+        size_t body = n - 11 - 24;    /* SNAP + AWDL header + payload */
         memcpy(q + at, dst, 6);
         memcpy(q + at + 6, src, 6);
         q[at + 12] = (uint8_t)(body >> 8);
         q[at + 13] = (uint8_t)body;
-        memcpy(q + at + 14, frame + 8 + 24, body);
+        memcpy(q + at + 14, frame + 11 + 24, body);
         at += (14 + body + 3) & ~(size_t)3;
     }
     got = 0;
     assert(awdl_unwrap_data(q, at, who, take, NULL) == 2 && got == 2 && last_len == 114);
     /* an action frame is not data */
-    assert(awdl_unwrap_data(frame + 0, 8 + 24, who, take, NULL) == 0);
+    assert(awdl_unwrap_data(frame + 0, 11 + 24, who, take, NULL) == 0);
     char ll[64];
     awdl_link_local(src, ll, sizeof ll);
     assert(strcmp(ll, "fe80::ae50:deff:fecf:cdc9") == 0);

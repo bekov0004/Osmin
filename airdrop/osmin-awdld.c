@@ -42,7 +42,7 @@
 #define MONITOR "osminawdl"
 #define TAP "awdl0"
 #define MAX_PEERS 32
-#define QUEUE 128
+#define QUEUE 512
 #define PEER_TIMEOUT_US 5000000LL
 #define GUARD_US (3 * AWDL_TU_US)
 #define AW_US ((int64_t)AWDL_AW_TU * AWDL_TU_US)
@@ -206,6 +206,8 @@ struct peer {
     struct frame *queue[QUEUE];
     int queued;
     long rx_frames, rx_data, tx_data;
+    uint16_t last_seqctl;
+    int has_last_seqctl;
 };
 
 static struct peer peers[MAX_PEERS];
@@ -216,7 +218,7 @@ static int n_multicast;
 static struct awdl_self self;
 static int monitor_fd = -1, tap_fd = -1;
 static uint16_t sequence;
-static long sent_af, sent_data, send_errors, rx_af, rx_data, tap_in;
+static long sent_af, sent_data, send_errors, rx_af, rx_data, tap_in, rx_dup;
 
 static struct peer *find_peer(const uint8_t mac[6])
 {
@@ -284,12 +286,24 @@ static void aw_at(int64_t t, uint16_t *seq, int64_t *start)
     *start = clock_start + index * AW_US;
 }
 
-/* Whether a peer listens on our channel in AW `seq` (its channel sequence, 4 AWs per slot). */
+/* The slot of the channel sequence that AW `seq` is in. Worked out from captures of iPhones (where their frames fall
+ * against their announced AW numbers): slot 0 starts 4 AWs before an AW number divisible by 64, i.e. slots run
+ * one slot ahead of seq / 4. */
+static int slot_of(uint16_t seq)
+{
+    return (int)(((unsigned)seq + AWDL_AWS_PER_SLOT) / AWDL_AWS_PER_SLOT % AWDL_SLOTS);
+}
+
+/* Whether a peer listens on our channel in AW `seq`: its channel there, or an empty slot right after one of ours (the
+ * captures show iPhones staying on through such a slot). */
 static int peer_here(const struct peer *p, uint16_t seq)
 {
     if (!p->has_chanseq)
         return 1;
-    return p->chanseq[(seq / AWDL_AWS_PER_SLOT) % AWDL_SLOTS] == self.channel;
+    int slot = slot_of(seq);
+    if (p->chanseq[slot] == self.channel)
+        return 1;
+    return p->chanseq[slot] == 0 && p->chanseq[(slot + AWDL_SLOTS - 1) % AWDL_SLOTS] == self.channel;
 }
 
 /* Follows the best master we hear: the one with the highest metric (then counter) among valid peers. */
@@ -572,6 +586,20 @@ static void on_monitor(int64_t t)
             return;
         }
         struct peer *p = find_peer(src);
+        /* the same frame again (retry bit, same sequence control): we do not acknowledge in every mode, so iPhones
+         * repeat; the kernel needs it once */
+        size_t rt = (size_t)(packet[2] | packet[3] << 8);
+        const uint8_t *f = packet + rt;
+        uint16_t seqctl = (uint16_t)(f[22] | f[23] << 8);
+        if (p && (f[1] & 0x08) && p->has_last_seqctl && p->last_seqctl == seqctl) {
+            p->heard = t;
+            rx_dup++;
+            return;
+        }
+        if (p) {
+            p->last_seqctl = seqctl;
+            p->has_last_seqctl = 1;
+        }
         int delivered = awdl_unwrap_data(packet, (size_t)n, src, to_tap, NULL);
         if (p) {
             p->heard = t;
@@ -888,18 +916,27 @@ int main(int argc, char **argv)
             }
             drop_queue(multicast, &n_multicast);
         } else {
-            /* We stay on our channel all the time, and the Apple device comes to it in some of its slots (we do not
-             * rely on knowing which): a MIF every AW (16 TU), and data at once. */
+            /* We stay on our channel; the Apple device is on it only in some slots (and asleep or elsewhere in the
+             * rest). A MIF/PSF every AW; data only inside an AW where the device is here, away from the AW's edges:
+             * sent when it is away, the card would retry each frame until it comes back, and everything behind
+             * waits (that once held a TLS answer back for 3 s). */
             if (seq != last_aw) {
                 last_aw = seq;
                 send_action(seq % AWDL_AWS_PER_SLOT == 0 ? AWDL_SUBTYPE_MIF : AWDL_SUBTYPE_PSF);
             }
-            for (int i = 0; i < n_multicast; i++)
-                send_ether(multicast[i]->data, multicast[i]->length);
-            drop_queue(multicast, &n_multicast);
+            int inside = t >= start + GUARD_US && t < start + AW_US - GUARD_US;
+            int anyone = 0;
             for (int i = 0; i < n_peers; i++) {
-                if (peers[i].valid && peers[i].queued)
-                    flush_peer(&peers[i]);
+                if (peers[i].valid && peer_here(&peers[i], seq)) {
+                    anyone = 1;
+                    if (inside && peers[i].queued)
+                        flush_peer(&peers[i]);
+                }
+            }
+            if (anyone && inside) {
+                for (int i = 0; i < n_multicast; i++)
+                    send_ether(multicast[i]->data, multicast[i]->length);
+                drop_queue(multicast, &n_multicast);
             }
         }
 
@@ -909,6 +946,8 @@ int main(int argc, char **argv)
                 rx_af, rx_data, rx_echo, sent_af, sent_data, send_errors, n_peers, synced ? "in sync" : "announcing");
             if (unicast_acked || unicast_failed)
                 say("  unicast to Apple devices: %ld acknowledged (they hear us), %ld not", unicast_acked, unicast_failed);
+            if (rx_dup)
+                say("  %ld repeated frames from Apple devices skipped", rx_dup);
             for (int i = 0; i < n_peers; i++) {
                 struct peer *p = &peers[i];
                 say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d%s", mac_text(p->mac), p->hostname,
