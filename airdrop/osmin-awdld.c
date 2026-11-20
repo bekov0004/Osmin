@@ -345,11 +345,32 @@ static void elect(void)
 
 /* --- sending ------------------------------------------------------------------------------------------------ */
 
+/* The card's queue: frames handed to it that have not come back (as transmitted) on the monitor interface yet. The
+ * card sends only some 30-40 injected frames a second; give it more and everything waits behind (seen: data frames
+ * out on the air 28 s late). */
+static long handed, echoed, lost;
+static int64_t last_echo;
+
+static long backlog(void)
+{
+    long waiting = handed - echoed - lost;
+    /* frames that never come back (dropped by the driver) must not stop us for ever */
+    if (waiting > 0 && now_us() - last_echo > 500000) {
+        lost += waiting;
+        waiting = 0;
+    }
+    return waiting;
+}
+
 static void send_raw(const uint8_t *frame, size_t length, long *counter)
 {
-    if (send(monitor_fd, frame, length, 0) == (ssize_t)length)
+    /* never block: a full queue would freeze everything (seen: 8 s) */
+    if (send(monitor_fd, frame, length, MSG_DONTWAIT) == (ssize_t)length) {
         (*counter)++;
-    else {
+        if (handed == echoed + lost)
+            last_echo = now_us();
+        handed++;
+    } else {
         send_errors++;
         if (verbose)
             say("send failed: %s", strerror(errno));
@@ -391,12 +412,6 @@ static void send_ether(const uint8_t *ether, size_t length)
         return;
     sent_at[seq & 4095] = now_us();
     send_raw(frame, n, &sent_data);
-    /* a second copy, marked as a retry: if the first was missed this one may land; if not, it is dropped */
-    if (!(ether[0] & 1)) {
-        size_t rt = (size_t)(frame[2] | frame[3] << 8);
-        frame[rt + 1] |= 0x08;
-        send_raw(frame, n, &sent_data);
-    }
 }
 
 static void enqueue(struct frame **queue, int *count, const uint8_t *data, size_t length)
@@ -419,11 +434,16 @@ static void enqueue(struct frame **queue, int *count, const uint8_t *data, size_
 /* In an AW where `p` is on our channel: what waits for it goes now. */
 static void flush_peer(struct peer *p)
 {
-    for (int i = 0; i < p->queued; i++) {
-        send_ether(p->queue[i]->data, p->queue[i]->length);
+    int sent = 0;
+    while (sent < p->queued && backlog() < 24) {
+        send_ether(p->queue[sent]->data, p->queue[sent]->length);
         p->tx_data++;
+        sent++;
     }
-    drop_queue(p->queue, &p->queued);
+    for (int i = 0; i < sent; i++)
+        free(p->queue[i]);
+    memmove(p->queue, p->queue + sent, sizeof(p->queue[0]) * (size_t)(p->queued - sent));
+    p->queued -= sent;
 }
 
 /* --- receiving ---------------------------------------------------------------------------------------------- */
@@ -597,10 +617,13 @@ static void on_monitor(int64_t t)
     struct awdl_frame f;
     if (awdl_parse(packet, (size_t)n, &f)) {
         capture_write(packet, (size_t)n);
-        if (memcmp(f.src, self.mac, 6) == 0)
+        if (memcmp(f.src, self.mac, 6) == 0) {
             rx_echo++;
-        else
+            echoed++;
+            last_echo = t;
+        } else {
             on_action(&f, t);
+        }
         return;
     }
     /* data: only what others sent (our own frames come back on the monitor interface too) */
@@ -609,6 +632,8 @@ static void on_monitor(int64_t t)
         capture_write(packet, (size_t)n);
         if (memcmp(src, self.mac, 6) == 0) {
             rx_echo++;
+            echoed++;
+            last_echo = t;
             tx_status(packet, (size_t)n);
             return;
         }
@@ -899,6 +924,7 @@ int main(int argc, char **argv)
     int64_t next_hop = now_us() + 1500000, last_heard = now_us();
     int burst_left = 64;
     uint16_t last_aw = 0xffff;
+    int64_t last_action = 0;
     while (!stop) {
         int64_t t = now_us();
         uint16_t seq;
@@ -938,7 +964,7 @@ int main(int argc, char **argv)
 
         if (!synced) {
             /* nobody to follow: bursts of MIFs, one every AW, then a pause */
-            if (t >= burst_at) {
+            if (t >= burst_at && backlog() < 4) {
                 send_action(AWDL_SUBTYPE_MIF);
                 burst_at = t + AW_US;
                 if (--burst_left == 0) {
@@ -952,10 +978,7 @@ int main(int argc, char **argv)
              * rest). A MIF/PSF every AW; data only inside an AW where the device is here, away from the AW's edges:
              * sent when it is away, the card would retry each frame until it comes back, and everything behind
              * waits (that once held a TLS answer back for 3 s). */
-            if (seq != last_aw) {
-                last_aw = seq;
-                send_action(seq % AWDL_AWS_PER_SLOT == 0 ? AWDL_SUBTYPE_MIF : AWDL_SUBTYPE_PSF);
-            }
+            (void)last_aw;
             int inside = t >= start + GUARD_US && t < start + AW_US - GUARD_US;
             int anyone = 0;
             for (int i = 0; i < n_peers; i++) {
@@ -970,9 +993,15 @@ int main(int argc, char **argv)
                 }
             }
             if (anyone && inside) {
-                for (int i = 0; i < n_multicast; i++)
+                for (int i = 0; i < n_multicast && backlog() < 24; i++)
                     send_ether(multicast[i]->data, multicast[i]->length);
                 drop_queue(multicast, &n_multicast);
+            }
+            /* our MIF once per action frame period (110 TU, as the protocol says; iPhones send fewer still), while the
+             * device is here, and only when the card has nothing else waiting: data first */
+            if (t - last_action >= (int64_t)AWDL_AF_PERIOD_TU * AWDL_TU_US && anyone && backlog() < 2) {
+                send_action(AWDL_SUBTYPE_MIF);
+                last_action = t;
             }
         }
 
@@ -984,6 +1013,7 @@ int main(int argc, char **argv)
                 say("  unicast to Apple devices: %ld acknowledged (they hear us), %ld not", unicast_acked, unicast_failed);
             if (rx_dup)
                 say("  %ld repeated frames from Apple devices skipped (they repeat what we do not acknowledge)", rx_dup);
+            say("  card queue: %ld waiting, %ld never came back", backlog(), lost);
             if (latency_count) {
                 say("  data frames out on the air after %lld ms on average, %lld ms at most (%ld frames)",
                     (long long)(latency_sum / latency_count / 1000), (long long)(latency_max / 1000), latency_count);
