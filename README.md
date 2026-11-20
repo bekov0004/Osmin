@@ -47,7 +47,7 @@ extension off brings the stock GNOME clock back.
 | **Windows** | Live window previews, snap buttons (halves, maximize, next monitor), and one-click tiling of *all* open windows: columns, rows, a grid or one main window with the rest beside it |
 | **Downloads** | Progress, size and speed of what lands in your Downloads folder |
 | **Mirror** | A round webcam preview, the camera is on only while you look |
-| **AI agents** | Claude Code / Codex: what is working now and token use (read from local logs) |
+| **AI agents** | Start Claude Code on a project and follow it live (every file and command, its answer, its cost), answer its permission questions from a card in the capsule, or open it in a terminal. Shows the Claude plan's 5-hour and weekly limits, and agents working elsewhere |
 | **Alerts** | The notifications GNOME holds, with Do Not Disturb |
 | **Settings** | A modern settings window: turn widgets on or off, reorder them, change look and gestures |
 
@@ -129,7 +129,6 @@ undo button puts all of them back.
 | **LocalSend** | Drop files on the second target, then click a device to send. Receiving is off by default (Settings → General → LocalSend) |
 | **Clipboard** | Text you copied. Click an item to paste it into the app you were using. The first card is for notes |
 | **Alerts** | Notifications and Do Not Disturb |
-| **Search** | The command bar, see below |
 
 **Gestures.** Two-finger swipe down opens the capsule and up closes it. Over the closed capsule a
 sideways swipe skips tracks while music plays, and a middle click plays or pauses. In the
@@ -150,12 +149,15 @@ Two fingers stay with the apps; in the overview, menus and the lock screen GNOME
 `gestureService.js` what they do).
 
 **Keyboard shortcuts.** Settings → General lets you set a key for each tab (Osmin, Tray, Clipboard,
-Alerts, Search) and for the tools. None are set by default. Any keys can be used: if GNOME already uses
+Alerts) and for the tools, the Command Bar among them. None are set by default. Any keys can be used: if GNOME already uses
 them (`Super+V` opens its notification list, for example), Osmin takes them while it runs and gives them back
 when the shortcut changes or Osmin is disabled. A shortcut is recorded as the Latin key, whatever keyboard layout
 is on, and one set of keys belongs to one shortcut only (giving it to another one takes it from the first).
 
-**Search bar examples.**
+**Command Bar.** Its shortcut (or the Utilities widget, the radial menu, a gesture) turns the capsule into a big
+search field at the top; the results grow under it, ↑↓ choose, Enter runs, Esc clears and then closes.
+
+**Examples.**
 
 | Type | Result |
 |---|---|
@@ -167,7 +169,8 @@ is on, and one set of keys belongs to one shortcut only (giving it to another on
 | `snip add ;mail = me@example.com`, then `;mail` | Saves and pastes a text snippet (`{date}` and `{time}` work) |
 | `scratchpad` | Opens the Scratchpad window of the Osmin app: long notes, saved as you type, export to Markdown |
 
-**Settings.** Click the ⚙ in the panel, or run `gnome-extensions prefs osmin@osmin.dev`. The
+**Settings.** Click the ⚙ in the panel or Settings in the quick panel, or open *Osmin* from the app grid: the settings are
+the window of the Osmin app. The
 *Features* page lists everything by category: switch a widget on and it appears in the capsule.
 Changes apply immediately.
 
@@ -179,7 +182,7 @@ Changes apply immediately.
 - Only text is recorded in the clipboard history, and copies from password managers are skipped.
   The history stays in memory unless you turn on *Keep history*.
 - The camera is opened only while you click the Mirror circle (a green dot shows it is on). Nothing is recorded.
-- The AI-agents widget reads only times and token counts from the agents' own session logs, never the prompts.
+- The AI-agents widget reads only times, token counts and project folders from the agents' own session logs, never the prompts. To show the Claude plan's limits it asks Anthropic (`api.anthropic.com`, the only server it talks to) with the sign-in Claude Code keeps on this computer; the sign-in is not stored or shown anywhere else. Tasks you start run Claude Code itself, which talks to Anthropic as it always does.
 - Your data lives in `~/.local/share/osmin` and `~/.cache/osmin`.
 
 ## Troubleshooting

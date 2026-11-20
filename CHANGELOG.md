@@ -6,31 +6,17 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-20
+
 ### Added
+
+- AI agents: start Claude Code from Osmin and follow it live. In the background, the quick panel and the agents window of the Osmin app show what it is doing right now (every file it reads or edits, every command), its answer and its cost; you can tell it more, pause it, stop it and continue it later. Before it edits a file or runs a command it asks: a card in the capsule (and the panel, and the window) has Allow, Always in this task and Deny. Or open Claude Code (or Codex) in a terminal in the project folder. Recent projects come from the agents' own logs; agents working elsewhere are still shown.
+- AI agents: the Claude plan's real limits, as `/usage` shows them: the 5-hour window and the week, how much is used and when each starts again.
 - LocalSend: choose the folder received files are saved in (Settings → General, under LocalSend); Downloads when none is chosen or the chosen one cannot be used.
 - Top bar: every reading (CPU, temperature, GPU, memory, battery, network, disk, disk activity, power) is a button of its own; pressing it opens a small window under it with more about it: a graph of the last minutes, the numbers behind it (the busiest apps, swap, the network and address, time left ...) and a button to its page in the quick panel.
 - Settings → General: "Open after" and "Close after" set how long the pointer rests on the capsule before it opens and how long it stays open after the pointer left; Animation speed now goes from 0.25 to 4.
 - Displays (quick panel): a brightness slider for every monitor (GNOME's own control, ddcutil, or Osmin dimming the picture of a monitor that has none), and the arrangement: a picture of the monitors to drag them to any side, Left / Right / Above / Below buttons, the main monitor, and Join / Mirror / Only one. Moving monitors applies at once; Mirror and Only one ask GNOME's "Keep these display settings?" and go back by themselves.
 - Touchpad gestures everywhere (Settings → Touchpad gestures): every three- and four-finger swipe, pinch and rest can be given an action. Three fingers sideways switch apps like Alt+Tab (the switcher follows the fingers), three up and down the overview, four sideways the workspaces (GNOME's own, following the fingers); more than fifty actions, including any keys. Two fingers stay with the apps.
-
-### Changed
-- UX pass of the quick panel, the capsule and the settings: arrows at the ends of the tab row when there are more tabs; temperatures, battery health and a microphone the computer does not have are left out instead of "n/a" or an empty list; automatic brightness only shows with a light sensor; the volume lines sit in the card like the other rows; the small actions of LocalSend, the Tray and Alerts (Add from Tray, Refresh, Receiving, Clear, Do Not Disturb) look like buttons; the empty Tray says what it is for; one wording for "Desktops only on the main monitor" everywhere, shorter hints; the Quick panel settings page no longer repeats the pages of Quick toggles, the microphone, the camera, the scratchpad and Cleaning Mode; up-to-date descriptions of Displays, Windows and Desktops.
-- Windows: a desktop's tab only changes the picture, not the screen, so the windows of every desktop can be arranged from where you are; the desktop on the screen has a dot.
-- The quick panel and the dark settings window have the capsule's own colours: black, with dark grey cards, buttons and the chosen tab, instead of blue-grey.
-- Quick panel: the icon tabs keep their size; when there are more than fit, the row scrolls sideways (mouse wheel, touchpad), its ends fade out, and the chosen tab is brought into view.
-- Windows (quick panel): instead of the Left / Right / Top / Bottom buttons, a picture of the screen with live miniatures of its windows. Choose the monitor above it and the desktop with its tab; drag a window to move it (at an edge it takes half or a quarter of the screen, at the top all of it), onto another desktop's tab or another monitor to send it there; click it to bring it forward, ✕ to close it. Beside the picture: Columns, Rows, Grid, Main + side and Undo.
-- Radial menu: alive instead of static. It opens out of the pointer, the buttons fly out one after the other, the action the pointer points at (anywhere in its slice) is lit, grows and shows its name in the middle, a small light follows the pointer around; the chosen button pulses as the wheel closes. Arrow keys go round, Enter runs, Esc or a right click closes.
-- Settings: shortcut keys are written as on a PC keyboard (Shift, Ctrl, Alt, Super), not with Mac symbols.
-- Shortcuts: any keys can be given to an Osmin shortcut; when GNOME already uses them (Super+V, for example), Osmin takes them while it runs and gives them back afterwards. The "Free Super+V from GNOME" switch is gone (what it had taken is given back). While a shortcut is being recorded the keys go to the settings window, not to GNOME.
-
-### Fixed
-- "Close after" is kept: a short delay closes the capsule at once, also just after a click inside it (the extra time after a click is now in proportion to the delay, at most 1.4 s).
-- Settings window: no wide empty margins around it; the menu on the left and the page on the right scroll on their own.
-- Top bar: pressing the Osmin button lights only the button, not the CPU and temperature readings beside it; the readings are an item of their own that opens the System page.
-- Separate desktops for every monitor really are separate: switching desktops on the laptop (keys, gestures, the overview) no longer switches the other monitor. The main monitor keeps GNOME's desktops; every other monitor has its own, switched by the same keys (Super+Page Up/Down, Ctrl+Alt+arrows, Super+number, with Shift to take the window) and four-finger swipes while the pointer is on it, with a small "Desktop 2" sign.
-- Shortcuts recorded with the Russian (or another non-Latin) layout on were saved as Cyrillic keys and did not work; they are recorded as the Latin key now, and old ones are corrected. Two shortcuts can no longer have the same keys (the Quick panel's suggested keys were the Clipboard's: now Ctrl+Super+Q); the new one takes them and says from which. Shift+letter alone is refused (it would stop that letter from being typed); F-keys and Print work alone.
-
-### Added
 - Phone: a phone connected through the Osmin Phone app is remembered, as a phone of adb was: the tile shows its name ("Tap to open" when it answers on the network), and a click opens its screen at once (the computer dials the phone where it was last, then searches); no "Use the Osmin Phone app" every time.
 - Osmin Phone, both ways: the server on the phone listens too (port 47832) and the Phone card on the computer looks for the phone in the networks it is in (where it was last, the neighbours, then the rest), so the computer can reach a phone that is asleep, wake it and unlock it without touching it; whichever side gets there first wins. Same secret, same proof both ways.
 - Osmin Phone finds the computer by itself: the server the app starts stays running, and when the network changes (Wi-Fi, a hotspot of the computer, the phone's own hotspot, USB tethering) or the session ends, it searches the new network for the computer's port and connects again, without anyone touching anything; a heartbeat on both sides shows a dead network within seconds, and the Phone card goes back to "Waiting for the phone…" and takes it again. The connection no longer sends the secret (challenge and proof both ways, so a machine that only answers on the port learns nothing). "Disconnect the phone" in the ring ends the server.
@@ -51,27 +37,20 @@ follows [Semantic Versioning](https://semver.org/).
 - Settings: Quick panel page (shortcut that opens the top-bar window from anywhere; quick toggles with keyboard light and excluded drives, microphone, camera, scratchpad and cleaning mode in one place).
 - Radial menu: a wheel of favourite actions around the pointer (shortcut, editable list); Output switcher (next sound output, outputs to skip); Camera preview and Scratchpad pages.
 - Settings: sidebar in sections (Essentials, Utilities, Sound, Dynamic Island, Tabs); page header with a "Try it" button; pages Command Bar, Quick toggles (excluded drives), Cleaning Mode (keep screen visible), Screenshot and screen recording, Color picker, Volume mixer, Mute microphone; global shortcuts for them and for Keep awake; Feedback row.
-
 - Top-bar window rebuilt after the reference: new tabs Keep awake (timer chips, "until" a time, lid closed, display sleep, icon and colour), Displays (brightness of the screen, external monitors through `ddcutil`, keyboard light, night light), Volume mixer (output, microphone, every app with its own device, reset and mute, boost above 100%), Utilities, Controls (groups with counters) and Quick toggles; customize mode to drag and hide rows.
 - Monitor settings: values written in the top bar, update interval, °C/°F, alert limits, blocks of the System page.
 - Settings: Menu bar page (reorder tabs by dragging, preview, button icon), Appearance choice (System / Light / Dark) under General.
-
 - Top-bar window redesigned after the reference: logo, page title, one card per page with thin dividers; System (CPU/GPU temperature tiles, usage bars with expandable busiest programs, memory pressure, graphs), Network (one graph for both directions, session, speed test), Disks (disk picker, badges, live activity, temperature, eject, open) and Power (battery, heat, draw, adapter, health).
-
-### Added
-
 - **A button in the top bar with a window of tools**, in the style of Vorssaint: a row of icon tabs and a
   page for each (Windows, Quick Toggles, Focus, System, Sound, Input, Downloads, AI Agents).
 - **Windows: arrange all windows at once.** Columns, Rows, Grid and Main + side arrange every open
   window of the monitor, however many there are (4, 6, 10 ...), or only the ones you tick in the
   previews; *Put it back* restores all of them.
-
 - **Desktops tab:** list, switch, create and remove desktops (workspaces), send the current window to a new
   desktop, and two switches for GNOME's *dynamic desktops* and *desktops on every monitor*.
 - **Separate desktops for every monitor** (Desktops tab, off by default): switching desktops on one monitor
   no longer switches the others. Osmin keeps a desktop number per monitor and minimises the windows of
   the other desktops of that monitor.
-
 - **Monitoring tabs** in the tools window: **System** (temperature, processor and memory with graphs,
   memory state, swap, uptime), **Network** (download and upload with graphs, connection, local address,
   this session's traffic), **Disks** (every disk with how full it is, eject for removable ones, live
@@ -81,6 +60,16 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Command Bar: the capsule itself turns into a big search field at the top (no tabs) that grows with its results; results in groups (Applications, Calculator, Clipboard, Web, Snippets, Processes, Cache) with large icons, chips with what can be typed while the field is empty, and a line with the keys. The Search tab left the panel: the bar opens with its shortcut, the Utilities widget, the radial menu or a gesture.
+- The Osmin app is the settings: the app grid icon and the Settings button open them as the Osmin app's own window (its name and icon in the dock and Alt+Tab, with minimize and maximize), not as a window of the Extensions app. The service status moved to a button on the About page.
+- UX pass of the quick panel, the capsule and the settings: arrows at the ends of the tab row when there are more tabs; temperatures, battery health and a microphone the computer does not have are left out instead of "n/a" or an empty list; automatic brightness only shows with a light sensor; the volume lines sit in the card like the other rows; the small actions of LocalSend, the Tray and Alerts (Add from Tray, Refresh, Receiving, Clear, Do Not Disturb) look like buttons; the empty Tray says what it is for; one wording for "Desktops only on the main monitor" everywhere, shorter hints; the Quick panel settings page no longer repeats the pages of Quick toggles, the microphone, the camera, the scratchpad and Cleaning Mode; up-to-date descriptions of Displays, Windows and Desktops.
+- Windows: a desktop's tab only changes the picture, not the screen, so the windows of every desktop can be arranged from where you are; the desktop on the screen has a dot.
+- The quick panel and the dark settings window have the capsule's own colours: black, with dark grey cards, buttons and the chosen tab, instead of blue-grey.
+- Quick panel: the icon tabs keep their size; when there are more than fit, the row scrolls sideways (mouse wheel, touchpad), its ends fade out, and the chosen tab is brought into view.
+- Windows (quick panel): instead of the Left / Right / Top / Bottom buttons, a picture of the screen with live miniatures of its windows. Choose the monitor above it and the desktop with its tab; drag a window to move it (at an edge it takes half or a quarter of the screen, at the top all of it), onto another desktop's tab or another monitor to send it there; click it to bring it forward, ✕ to close it. Beside the picture: Columns, Rows, Grid, Main + side and Undo.
+- Radial menu: alive instead of static. It opens out of the pointer, the buttons fly out one after the other, the action the pointer points at (anywhere in its slice) is lit, grows and shows its name in the middle, a small light follows the pointer around; the chosen button pulses as the wheel closes. Arrow keys go round, Enter runs, Esc or a right click closes.
+- Settings: shortcut keys are written as on a PC keyboard (Shift, Ctrl, Alt, Super), not with Mac symbols.
+- Shortcuts: any keys can be given to an Osmin shortcut; when GNOME already uses them (Super+V, for example), Osmin takes them while it runs and gives them back afterwards. The "Free Super+V from GNOME" switch is gone (what it had taken is given back). While a shortcut is being recorded the keys go to the settings window, not to GNOME.
 - Settings: **Features** now says what each tool costs while it is on ("Nothing at rest", "Checks every
   10 s" ...).
 - Settings: **Features** now has a count and one-click bundles (Everything, Essentials, Light island), and
@@ -90,6 +79,15 @@ follows [Semantic Versioning](https://semver.org/).
 - The capsule keeps only the light widgets (music, calendar, mirror, timer, to-do, notes, shortcuts,
   companion); the tools moved to the new window. They are on by default, and Settings → Features
   turns each on or off as before.
+
+### Fixed
+
+- Settings opened from the Extensions app were titled "Extension Error".
+- "Close after" is kept: a short delay closes the capsule at once, also just after a click inside it (the extra time after a click is now in proportion to the delay, at most 1.4 s).
+- Settings window: no wide empty margins around it; the menu on the left and the page on the right scroll on their own.
+- Top bar: pressing the Osmin button lights only the button, not the CPU and temperature readings beside it; the readings are an item of their own that opens the System page.
+- Separate desktops for every monitor really are separate: switching desktops on the laptop (keys, gestures, the overview) no longer switches the other monitor. The main monitor keeps GNOME's desktops; every other monitor has its own, switched by the same keys (Super+Page Up/Down, Ctrl+Alt+arrows, Super+number, with Shift to take the window) and four-finger swipes while the pointer is on it, with a small "Desktop 2" sign.
+- Shortcuts recorded with the Russian (or another non-Latin) layout on were saved as Cyrillic keys and did not work; they are recorded as the Latin key now, and old ones are corrected. Two shortcuts can no longer have the same keys (the Quick panel's suggested keys were the Clipboard's: now Ctrl+Super+Q); the new one takes them and says from which. Shift+letter alone is refused (it would stop that letter from being typed); F-keys and Print work alone.
 
 ## [0.2.0] - 2026-10-30
 
@@ -138,5 +136,6 @@ The first public release: Osmin can be installed from a zip, without cloning or 
 - The Mirror circle shrank every time the panel opened.
 - Dragging a file out of the tray is more reliable (quick flicks work, no leftover windows).
 
-[Unreleased]: https://github.com/bekov0004/Osmin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/bekov0004/Osmin/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bekov0004/Osmin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bekov0004/Osmin/releases/tag/v0.2.0
