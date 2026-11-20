@@ -602,6 +602,59 @@ static void on_tap(void)
         say("  dropped: %s is not an AWDL neighbour (now)", mac_text(ether));
 }
 
+/* --- our channel -------------------------------------------------------------------------------------------- */
+
+static int exclusive;         /* the card is ours: we may change its channel */
+
+/* What we say about our channel in the frames. */
+static void describe_channel(int channel)
+{
+    self.channel = (uint8_t)channel;
+    self.opclass = channel <= 14 ? 0x51 : 0x80;
+    /* the legacy encoding: 2.4 GHz 20 MHz primary, or 5 GHz 40 MHz with 149/153 style pairs */
+    if (channel <= 14) {
+        self.legacy_flags = 0x2b;
+        self.legacy_channel = (uint8_t)channel;
+    } else {
+        int upper = ((channel - 36) / 4) % 2 == 1;   /* 40, 48, ... 153, 161: the upper half of their pair */
+        self.legacy_flags = upper ? 0x1e : 0x1d;
+        self.legacy_channel = (uint8_t)(upper ? channel - 2 : channel + 2);
+    }
+}
+
+/* Tunes the card (only when it is ours): 80 MHz on 5 GHz so that wide frames are heard too. */
+static void tune(int channel)
+{
+    if (channel == 149)
+        sh("iw dev %s set freq 5745 80 5775 2>/dev/null || iw dev %s set channel 149", MONITOR, MONITOR);
+    else if (channel == 44)
+        sh("iw dev %s set freq 5220 80 5210 2>/dev/null || iw dev %s set channel 44", MONITOR, MONITOR);
+    else {
+        char number[8];
+        snprintf(number, sizeof(number), "%d", channel);
+        sh("iw dev %s set channel %s 2>/dev/null", MONITOR, number);
+    }
+    describe_channel(channel);
+}
+
+/* The channel an Apple device spends most of its slots on (0 when it says nothing). */
+static int favourite_channel(const struct peer *p)
+{
+    int best = 0, best_count = 0;
+    for (int i = 0; i < AWDL_SLOTS; i++) {
+        int c = p->chanseq[i], count = 0;
+        if (!c)
+            continue;
+        for (int j = 0; j < AWDL_SLOTS; j++)
+            count += p->chanseq[j] == c;
+        if (count > best_count) {
+            best = c;
+            best_count = count;
+        }
+    }
+    return best;
+}
+
 /* --- setup -------------------------------------------------------------------------------------------------- */
 
 static int open_tap(void)
@@ -713,20 +766,10 @@ int main(int argc, char **argv)
     int channel = connected ? connected : want_channel;
     /* An iPhone connected to a network spends many of its AWDL slots on that network's channel: sharing the card's
      * channel works on any channel the iPhone's network uses too. */
-    self.channel = (uint8_t)channel;
+    describe_channel(channel);
     snprintf(self.service, sizeof(self.service), "%s", self_service);
     snprintf(self.txt, sizeof(self.txt), "%s", self_txt);
     self.service_port = (uint16_t)self_port;
-    self.opclass = channel <= 14 ? 0x51 : 0x80;
-    /* the legacy channel encoding: 2.4 GHz 20 MHz primary, or 5 GHz 40 MHz with 149/153 style pairs */
-    if (channel <= 14) {
-        self.legacy_flags = 0x2b;
-        self.legacy_channel = (uint8_t)channel;
-    } else {
-        int upper = ((channel - 36) / 4) % 2 == 1;   /* 40, 48, ... 153, 161: the upper half of their pair */
-        self.legacy_flags = upper ? 0x1e : 0x1d;
-        self.legacy_channel = (uint8_t)(upper ? channel - 2 : channel + 2);
-    }
     {
         FILE *p = popen("iw reg get 2>/dev/null", "r");
         char line[160];
@@ -757,15 +800,9 @@ int main(int argc, char **argv)
         cleanup();
         return 1;
     }
-    if (!connected) {
-        /* the whole card is ours: the primary channel, 80 MHz on 5 GHz so that wide frames are heard too */
-        if (channel == 149)
-            sh("iw dev %s set freq 5745 80 5775 2>/dev/null || iw dev %s set channel 149", MONITOR, MONITOR);
-        else if (channel == 44)
-            sh("iw dev %s set freq 5220 80 5210 2>/dev/null || iw dev %s set channel 44", MONITOR, MONITOR);
-        else
-            sh("iw dev %s set channel 6", MONITOR);
-    }
+    exclusive = !connected;
+    if (exclusive)
+        tune(channel);
     monitor_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     struct sockaddr_ll where = {.sll_family = AF_PACKET, .sll_protocol = htons(ETH_P_ALL), .sll_ifindex = (int)if_nametoindex(MONITOR)};
     if (monitor_fd < 0 || bind(monitor_fd, (struct sockaddr *)&where, sizeof(where)) < 0) {
@@ -796,6 +833,10 @@ int main(int argc, char **argv)
     clock_start = now_us();
     clock_seq = 0;
     int64_t next_report = now_us() + 5000000, burst_at = now_us();
+    /* the card is ours and nobody is heard: look on the social channels in turn */
+    static const int SEARCH[] = {149, 6, 44};
+    int search_index = 0;
+    int64_t next_hop = now_us() + 1500000, last_heard = now_us();
     int burst_left = 64;
     uint16_t last_aw = 0xffff;
     while (!stop) {
@@ -811,6 +852,29 @@ int main(int argc, char **argv)
         }
         elect();
         aw_at(t, &seq, &start);
+
+        if (exclusive) {
+            struct peer *followed = synced ? find_peer(sync_source) : NULL;
+            for (int i = 0; i < n_peers; i++) {
+                if (peers[i].valid)
+                    last_heard = t;
+            }
+            if (followed && followed->has_chanseq) {
+                /* go where it spends most of its time */
+                int want = favourite_channel(followed);
+                if (want && want != self.channel && t >= next_hop) {
+                    say("it spends most slots on channel %d: going there", want);
+                    tune(want);
+                    next_hop = t + 3000000;
+                }
+            } else if (!n_peers && t - last_heard > 3000000 && t >= next_hop) {
+                search_index = (search_index + 1) % 3;
+                if (verbose)
+                    say("nobody heard: looking on channel %d", SEARCH[search_index]);
+                tune(SEARCH[search_index]);
+                next_hop = t + 1500000;
+            }
+        }
 
         if (!synced) {
             /* nobody to follow: bursts of MIFs, one every AW, then a pause */
