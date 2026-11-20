@@ -51,6 +51,7 @@ static char wifi[IFNAMSIZ];
 static char phy[32];
 static int verbose;
 static int took_card;
+static int exclusive;         /* the card is ours: we may change its channel */
 static char saved_connection[256];
 static char self_service[32], self_txt[64];
 static int self_port = 8771;
@@ -495,6 +496,13 @@ static void on_action(const struct awdl_frame *f, int64_t t)
         if (verbose && f->has_sync)
             say("  sync: next AW %u in %u TU on channel %u, master channel %u, sequence %s%s", f->aw_seq, f->tx_counter,
                 f->next_aw_channel, f->master_channel, p->has_chanseq ? "" : "(none)", "");
+        say("  its Wi-Fi: country %s, channel %d", f->country[0] ? f->country : "?", f->infra_channel);
+        if (self.channel > 14 && (strcmp(f->country, "XZ") == 0 || !(f->social_map & 0x6)))
+            say("  NOTE: it is not on a Wi-Fi network, so it may use only 2.4 GHz channel 6. Connect the iPhone to the "
+                "same Wi-Fi network as this computer (%s): then it comes to that network's channel.", wifi);
+        else if (f->infra_channel && f->infra_channel != self.channel && !exclusive)
+            say("  NOTE: its Wi-Fi is on channel %d, this computer's on %d: connect both to the same network (and band).",
+                f->infra_channel, self.channel);
         if (p->has_chanseq) {
             char text[128] = "";
             int ours = 0;
@@ -689,7 +697,6 @@ static void on_tap(void)
 
 /* --- our channel -------------------------------------------------------------------------------------------- */
 
-static int exclusive;         /* the card is ours: we may change its channel */
 
 /* What we say about our channel in the frames. */
 static void describe_channel(int channel)

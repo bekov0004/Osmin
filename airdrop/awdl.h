@@ -83,6 +83,11 @@ struct awdl_frame {
     uint32_t self_metric;
     uint32_t master_counter;
     uint32_t distance;
+    /* data path state: its regulatory country ("XZ" when it has none: then no 5 GHz), the social channels it may
+     * use (bit 0: 6, bit 1: 44, bit 2: 149), the channel of its own Wi-Fi network (0: none) */
+    char country[3];
+    int social_map;
+    int infra_channel;
     uint8_t tlvs[32];         /* the TLV types seen, in order */
     int n_tlvs;
 };

@@ -158,6 +158,23 @@ int awdl_parse(const uint8_t *packet, size_t length, struct awdl_frame *out)
                 out->self_metric = le32(v + 15);
             }
             break;
+        case AWDL_TLV_DATA_PATH_STATE:
+            if (len >= 2) {
+                uint16_t flags = le16(v);
+                size_t o = 2;
+                if ((flags & 0x0100) && o + 3 <= len) {
+                    out->country[0] = (char)v[o];
+                    out->country[1] = (char)v[o + 1];
+                    o += 3;
+                }
+                if ((flags & 0x0200) && o + 2 <= len) {
+                    out->social_map = le16(v + o);
+                    o += 2;
+                }
+                if ((flags & 0x0001) && o + 8 <= len)
+                    out->infra_channel = le16(v + o + 6);
+            }
+            break;
         case AWDL_TLV_ELECTION_PARAMS_V2:
             if (len >= 40) {
                 v2 = 1;
