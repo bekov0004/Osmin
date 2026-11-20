@@ -2389,3 +2389,26 @@
 .osmin-bar-dot:hover { background-color: rgba(255, 255, 255, 0.8); }
 .osmin-bar-clock { color: white; font-weight: 700; font-size: 10.5pt; }
 .osmin-bar-item { border-radius: 99px; }
+
+/* The butterfly's reminders */
+.osmin-rem-row { spacing: 6px; }
+.osmin-rem-time { width: 74px; font-feature-settings: "tnum"; font-weight: 700; }
+.osmin-rem-item { spacing: 10px; padding-top: 6px; padding-bottom: 6px; }
+.osmin-rem-item-time { font-size: 15pt; font-weight: 800; color: white; min-width: 62px; font-feature-settings: "tnum"; }
+.osmin-rem-item-time.off { color: rgba(255, 255, 255, 0.35); }
+.osmin-rem-remove { border-radius: 99px; padding: 6px; color: rgba(255, 255, 255, 0.6); }
+.osmin-rem-remove:hover { background-color: rgba(255, 255, 255, 0.10); color: white; }
+.osmin-bfr-card {
+    background-color: rgba(10, 10, 16, 0.94); border-radius: 26px; padding: 16px 22px 14px 22px; spacing: 6px;
+    border: 1px solid rgba(160, 140, 255, 0.28); box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.osmin-bfr-time { color: #b9a6ff; font-size: 10pt; font-weight: 700; }
+.osmin-bfr-text { color: white; font-size: 16pt; font-weight: 700; }
+.osmin-bfr-buttons { spacing: 10px; padding-top: 8px; }
+.osmin-bfr-button {
+    border-radius: 99px; padding: 7px 18px; font-weight: 700; font-size: 10.5pt; color: white;
+    background-color: rgba(255, 255, 255, 0.10);
+}
+.osmin-bfr-button:hover { background-color: rgba(255, 255, 255, 0.18); }
+.osmin-bfr-done { background-color: #6f7bff; }
+.osmin-bfr-done:hover { background-color: #8590ff; }

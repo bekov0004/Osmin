@@ -48,7 +48,7 @@ export const Butterfly = GObject.registerClass(class OsminButterfly extends St.D
     /** Two beats of the wings, then a blink; nothing when animations are off or it is not on screen. */
     flap() {
         const duration = animDuration(FLAP_MS);
-        if (!duration || !this.mapped || this._timeline)
+        if (!duration || !this.mapped || this._timeline || this._flutter)
             return;
         this._timeline = new Clutter.Timeline({actor: this, duration});
         this._timeline.connect('new-frame', timeline => {
@@ -62,6 +62,38 @@ export const Butterfly = GObject.registerClass(class OsminButterfly extends St.D
             this._later(BLINK_AFTER_MS, () => this.blink());
         });
         this._timeline.start();
+    }
+
+    /**
+     * Beats its wings on and on, one beat every `periodMs` (flying), until stopFlutter(); blinks now and then.
+     * Nothing when animations are off.
+     */
+    flutter(periodMs = 320) {
+        this.stopFlutter();
+        if (!animDuration(periodMs))
+            return;
+        this._timeline?.stop();
+        this._timeline = null;
+        this._flutter = new Clutter.Timeline({actor: this, duration: periodMs, repeat_count: -1});
+        this._flutter.connect('new-frame', timeline => {
+            this._open = 1 - 0.8 * Math.abs(Math.sin(Math.PI * timeline.get_progress()));
+            this.queue_repaint();
+        });
+        this._flutter.start();
+        this._blinker = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2600, () => {
+            this.blink();
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    stopFlutter() {
+        this._flutter?.stop();
+        this._flutter = null;
+        if (this._blinker)
+            GLib.source_remove(this._blinker);
+        this._blinker = 0;
+        this._open = 1;
+        this.queue_repaint();
     }
 
     /** It closes its eyes for a moment. */
@@ -86,6 +118,7 @@ export const Butterfly = GObject.registerClass(class OsminButterfly extends St.D
     }
 
     _stop() {
+        this.stopFlutter();
         this._timeline?.stop();
         this._timeline = null;
         for (const id of this._timers)

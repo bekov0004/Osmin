@@ -18,6 +18,7 @@ export const WIDGET_INFO = Object.freeze([
     {id: 'input', title: 'Input', subtitle: 'Mouse and keyboard switches: scrolling, acceleration, tap to click, focus follows mouse', cells: 4, minCells: 4, menu: true},
     {id: 'windows', title: 'Windows', subtitle: 'A picture of each screen and desktop: drag windows to halves and quarters, columns, rows, a grid', cells: 5, minCells: 4, menu: true},
     {id: 'workspaces', title: 'Desktops', subtitle: 'Create, switch and remove desktops (workspaces); separate desktops for every monitor', cells: 4, minCells: 4, menu: true},
+    {id: 'reminders', title: 'Reminders', subtitle: 'The butterfly brings you a text at the time you choose', cells: 4, minCells: 4, menu: true},
     {id: 'agents', title: 'AI Agents', subtitle: 'Claude Code and Codex: working now, tokens of the last 5 hours and week, a card when a task is done', cells: 4, minCells: 4, menu: true},
     {id: 'companion', title: 'Companion', subtitle: 'A small friend: its eyes follow the pointer, it sways to the music, gets surprised by cards and falls asleep', cells: 2, minCells: 2},
     {id: 'shortcuts', title: 'Shortcuts', subtitle: 'Launch your favourite apps', cells: 4, minCells: 2},

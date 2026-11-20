@@ -382,6 +382,30 @@
       <description>Like topbar-hide, for the Osmin bar (and the capsule) on the monitors without GNOME's top bar.</description>
     </key>
 
+    <key name="reminders" type="s">
+      <default>'[]'</default>
+      <summary>The butterfly's reminders</summary>
+      <description>JSON list of reminders: {id, time 'HH:MM', text, repeat 'once'|'daily'|'weekdays', enabled, date, lastFired, snoozeUntil}. At its time the butterfly flies out of the capsule with the text.</description>
+    </key>
+
+    <key name="reminder-preview" type="s">
+      <default>''</default>
+      <summary>Show a reminder now</summary>
+      <description>Written by the settings window ("Show it now"): a reminder as JSON for the butterfly to bring at once.</description>
+    </key>
+
+    <key name="reminder-sound" type="b">
+      <default>true</default>
+      <summary>A sound with a reminder</summary>
+      <description>Play a short sound when the butterfly brings a reminder.</description>
+    </key>
+
+    <key name="reminders-offered" type="b">
+      <default>false</default>
+      <summary>The Reminders tab was added once</summary>
+      <description>Set by Osmin after it added the Reminders tab to the quick panel; turning it off afterwards is respected.</description>
+    </key>
+
     <key name="capsule-butterfly" type="b">
       <default>true</default>
       <summary>Butterfly in the capsule</summary>

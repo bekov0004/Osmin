@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Reminders brought by the butterfly: at the time you choose it flies out of the capsule, beating its wings and growing as it comes down, hovers at the top of the screen (also over an app in full screen) and shows your text, with "In 10 min" and "Done"; then it flies back into the capsule. Once, every day or on weekdays; a short sound (can be turned off); one missed while the computer slept still comes up to 3 hours late. Set them in the new Reminders tab of the quick panel (or click the butterfly in the capsule), or in Settings → Dynamic Island → Appearance → Reminders; "Try it" shows one at once.
+
 - The Osmin bar: a top bar on every monitor without GNOME's (Settings → General → Top bar). On the left the desktops of that monitor (a dot switches, the free space opens the overview), in the middle its capsule or the date and time, on the right the items of GNOME's top bar (the readings, the Osmin button, network, sound, battery ...) whose menus open on that monitor. It hides on its own setting, like the top bar.
 - The top bar can hide (Settings → General → Top bar): never, when a window touches it (the default), or always. Hidden, it comes out when the pointer pushes against the top edge of the screen, also over an app in full screen, and stays while the pointer is on it, a menu of it is open or the capsule is in use; it is always there in the overview. The capsule hides and comes out with it. The monitors without GNOME's top bar have the same choice for their capsule.
 

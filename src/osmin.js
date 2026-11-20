@@ -19,6 +19,7 @@ import {ClipboardView} from './clipboard/clipboardView.js';
 import {CommandView} from './commandbar/commandView.js';
 import {DragOutService} from './tray/dragOut.js';
 import {TrayController} from './tray/trayController.js';
+import {ButterflyReminder} from './ui/butterflyReminder.js';
 import {ClosedView} from './ui/closedView.js';
 import {Ear} from './ui/ear.js';
 import {computeLayout} from './ui/osminLayout.js';
@@ -249,6 +250,8 @@ export class Osmin {
             GLib.source_remove(this._flapId);
         this._flapId = 0;
         this._settings?.disconnectObject(this);
+        this._reminderView?.destroy();
+        this._reminderView = null;
         this._bar?.disconnectObject(this);
         this._bar = null;
         this._services?.activities.disconnectObject(this);
@@ -391,6 +394,36 @@ export class Osmin {
         }
         for (const ear of this._ears)
             ear.setColor(0, 0, 0, opacity);
+    }
+
+    /**
+     * A reminder rings: the butterfly flies out of the capsule, grows and shows the text (ui/butterflyReminder.js),
+     * then flies back in.
+     */
+    showReminder(reminder, {onSnooze, onDone, onFinished} = {}) {
+        const butterfly = this._closedView.butterfly;
+        let from;
+        if (butterfly.visible && butterfly.mapped && this._state === State.CLOSED) {
+            const [x, y] = butterfly.get_transformed_position();
+            const [width, height] = butterfly.get_transformed_size();
+            from = {x, y, width, height};
+        } else {
+            const [x, y] = this._actor.get_transformed_position();
+            from = {x: x + this._actor.width / 2 - scaled(16), y, width: scaled(32), height: scaled(26)};
+        }
+        butterfly.opacity = 0;
+        this._reminderView?.destroy();
+        this._reminderView = new ButterflyReminder({
+            reminder, from, monitor: this._geometry().monitor, sound: this._settings.get('reminder-sound'),
+            onSnooze, onDone,
+            onFinished: () => {
+                this._reminderView = null;
+                butterfly.opacity = 255;
+                butterfly.flap();
+                onFinished?.();
+            },
+        });
+        this._reminderView.show();
     }
 
     /** The bar at the top of this monitor (ui/barHider.js): the capsule goes away and comes out with it. */
@@ -689,6 +722,16 @@ export class Osmin {
 
         this._closedView = new ClosedView();
         this._closedView.setButterfly(this._settings.get('capsule-butterfly'));
+        // a click on the butterfly: a new reminder (the Reminders page of the quick panel)
+        this._closedView.onButterfly = () => {
+            // the capsule itself stays closed under the pointer until it leaves (it would close the menu)
+            this._timers.clear('hover');
+            this._timers.clear('dwell');
+            this._quietUntilLeave = true;
+            if (this._state === State.HOVER)
+                this._setState(State.CLOSED);
+            this._shared.openMenuPage?.('reminders');
+        };
         this._syncFlapping();
         // Cards sit below the band of the top bar.
         this._cardLayer = new St.Widget({
@@ -992,6 +1035,11 @@ export class Osmin {
         if (this._draggingOut || (this._barHidden && this._state === State.CLOSED))
             return;
         const hovered = this._hovered();
+        if (this._quietUntilLeave) {
+            if (!hovered)
+                this._quietUntilLeave = false;
+            return;
+        }
         this._timers.clear('hover');
 
         switch (this._state) {

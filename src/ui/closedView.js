@@ -59,6 +59,15 @@ export class ClosedView extends St.Widget {
         this._camera.add_child(this._lens);
         this._butterfly = new Butterfly();
         this._camera.visible = false;
+        /** A click on the butterfly (the capsule asks for a new reminder). */
+        this.onButterfly = null;
+        this._butterfly.reactive = true;
+        this._butterfly.connect('button-press-event', (_a, event) => {
+            if (!this.onButterfly || event.get_button() !== 1)
+                return Clutter.EVENT_PROPAGATE;
+            this.onButterfly();
+            return Clutter.EVENT_STOP;
+        });
 
         this.add_child(this._left);
         this.add_child(this._camera);
@@ -92,6 +101,10 @@ export class ClosedView extends St.Widget {
     setButterfly(on) {
         this._butterfly.visible = on;
         this._camera.visible = !on;
+    }
+
+    get butterfly() {
+        return this._butterfly;
     }
 
     /** The butterfly beats its wings once. */

@@ -7,6 +7,7 @@ import Gtk from 'gi://Gtk';
 import {gettext as _} from './prefsText.js';
 
 import {DEFAULT_WIDGETS, WIDGET_INFO} from './src/utils/widgetInfo.js';
+import * as R from './src/utils/reminders.js';
 import {gestureMethods} from './prefsGestures.js';
 import {assignShortcut, focusLeftWindow, grabSystemKeys, shortcutFor, utilityMethods} from './prefsUtilities.js';
 
@@ -249,6 +250,7 @@ const WIDGET_ICONS = {
     windows: 'focus-windows-symbolic',
     workspaces: 'view-paged-symbolic',
     agents: 'system-run-symbolic',
+    reminders: 'alarm-symbolic',
     companion: 'face-smile-symbolic',
 };
 
@@ -488,7 +490,7 @@ export class OsminPreferences {
         const TOOLS = _('Tools window (top-bar button)');
         const ISLAND = _('Island widgets (the capsule)');
         // The tools in the order of the tabs of their window, then the capsule's widgets.
-        const MENU_ORDER = ['awake', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
+        const MENU_ORDER = ['awake', 'reminders', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
         const rank = w => (w.menu ? MENU_ORDER.indexOf(w.id) : 100 + WIDGET_INFO.indexOf(w));
         const widgetRows = [...WIDGET_INFO].sort((a, b) => rank(a) - rank(b)).map(w => ({
             group: w.menu ? TOOLS : ISLAND,
@@ -1489,6 +1491,7 @@ export class OsminPreferences {
             _('Now and then it beats its wings and blinks. Its wings turn warm when something happened.'));
         this._row(form, _('Every'), this._slider(settings, 'butterfly-flap-every', [5, 300, 5]),
             _('Seconds between two flaps.'));
+        this._remindersEditor(form, settings);
 
         this._rule(form);
         this._row(form, _('Corner radius'), this._slider(settings, 'corner-radius', [8, 44, 1]),
@@ -1543,6 +1546,89 @@ export class OsminPreferences {
 
 
 
+    /** The butterfly's reminders: a new one (time, text, how often), the list (on/off, remove), a sound. */
+    _remindersEditor(form, settings) {
+        this._rule(form);
+        this._toggleRow(form, settings, 'reminder-sound', _('Reminders'), _('A sound with a reminder'),
+            _('At the time you choose the butterfly flies out of the capsule, grows and shows your text. Also in the quick panel (Reminders), or click the butterfly.'));
+
+        const add = new Gtk.Box({spacing: 8, margin_top: 6, margin_bottom: 6, margin_start: 12, margin_end: 12});
+        const time = new Gtk.Entry({placeholder_text: '18:30', width_chars: 6, max_width_chars: 6});
+        const text = new Gtk.Entry({placeholder_text: _('What should the butterfly tell you?'), hexpand: true});
+        const repeats = [['once', _('Once')], ['daily', _('Every day')], ['weekdays', _('Weekdays')]];
+        const repeat = new Gtk.DropDown({model: Gtk.StringList.new(repeats.map(r => r[1]))});
+        const addButton = new Gtk.Button({label: _('Add'), css_classes: ['suggested-action']});
+        const tryButton = new Gtk.Button({icon_name: 'media-playback-start-symbolic', tooltip_text: _('Show it now')});
+        for (const widget of [time, text, repeat, addButton, tryButton])
+            add.append(widget);
+        form.attach(add);
+        const problem = this._dim('');
+        problem.visible = false;
+        form.append(problem);
+        const list = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 2, margin_start: 12, margin_end: 12, margin_bottom: 6});
+        form.attach(list);
+
+        const read = () => R.parseList(settings.get_string('reminders'));
+        const save = items => settings.set_string('reminders', JSON.stringify(items));
+        const doAdd = () => {
+            try {
+                save([...read(), R.newReminder({time: time.text, text: text.text || _('Reminder'), repeat: repeats[repeat.selected]?.[0]})]);
+                time.text = text.text = '';
+                problem.visible = false;
+            } catch (e) {
+                problem.label = _('Write the time as 18:30');
+                problem.visible = true;
+            }
+        };
+        addButton.connect('clicked', doAdd);
+        text.connect('activate', doAdd);
+        time.connect('activate', () => text.grab_focus());
+        // try: the shell shows it (through the action request it already listens to)
+        tryButton.connect('clicked', () => {
+            const preview = {id: 'preview', time: R.parseTime(time.text) ?? '', text: text.text || _('Hello! I am your Osmin butterfly.')};
+            settings.set_string('reminder-preview', JSON.stringify({...preview, at: Date.now()}));
+        });
+
+        const fill = () => {
+            let child = list.get_first_child();
+            while (child) {
+                const next = child.get_next_sibling();
+                list.remove(child);
+                child = next;
+            }
+            const items = R.sorted(read());
+            if (!items.length) {
+                list.append(this._dim(_('No reminders yet.')));
+                return;
+            }
+            for (const reminder of items) {
+                const row = new Gtk.Box({spacing: 12, margin_top: 4, margin_bottom: 4});
+                row.append(new Gtk.Label({label: reminder.time, css_classes: ['title-3'], width_chars: 5, xalign: 0, sensitive: !!reminder.enabled}));
+                const texts = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, hexpand: true, valign: Gtk.Align.CENTER});
+                texts.append(new Gtk.Label({label: reminder.text || _('Reminder'), xalign: 0, ellipsize: 3}));
+                texts.append(this._dim(R.whenText(reminder)));
+                row.append(texts);
+                const toggle = new Gtk.Switch({active: !!reminder.enabled, valign: Gtk.Align.CENTER});
+                toggle.connect('notify::active', () => {
+                    save(read().map(r => {
+                        if (r.id !== reminder.id)
+                            return r;
+                        if (!toggle.active)
+                            return {...r, enabled: false, snoozeUntil: 0};
+                        return r.repeat === 'once' ? {...R.newReminder(r), id: r.id} : {...r, enabled: true};
+                    }));
+                });
+                row.append(toggle);
+                const remove = new Gtk.Button({icon_name: 'user-trash-symbolic', css_classes: ['flat'], valign: Gtk.Align.CENTER, tooltip_text: _('Remove')});
+                remove.connect('clicked', () => save(read().filter(r => r.id !== reminder.id)));
+                row.append(remove);
+                list.append(row);
+            }
+        };
+        fill();
+        settings.connect('changed::reminders', fill);
+    }
+
     // --- Menu bar -----------------------------------------------------------
 
     /**
@@ -1553,7 +1639,7 @@ export class OsminPreferences {
     _menuBarPage(settings) {
         const body = this._body();
         const menuInfo = WIDGET_INFO.filter(w => w.menu);
-        const MENU_ORDER = ['awake', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
+        const MENU_ORDER = ['awake', 'reminders', 'phone', 'displays', 'sound', 'system', 'network', 'disks', 'power', 'utilities', 'controls', 'toggles', 'windows', 'workspaces', 'focus', 'input', 'downloads', 'agents'];
         const info = id => menuInfo.find(w => w.id === id);
         const SHORT = {
             awake: _('Keeps your computer awake for as long as you want.'), phone: _('Phone screen on the computer, with control.'), displays: _('Brightness of every monitor, and where the monitors stand (drag them, mirror, only one).'),

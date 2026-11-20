@@ -24,6 +24,7 @@ import {DisplaysWidget} from './displays/displaysWidget.js';
 import {TogglesWidget} from './toggles/togglesWidget.js';
 import {UtilitiesWidget} from './utilities/utilitiesWidget.js';
 import {TodoWidget} from './todo/todoWidget.js';
+import {RemindersWidget} from './reminders/remindersWidget.js';
 
 /** All widgets by id. The user chooses which ones to show and in what order. */
 export const WIDGET_CLASSES = [
@@ -35,6 +36,7 @@ export const WIDGET_CLASSES = [
     NotesWidget,
     ShortcutsWidget,
     AwakeWidget,
+    RemindersWidget,
     PhoneWidget,
     PhoneCardWidget,
     DisplaysWidget,
