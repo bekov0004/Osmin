@@ -564,6 +564,79 @@ def safe_host(name):
     return keep[:40] or "osmin"
 
 
+def wifi_interface():
+    for name in sorted(os.listdir("/sys/class/net")):
+        if name != "osminawdl" and os.path.exists(f"/sys/class/net/{name}/phy80211"):
+            return name
+    return None
+
+
+def wifi_channel(interface):
+    out = subprocess.run(["iw", "dev", interface, "info"], capture_output=True, text=True).stdout
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("channel "):
+            return int(line.split()[1])
+    return 0
+
+
+def wait_channel(interface, timeout=25):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        channel = wifi_channel(interface)
+        if channel:
+            return channel
+        time.sleep(0.5)
+    return 0
+
+
+def find_iphone(daemon_path, seconds=20):
+    """Takes the card for a moment and finds where the iPhone's own Wi-Fi is: (channel, country) or None."""
+    log(f"looking for the iPhone (Wi-Fi leaves the network for up to {seconds} s; keep the share sheet open)...")
+    result = subprocess.run([daemon_path, "--find", str(seconds)], capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        if line.startswith("FOUND "):
+            _, mac, channel, country = line.split()[:4]
+            log(f"iPhone {mac}: its Wi-Fi is on channel {channel} (country {country})")
+            return int(channel), country
+    log("no iPhone heard: is the share sheet open, AirDrop on Everyone for 10 minutes?")
+    return None
+
+
+class BandSwitch:
+    """Moves this computer's Wi-Fi connection to the band (2.4 / 5 GHz) the iPhone is on, and back afterwards."""
+
+    def __init__(self, interface):
+        self.interface = interface
+        self.connection = None
+        self.old = None
+
+    def to(self, channel):
+        name = subprocess.run(["nmcli", "-g", "GENERAL.CONNECTION", "device", "show", self.interface],
+                              capture_output=True, text=True).stdout.strip()
+        if not name:
+            return False
+        band = "bg" if channel <= 14 else "a"
+        old = subprocess.run(["nmcli", "-g", "802-11-wireless.band", "connection", "show", name],
+                             capture_output=True, text=True).stdout.strip()
+        if old == band:
+            return False
+        log(f"moving this computer's Wi-Fi ({name}) to {'2.4' if band == 'bg' else '5'} GHz, as the iPhone's")
+        self.connection, self.old = name, old
+        subprocess.run(["nmcli", "connection", "modify", name, "802-11-wireless.band", band], capture_output=True)
+        subprocess.run(["nmcli", "connection", "up", name], capture_output=True)
+        return True
+
+    def back(self):
+        if not self.connection:
+            return
+        log(f"giving {self.connection} its own band setting back")
+        subprocess.run(["nmcli", "connection", "modify", self.connection, "802-11-wireless.band", self.old or ""],
+                       capture_output=True)
+        subprocess.Popen(["nmcli", "connection", "up", self.connection], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.connection = None
+
+
 def receive(args):
     if os.geteuid() != 0:
         sys.exit("needs root: sudo python3 airdrop/osmin_airdrop.py receive")
@@ -580,6 +653,30 @@ def receive(args):
     daemon_path = os.path.join(HERE, "build", "osmin-awdld")
     if not os.path.exists(daemon_path):
         sys.exit("build it first: scripts/build-airdrop.sh")
+    switch = None
+    if args.auto and not args.take_card:
+        interface = wifi_interface()
+        found = find_iphone(daemon_path)
+        mine = wait_channel(interface) if interface else 0
+        if not found:
+            sys.exit(1)
+        channel, country = found
+        if not channel or country == "XZ":
+            log("the iPhone is not on a Wi-Fi network: connect it to the same network as this computer; "
+                "until then AirDrop runs on its channel 6 without the network")
+            args.take_card, args.channel = True, 6
+        elif channel != mine:
+            switch = BandSwitch(interface)
+            switch.to(channel)
+            mine = wait_channel(interface)
+            if mine != channel:
+                log(f"this computer is on channel {mine}, the iPhone on {channel}: they are on different access points "
+                    "or bands; AirDrop runs on the iPhone's channel without the network instead")
+                switch.back()
+                switch = None
+                args.take_card, args.channel = True, channel if channel in (6, 44, 149) else 6
+        else:
+            log(f"both on channel {channel}: AirDrop shares it, Wi-Fi stays connected")
     command = [daemon_path, "--channel", str(args.channel), "--name", host,
                "--service", instance, "--port", str(AIRDROP_PORT), "--txt", f"flags={FLAGS}"]
     if args.take_card:
@@ -629,6 +726,8 @@ def receive(args):
                 daemon.wait(5)
             except subprocess.TimeoutExpired:
                 daemon.kill()
+        if switch:
+            switch.back()
 
 
 def main():
@@ -639,6 +738,8 @@ def main():
     r.add_argument("--name", help="the name iPhones show (default: the computer's name)")
     r.add_argument("--channel", type=int, default=149)
     r.add_argument("--take-card", action="store_true", help="leave the Wi-Fi network while running (AWDL on --channel)")
+    r.add_argument("--auto", action="store_true",
+                   help="find the iPhone's Wi-Fi channel first and put this computer on the same band (Wi-Fi stays on)")
     r.add_argument("--ask", action="store_true", help="ask in the terminal before accepting")
     r.add_argument("--verbose", action="store_true")
     r.add_argument("--capture", action="store_true", help="save every AWDL frame to airdrop/captures/*.pcap")

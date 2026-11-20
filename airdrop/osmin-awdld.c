@@ -51,6 +51,7 @@ static char wifi[IFNAMSIZ];
 static char phy[32];
 static int verbose;
 static int took_card;
+static int find_mode;          /* --find: report where an iPhone's own Wi-Fi is, then stop */
 static int exclusive;         /* the card is ours: we may change its channel */
 static char saved_connection[256];
 static char self_service[32], self_txt[64];
@@ -456,6 +457,11 @@ static void flush_peer(struct peer *p)
 
 static void on_action(const struct awdl_frame *f, int64_t t)
 {
+    if (find_mode && f->devclass == AWDL_DEV_IOS && f->country[0] && memcmp(f->src, self.mac, 6) != 0) {
+        printf("FOUND %s %d %s\n", mac_text(f->src), f->infra_channel, f->country);
+        fflush(stdout);
+        stop = 1;
+    }
     rx_af++;
     if (memcmp(f->src, self.mac, 6) == 0)
         return;
@@ -805,7 +811,11 @@ int main(int argc, char **argv)
             name = argv[++i];
         else if (strcmp(argv[i], "--verbose") == 0)
             verbose = 1;
-        else if (strcmp(argv[i], "--capture") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--find") == 0 && i + 1 < argc) {
+            find_mode = atoi(argv[++i]);
+            take_card = 1;
+            want_channel = 6;
+        } else if (strcmp(argv[i], "--capture") == 0 && i + 1 < argc)
             capture_path = argv[++i];
         else if (strcmp(argv[i], "--service") == 0 && i + 1 < argc)
             snprintf(self_service, sizeof(self_service), "%.30s", argv[++i]);
@@ -932,6 +942,7 @@ int main(int argc, char **argv)
     int64_t next_report = now_us() + 5000000, burst_at = now_us();
     /* the card is ours and nobody is heard: look on the social channels in turn */
     static const int SEARCH[] = {149, 6, 44};
+    int64_t find_until = find_mode ? now_us() + (int64_t)find_mode * 1000000 : 0;
     int search_index = 0;
     int64_t next_hop = now_us() + 1500000, last_heard = now_us();
     int burst_left = 64;
@@ -942,6 +953,11 @@ int main(int argc, char **argv)
         uint16_t seq;
         int64_t start;
         aw_at(t, &seq, &start);
+        if (find_mode && t > find_until) {
+            printf("NOTFOUND\n");
+            fflush(stdout);
+            break;
+        }
 
         /* forget the silent */
         for (int i = n_peers - 1; i >= 0; i--) {
