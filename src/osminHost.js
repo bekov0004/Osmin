@@ -74,7 +74,18 @@ export class OsminHost {
      */
     constructor(settings, {openPreferences = () => {}, path = null} = {}) {
         this._settings = settings;
-        this._openPreferences = openPreferences;
+        // The settings are the window of the Osmin app (its own icon and name); the Extensions app's window only when
+        // the service cannot be reached.
+        this._openPreferences = () => {
+            if (!this._backend?.service) {
+                openPreferences();
+                return;
+            }
+            this._backend.service.call('openSettings', {}).catch(e => {
+                console.warn(`[osmin] the Osmin app cannot open the settings: ${e.message}`);
+                openPreferences();
+            });
+        };
         this._path = path;
         this._signals = new SignalTracker();
         this._capsules = new Map();   // monitor index -> Osmin

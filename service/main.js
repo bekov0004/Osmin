@@ -44,6 +44,11 @@ class ServiceModule extends Module {
         return {version: VERSION};
     }
 
+    async rpc_openSettings() {
+        this._app.openSettings();
+        return {};
+    }
+
     async rpc_openScratchpad() {
         this._app.openScratchpad();
         return {};
@@ -120,6 +125,31 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         }).catch(e => console.warn(`[osmin-service] cannot open the scratchpad: ${e.message}`));
     }
 
+    /** The settings window: the Osmin app's main window. */
+    openSettings() {
+        if (this._settingsWindow) {
+            this._settingsWindow.present();
+            return;
+        }
+        if (this._settingsOpening)
+            return;
+        this._settingsOpening = true;
+        import('./settings.js').then(({createSettingsWindow}) => createSettingsWindow({openStatus: () => this.openStatus()})).then(window => {
+            this._settingsWindow = window;
+            window.connect('close-request', () => {
+                this._settingsWindow = null;
+                this._armIdle();
+                return false;
+            });
+            window.present();
+        }).catch(e => {
+            console.warn(`[osmin-service] cannot open the settings: ${e.message}\n${e.stack}`);
+            this.openStatus();
+        }).finally(() => {
+            this._settingsOpening = false;
+        });
+    }
+
     /** The agents window: the tasks, what one of them does (id), or a new task (newTask). */
     openAgents({id = '', newTask = false} = {}) {
         const agents = this._modules.find(m => m.name === 'Agents');
@@ -139,12 +169,17 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         }).catch(e => console.warn(`[osmin-service] cannot open the agents window: ${e.message}\n${e.stack}`));
     }
 
-    /** Opened from the app grid: the window of the app. */
+    /** Opened from the app grid: the settings. */
     vfunc_activate() {
         if (this._quiet) {
             this._quiet = false;
             return;
         }
+        this.openSettings();
+    }
+
+    /** The status of the service (from the About page of the settings). */
+    openStatus() {
         if (this._window) {
             this._window.present();
             return;
@@ -185,7 +220,7 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         this._idleId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, IDLE_QUIT_S, () => {
             this._idleId = 0;
             const agents = this._modules.find(m => m.name === 'Agents');
-            if (this._clients.size === 0 && !this._window && !this._scratchpad && !this._agents && !agents?.busy)
+            if (this._clients.size === 0 && !this._window && !this._scratchpad && !this._agents && !this._settingsWindow && !agents?.busy)
                 this.quit();
             return GLib.SOURCE_REMOVE;
         });

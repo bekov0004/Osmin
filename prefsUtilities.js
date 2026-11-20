@@ -2,7 +2,7 @@ import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
-import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {gettext as _} from './prefsText.js';
 
 /**
  * The settings pages of the tools (Command Bar, Quick toggles, Cleaning Mode, Screenshot, Color

@@ -1,7 +1,7 @@
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
-import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {gettext as _} from './prefsText.js';
 
 import {ACTIONS, DEFAULT_GESTURES, gestureMap} from './src/gestures/catalog.js';
 import {focusLeftWindow, grabSystemKeys, shortcutFor} from './prefsUtilities.js';

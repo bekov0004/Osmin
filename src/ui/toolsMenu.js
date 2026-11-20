@@ -1,5 +1,4 @@
 import Clutter from 'gi://Clutter';
-import GioUnix from 'gi://GioUnix';
 import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -174,16 +173,6 @@ export class ToolsMenu {
         }
 
         const footer = new St.BoxLayout({style_class: 'osmin-menu-footer', x_expand: true});
-        const app = GioUnix.DesktopAppInfo.new('dev.osmin.Osmin.desktop');
-        if (app) {
-            footer.add_child(createButton({
-                iconName: 'view-app-grid-symbolic', label: 'Osmin app', styleClass: 'osmin-menu-action', expand: true,
-                onClick: () => {
-                    this.close();
-                    app.launch([], null);
-                },
-            }));
-        }
         footer.add_child(createButton({
             iconName: 'emblem-system-symbolic', label: 'Settings', styleClass: 'osmin-menu-action', expand: true,
             onClick: () => {
