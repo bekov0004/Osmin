@@ -206,7 +206,7 @@ Please open an [issue](https://github.com/bekov0004/Osmin/issues) with the outpu
 
 - While Osmin is on, GNOME's own notification list (part of the date menu) is not reachable. Notification banners still appear, and Osmin has an Alerts tab.
 - A shell extension cannot start a drag into another application. Dragging out of the tray or the clipboard works through a tiny helper window under the pointer. *Copy*, *Open* and *Show in folder* are there too.
-- Not available: OCR / QR from the screen, a global text expander (Wayland does not let an extension see what you type, so snippets are in the Search tab), fan control and external-monitor brightness, macOS-only tools, AirDrop (LocalSend is used instead).
+- Not available: OCR / QR from the screen, a global text expander (Wayland does not let an extension see what you type, so snippets are in the Command Bar), fan control and external-monitor brightness, macOS-only tools, AirDrop (LocalSend is used instead).
 - Dragging files over the capsule while a card is showing is ignored until the card is gone.
 
 ## How it is built

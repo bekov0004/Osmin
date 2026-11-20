@@ -2336,3 +2336,40 @@
 .osmin-agent-actions { spacing: 6px; padding-top: 4px; padding-bottom: 6px; }
 .osmin-agent-card-icon { icon-size: 16px; color: #fbbf24; padding-right: 8px; }
 .osmin-agent-card-detail { font-family: monospace; font-size: 10.5px; color: rgba(255, 255, 255, 0.8); background-color: rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 5px 8px; margin-top: 4px; }
+
+/* Command bar: the capsule turned into a big search field */
+.osmin-cmd { padding: 6px 10px 8px 10px; }
+.osmin-cmd-bar { padding: 8px 8px 8px 10px; spacing: 12px; min-height: 44px; }
+.osmin-cmd-find { icon-size: 22px; color: rgba(255, 255, 255, 0.55); }
+.osmin-cmd-entry, .osmin-cmd-entry:focus, .osmin-cmd-entry:hover {
+    background-color: transparent; border: none; box-shadow: none; padding: 0; caret-color: #4d8dff;
+    color: white; font-size: 17pt; font-weight: 500; selection-background-color: rgba(77, 141, 255, 0.45);
+}
+.osmin-cmd-entry StLabel.hint-text { color: rgba(255, 255, 255, 0.32); }
+.osmin-cmd-key {
+    color: rgba(255, 255, 255, 0.55); font-size: 9pt; font-weight: 600; padding: 2px 7px; border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.osmin-cmd-key-label { color: rgba(255, 255, 255, 0.40); font-size: 9pt; padding: 0 14px 0 6px; }
+.osmin-cmd-separator { height: 1px; background-color: rgba(255, 255, 255, 0.08); margin: 2px 4px 4px 4px; }
+.osmin-cmd-suggestions { padding: 2px 4px 4px 4px; spacing: 4px; }
+.osmin-cmd-chips { spacing: 6px; }
+.osmin-cmd-chip-row { spacing: 6px; }
+.osmin-cmd-chip {
+    border-radius: 12px; padding: 8px 10px; font-size: 10pt; color: rgba(255, 255, 255, 0.82);
+    background-color: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.osmin-cmd-chip:hover { background-color: rgba(255, 255, 255, 0.12); color: white; }
+.osmin-cmd-chip-icon { icon-size: 14px; padding-right: 7px; color: rgba(255, 255, 255, 0.6); }
+.osmin-cmd-scroll { }
+.osmin-cmd-list { padding: 0 2px 4px 2px; spacing: 2px; }
+.osmin-cmd-group { color: rgba(255, 255, 255, 0.38); font-size: 8.5pt; font-weight: 700; padding: 8px 10px 3px 10px; }
+.osmin-cmd .osmin-cmd-row { border-radius: 12px; padding: 7px 10px; }
+.osmin-cmd .osmin-cmd-row:hover { background-color: rgba(255, 255, 255, 0.06); }
+.osmin-cmd .osmin-cmd-row:checked { background-color: rgba(77, 141, 255, 0.28); }
+.osmin-cmd .osmin-cmd-icon { icon-size: 26px; margin-right: 12px; color: rgba(255, 255, 255, 0.85); }
+.osmin-cmd .osmin-cmd-title { color: white; font-size: 11.5pt; font-weight: 600; }
+.osmin-cmd .osmin-cmd-subtitle { margin-left: 0; color: rgba(255, 255, 255, 0.45); font-size: 9.5pt; }
+.osmin-cmd-enter { margin-left: 8px; }
+.osmin-cmd-empty { color: rgba(255, 255, 255, 0.45); font-size: 10.5pt; padding: 14px 10px; }
+.osmin-cmd-footer { padding: 8px 10px 2px 10px; border-top: 1px solid rgba(255, 255, 255, 0.06); margin-top: 4px; }

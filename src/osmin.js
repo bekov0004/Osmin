@@ -37,6 +37,7 @@ import {SignalTracker} from './utils/signals.js';
 import {Timers} from './utils/timers.js';
 
 // Resizing between two cards, or after a card update: calm, no overshoot.
+const COMMAND_WIDTH = 680; // css px: the capsule as the command bar
 // How far a card's content reaches up into the band of the top bar, so the card
 // hangs only a little below the bar instead of stacking under it.
 const CARD_OVERLAP = 24;
@@ -193,6 +194,7 @@ export class Osmin {
             }),
         });
         this._clipboardView.onContentChanged = this._notificationsView.onContentChanged = () => this._onListChanged();
+        this._commandView.onContentChanged = () => this._onListChanged();
         this._localSendView = new LocalSendView({
             session: this._localSend,
             getTrayUris: () => this._services.files.items.map(item => item.uri),
@@ -1086,7 +1088,8 @@ export class Osmin {
 
     /** The items of an open list changed: a grown panel follows the new count. */
     _onListChanged() {
-        if (this._state === State.OPEN && ((this._expanded && this._panelView.growable) || this._panelView.mode === PanelMode.LOCALSEND))
+        if (this._state === State.OPEN && ((this._expanded && this._panelView.growable) || this._panelView.mode === PanelMode.LOCALSEND ||
+            this._panelView.mode === PanelMode.COMMAND))
             this._applyGeometry({duration: 150, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
     }
 
@@ -1336,8 +1339,15 @@ export class Osmin {
             settings: this._settings,
         });
         this._panelView.applyLayout(layout, {scale, headerHeight: geo.height});
-        const width = Math.round(layout.widthCss * scale);
         const normalCap = Math.round(geo.monitor.height * Layout.OPEN_MAX_HEIGHT_RATIO);
+        if (this._panelView.mode === PanelMode.COMMAND) {
+            // The capsule turns into a wide search field; it grows with the results.
+            this._expanded = false;
+            this._extraHeight = 0;
+            const commandWidth = Math.min(Math.round(COMMAND_WIDTH * scale), geo.monitor.width - Math.round(48 * scale));
+            return {width: commandWidth, height: Math.min(this._panelView.fitCommand(commandWidth), normalCap)};
+        }
+        const width = Math.round(layout.widthCss * scale);
         if (!this._panelView.growable)
             this._expanded = false;
         // A list grown to fit its items (the size is measured with the panel at its normal height).

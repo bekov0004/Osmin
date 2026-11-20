@@ -151,7 +151,9 @@ export class OsminPanel extends St.BoxLayout {
         }
 
         const half = layout.gap / 2;
-        this._body.style = `padding: 0 ${Math.max(layout.padding - half, 0)}px ${Math.round(layout.padding * 0.75)}px;`;
+        this._body.style = this._mode === PanelMode.COMMAND
+            ? 'padding: 0;'
+            : `padding: 0 ${Math.max(layout.padding - half, 0)}px ${Math.round(layout.padding * 0.75)}px;`;
         this._pages.forEach((page, pageIndex) => {
             layout.pages[pageIndex].forEach((entry, i) => {
                 const holder = page.holders[i];
@@ -182,6 +184,17 @@ export class OsminPanel extends St.BoxLayout {
         if (this._mode !== PanelMode.LOCALSEND || !this._baseBodyHeight)
             return 0;
         return Math.max(0, this._localsend.get_preferred_height(width)[1] - this._baseBodyHeight);
+    }
+
+    /**
+     * The command bar: the panel becomes `width` wide and exactly as tall as the field and its results.
+     * @returns {number} the panel's height
+     */
+    fitCommand(width) {
+        this.set_width(width);
+        this._body.set_height(Math.ceil(this._command.neededHeight(width)));
+        this.queue_relayout();
+        return this.getHeightForWidth(width);
     }
 
     /** Makes the body (and the list in it) `extra` px taller than the widgets' row (0 = back to normal). */
@@ -251,6 +264,8 @@ export class OsminPanel extends St.BoxLayout {
         if (this._mode === PanelMode.COMMAND)
             this._command.stopTyping();
         this._mode = mode;
+        // The command bar is the capsule itself turned into a search field: no tabs above it.
+        this._header.visible = mode !== PanelMode.COMMAND;
         if (mode === PanelMode.COMMAND) {
             // The field takes the keyboard once the tab is on screen.
             GLib.timeout_add(GLib.PRIORITY_DEFAULT, 220, () => {
@@ -446,7 +461,6 @@ export class OsminPanel extends St.BoxLayout {
             [PanelMode.LOCALSEND, 'LocalSend', 'network-wireless-symbolic'],
             [PanelMode.CLIPBOARD, 'Clipboard', 'edit-paste-symbolic'],
             [PanelMode.NOTIFICATIONS, 'Alerts', 'preferences-system-notifications-symbolic'],
-            [PanelMode.COMMAND, 'Search', 'system-search-symbolic'],
         ]) {
             const tab = createButton({
                 label,

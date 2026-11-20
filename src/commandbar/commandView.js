@@ -18,9 +18,22 @@ function expandSnippet(text) {
     return text.replaceAll('{datetime}', `${date} ${time}`).replaceAll('{date}', date).replaceAll('{time}', time);
 }
 const MAX_CLIPS = 3;
+const MAX_VISIBLE_ROWS = 7;      // the list grows up to this many rows, then scrolls
+
+/** What can be typed, shown while the field is empty: a click puts the example in the field. */
+const SUGGESTIONS = [
+    {icon: 'view-app-grid-symbolic', label: 'Apps', text: ''},
+    {icon: 'accessories-calculator-symbolic', label: '12*(3+4)', text: '12*(3+4)'},
+    {icon: 'applications-science-symbolic', label: '5 km to mi', text: '5 km to mi'},
+    {icon: 'document-edit-symbolic', label: 'scratch', text: 'scratch'},
+    {icon: 'insert-text-symbolic', label: ';snippets', text: ';'},
+    {icon: 'process-stop-symbolic', label: 'kill …', text: 'kill '},
+    {icon: 'network-server-symbolic', label: 'ports', text: 'ports'},
+    {icon: 'user-trash-symbolic', label: 'clean', text: 'clean'},
+];
 
 /**
- * The command bar (the "Search" tab): one field for everything. Type to launch an application, to
+ * The command bar: the capsule turned into one big field for everything (a shortcut, the Utilities widget, a gesture). Type to launch an application, to
  * calculate ("12*(3+4)"), to convert units ("5 km to mi"), to find something you copied, or to
  * search the web. Up / Down choose, Enter does it, Esc clears and leaves.
  */
@@ -34,7 +47,7 @@ export class CommandView extends St.BoxLayout {
      *          onPaste: (item) => void}} params
      */
     constructor({clipboard, ui, onDone, onPaste, onPasteText = null, processes = null, service = null, snippets = null, cleaner = null}) {
-        super({vertical: true, style_class: 'osmin-tray osmin-clipboard', x_expand: true, y_expand: true});
+        super({vertical: true, style_class: 'osmin-cmd', x_expand: true, y_expand: true});
         this._clipboardService = clipboard;
         this._ui = ui;
         this._onDone = onDone;
@@ -49,29 +62,99 @@ export class CommandView extends St.BoxLayout {
         this._results = [];
         this._selected = 0;
 
-        this._bar = new St.BoxLayout({style_class: 'osmin-clip-bar', x_expand: true});
-        this._entry = new St.Entry({hint_text: 'Search apps, calculate, convert units, find what you copied…', style_class: 'osmin-clip-entry', can_focus: true, x_expand: true});
-        this._entry.set_primary_icon(new St.Icon({icon_name: 'system-search-symbolic', style_class: 'osmin-clip-find'}));
+        /** Called when the content changed size (the capsule fits itself to it). */
+        this.onContentChanged = null;
+
+        // the field: big, with the search icon, and Esc on the right
+        this._bar = new St.BoxLayout({style_class: 'osmin-cmd-bar', x_expand: true});
+        this._bar.add_child(new St.Icon({icon_name: 'system-search-symbolic', style_class: 'osmin-cmd-find', y_align: Clutter.ActorAlign.CENTER}));
+        this._entry = new St.Entry({hint_text: 'Search apps, calculate, convert, find what you copied…', style_class: 'osmin-cmd-entry', can_focus: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         const text = this._entry.clutter_text;
         text.connect('text-changed', () => this._search());
         text.connect('activate', () => this._run(this._selected));
         text.connect('key-press-event', (_actor, event) => this._onKey(event));
         text.connect('key-focus-in', () => this._startTyping());
         this._bar.add_child(this._entry);
+        this._bar.add_child(new St.Label({text: 'esc', style_class: 'osmin-cmd-key', y_align: Clutter.ActorAlign.CENTER}));
         this.add_child(this._bar);
 
+        this._separator = new St.Widget({style_class: 'osmin-cmd-separator', x_expand: true});
+        this.add_child(this._separator);
+
+        // empty field: what can be typed
+        this._suggestions = new St.BoxLayout({vertical: true, style_class: 'osmin-cmd-suggestions', x_expand: true});
+        this._suggestions.add_child(new St.Label({text: 'Try', style_class: 'osmin-cmd-group'}));
+        const chips = new St.BoxLayout({vertical: true, x_expand: true, style_class: 'osmin-cmd-chips'});
+        let line = null;
+        SUGGESTIONS.forEach((suggestion, i) => {
+            if (i % 4 === 0) {
+                line = new St.BoxLayout({x_expand: true, style_class: 'osmin-cmd-chip-row'});
+                chips.add_child(line);
+            }
+            const chip = new St.Button({style_class: 'osmin-cmd-chip', can_focus: false, reactive: true, track_hover: true, x_expand: true});
+            const content = new St.BoxLayout({x_align: Clutter.ActorAlign.CENTER});
+            content.add_child(new St.Icon({icon_name: suggestion.icon, style_class: 'osmin-cmd-chip-icon', y_align: Clutter.ActorAlign.CENTER}));
+            content.add_child(new St.Label({text: suggestion.label, y_align: Clutter.ActorAlign.CENTER}));
+            chip.set_child(content);
+            chip.connect('clicked', () => {
+                this._entry.text = suggestion.text;
+                this._startTyping();
+                this._entry.clutter_text.set_cursor_position(-1);
+            });
+            line.add_child(chip);
+        });
+        this._suggestions.add_child(chips);
+        this.add_child(this._suggestions);
+
         this._scroll = new St.ScrollView({
-            style_class: 'osmin-tray-scroll',
+            style_class: 'osmin-cmd-scroll',
             hscrollbar_policy: St.PolicyType.NEVER,
             vscrollbar_policy: St.PolicyType.AUTOMATIC,
             overlay_scrollbars: true,
             x_expand: true,
             y_expand: true,
         });
-        this._list = new St.BoxLayout({vertical: true, style_class: 'osmin-clip-list', x_expand: true});
+        this._list = new St.BoxLayout({vertical: true, style_class: 'osmin-cmd-list', x_expand: true});
         this._scroll.add_child(this._list);
         this.add_child(this._scroll);
+
+        // the keys
+        const footer = new St.BoxLayout({style_class: 'osmin-cmd-footer', x_expand: true});
+        for (const [key, what] of [['↑↓', 'choose'], ['↵', 'open'], ['esc', 'clear / close']]) {
+            footer.add_child(new St.Label({text: key, style_class: 'osmin-cmd-key', y_align: Clutter.ActorAlign.CENTER}));
+            footer.add_child(new St.Label({text: what, style_class: 'osmin-cmd-key-label', y_align: Clutter.ActorAlign.CENTER}));
+        }
+        this._footer = footer;
+        this.add_child(footer);
         this._search();
+    }
+
+    /** The height it needs at this width: the field, then the list up to MAX_VISIBLE_ROWS rows (or the suggestions). */
+    neededHeight(width) {
+        let height = 0;
+        for (const child of [this._bar, this._separator, this._suggestions, this._footer]) {
+            if (child.visible)
+                height += child.get_preferred_height(width)[1];
+        }
+        if (this._scroll.visible) {
+            const children = this._list.get_children();
+            const rows = children.filter(child => child._isRow);
+            if (rows.length <= MAX_VISIBLE_ROWS) {
+                height += this._list.get_preferred_height(width)[1];
+            } else {
+                // up to the last row shown, with the spacing between the children and the list's padding
+                const node = this._list.get_theme_node();
+                const spacing = node.get_length('spacing');
+                const last = children.indexOf(rows[MAX_VISIBLE_ROWS - 1]);
+                let list = node.get_padding(St.Side.TOP) + node.get_padding(St.Side.BOTTOM);
+                children.slice(0, last + 1).forEach((child, i) => {
+                    list += child.get_preferred_height(width)[1] + (i > 0 ? spacing : 0);
+                });
+                height += list + 16;      // a part of the next row: there is more below
+            }
+        }
+        const node = this.get_theme_node();
+        return height + node.get_padding(St.Side.TOP) + node.get_padding(St.Side.BOTTOM);
     }
 
     get scrollTargets() {
@@ -155,13 +238,14 @@ export class CommandView extends St.BoxLayout {
         if (query) {
             const sum = calculate(query);
             if (sum !== null) {
-                results.push({icon: 'accessories-calculator-symbolic', title: `= ${formatNumber(sum)}`, subtitle: 'Press Enter to copy the result', run: () => this._copy(formatNumber(sum))});
+                results.push({group: 'Calculator', icon: 'accessories-calculator-symbolic', title: `= ${formatNumber(sum)}`, subtitle: 'Enter copies the result', run: () => this._copy(formatNumber(sum))});
             }
             const converted = convert(query);
             if (converted)
-                results.push({icon: 'applications-science-symbolic', title: converted.text, subtitle: 'Press Enter to copy the result', run: () => this._copy(formatNumber(Math.round(converted.value * 1e6) / 1e6))});
+                results.push({group: 'Calculator', icon: 'applications-science-symbolic', title: converted.text, subtitle: 'Enter copies the result', run: () => this._copy(formatNumber(Math.round(converted.value * 1e6) / 1e6))});
             if (/^(scratch|scratchpad|notes?)$/i.test(query) && this._service) {
                 results.push({
+                    group: 'Osmin',
                     icon: 'document-edit-symbolic',
                     title: 'Open the Scratchpad',
                     subtitle: 'Notes of any length, saved as you type',
@@ -171,6 +255,7 @@ export class CommandView extends St.BoxLayout {
             results.push(...this._apps(query));
             results.push(...this._clips(query));
             results.push({
+                group: 'Web',
                 icon: 'web-browser-symbolic',
                 title: `Search the web for “${query}”`,
                 subtitle: 'DuckDuckGo',
@@ -206,6 +291,7 @@ export class CommandView extends St.BoxLayout {
             return null;
         const list = this._snippetsModule.state.snippets ?? [];
         const rows = list.filter(s => all || s.trigger.toLowerCase().startsWith(query.toLowerCase())).slice(0, 8).map(s => ({
+            group: 'Snippets',
             icon: 'insert-text-symbolic',
             title: s.trigger,
             subtitle: s.text.replace(/\s+/g, ' ').slice(0, 70),
@@ -246,6 +332,7 @@ export class CommandView extends St.BoxLayout {
         try {
             const {folders} = await this._cleaner.call('scan');
             results = folders.map(folder => ({
+                group: 'Cache',
                 icon: 'user-trash-symbolic',
                 title: folder.name,
                 subtitle: `${Math.round(folder.size / 1048576)} MB · Enter, then Enter again to empty it`,
@@ -266,6 +353,7 @@ export class CommandView extends St.BoxLayout {
 
     _stopRow(pid, title, subtitle) {
         return {
+            group: 'Processes',
             icon: 'process-stop-symbolic',
             title,
             subtitle: `${subtitle} · Enter, then Enter again to stop it`,
@@ -292,6 +380,7 @@ export class CommandView extends St.BoxLayout {
             .sort((a, b) => b.score - a.score)
             .slice(0, MAX_APPS)
             .map(({app}) => ({
+                group: 'Applications',
                 icon: null,
                 gicon: app.get_icon(),
                 title: app.get_name(),
@@ -314,6 +403,7 @@ export class CommandView extends St.BoxLayout {
             .filter(item => item.text.toLowerCase().includes(q))
             .slice(0, MAX_CLIPS)
             .map(item => ({
+                group: 'Clipboard',
                 icon: 'edit-paste-symbolic',
                 title: item.files?.length ? item.files[0].split('/').pop() : item.text.replace(/\s+/g, ' ').slice(0, 80),
                 subtitle: 'From your clipboard history',
@@ -327,17 +417,23 @@ export class CommandView extends St.BoxLayout {
 
     _render() {
         this._list.destroy_all_children();
-        if (this._results.length === 0) {
-            this._list.add_child(new St.Label({
-                text: this._entry.text.trim() ? 'Nothing found' : 'Launch apps, calculate (12*(3+4)), convert (5 km to mi), find what you copied',
-                style_class: 'osmin-todo-empty',
-                x_expand: true,
-            }));
-            return;
+        const typed = !!this._entry.text.trim();
+        this._suggestions.visible = !typed;
+        this._scroll.visible = typed;
+        if (typed && this._results.length === 0) {
+            this._list.add_child(new St.Label({text: 'Nothing found', style_class: 'osmin-cmd-empty', x_expand: true}));
         }
+        let group = null;
         this._results.forEach((result, index) => {
+            if (result.group && result.group !== group) {
+                group = result.group;
+                this._list.add_child(new St.Label({text: group, style_class: 'osmin-cmd-group'}));
+            }
             const row = new St.Button({style_class: 'osmin-cmd-row', x_expand: true, can_focus: false, reactive: true, track_hover: true});
-            if (index === this._selected)
+            row._isRow = true;
+            row._index = index;
+            const selected = index === this._selected;
+            if (selected)
                 row.add_style_pseudo_class('checked');
             const box = new St.BoxLayout({x_expand: true});
             const icon = new St.Icon({style_class: 'osmin-cmd-icon', y_align: Clutter.ActorAlign.CENTER});
@@ -346,25 +442,32 @@ export class CommandView extends St.BoxLayout {
             else
                 icon.icon_name = result.icon;
             box.add_child(icon);
-            const title = new St.Label({text: result.title, style_class: 'osmin-cmd-title', y_align: Clutter.ActorAlign.CENTER});
+            const texts = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+            const title = new St.Label({text: result.title, style_class: 'osmin-cmd-title'});
             title.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-            box.add_child(title);
-            const subtitle = new St.Label({text: result.subtitle ?? '', style_class: 'osmin-cmd-subtitle', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-            subtitle.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-            box.add_child(subtitle);
+            texts.add_child(title);
+            if (result.subtitle) {
+                const subtitle = new St.Label({text: result.subtitle, style_class: 'osmin-cmd-subtitle'});
+                subtitle.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+                texts.add_child(subtitle);
+            }
+            box.add_child(texts);
+            if (selected)
+                box.add_child(new St.Label({text: '↵', style_class: 'osmin-cmd-key osmin-cmd-enter', y_align: Clutter.ActorAlign.CENTER}));
             row.set_child(box);
             row.connect('clicked', () => this._run(index));
             this._list.add_child(row);
         });
+        this.onContentChanged?.();
         // Keep the chosen row in view.
-        const row = this._list.get_child_at_index(this._selected);
+        const row = this._list.get_children().find(child => child._index === this._selected);
         if (row && this._scroll.mapped) {
             const adjustment = this._scroll.vadjustment;
             const rowBottom = row.y + row.height;
             if (rowBottom > adjustment.value + adjustment.page_size)
                 adjustment.value = rowBottom - adjustment.page_size;
             else if (row.y < adjustment.value)
-                adjustment.value = row.y;
+                adjustment.value = Math.max(0, row.y - 24);
         }
     }
 
