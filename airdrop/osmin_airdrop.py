@@ -592,6 +592,8 @@ def receive(args):
         os.chmod(captures, 0o777)
         path = os.path.join(captures, time.strftime("awdl-%Y%m%d-%H%M%S.pcap"))
         command += ["--capture", path]
+    if args.take_card:
+        log("--take-card: Wi-Fi leaves the network and disappears from the panel while this runs; Ctrl+C gives it back")
     daemon = subprocess.Popen(command)
     firewall = []
     try:

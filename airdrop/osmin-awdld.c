@@ -680,10 +680,8 @@ static void describe_channel(int channel)
 /* Tunes the card (only when it is ours): 80 MHz on 5 GHz so that wide frames are heard too. */
 static void tune(int channel)
 {
-    /* the station interface must be down to change the channel, and up again afterwards: up, the card acknowledges
-     * the frames sent to its address (otherwise the Apple device repeats each one 4-6 times) */
-    if (took_card)
-        sh("ip link set %s down 2>/dev/null", wifi);
+    /* the station interface stays down while the card is ours: up, the card no longer sends what we inject
+     * (seen: not one of our frames on the air), and it refuses to change channel */
     if (channel == 149)
         sh("iw dev %s set freq 5745 80 5775 2>/dev/null || iw dev %s set channel 149", MONITOR, MONITOR);
     else if (channel == 44)
@@ -692,26 +690,6 @@ static void tune(int channel)
         char number[8];
         snprintf(number, sizeof(number), "%d", channel);
         sh("iw dev %s set channel %s 2>/dev/null", MONITOR, number);
-    }
-    if (took_card) {
-        sh("ip link set %s up 2>/dev/null", wifi);
-        /* did bringing it up move the card? */
-        char command[128], line[256];
-        int now = 0;
-        snprintf(command, sizeof(command), "iw dev %s info 2>/dev/null", MONITOR);
-        FILE *p = popen(command, "r");
-        while (p && fgets(line, sizeof(line), p)) {
-            char *at = strstr(line, "channel ");
-            if (at)
-                sscanf(at, "channel %d", &now);
-        }
-        if (p)
-            pclose(p);
-        if (now && now != channel) {
-            say("the card moved to channel %d when %s came up: keeping it down", now, wifi);
-            sh("ip link set %s down 2>/dev/null", wifi);
-            sh("iw dev %s set channel %d 2>/dev/null", MONITOR, channel);
-        }
     }
     describe_channel(channel);
 }
@@ -766,10 +744,13 @@ static void cleanup(void)
         sh("ip link set %s up 2>/dev/null", wifi);
         sh("nmcli device set %s managed yes 2>/dev/null", wifi);
         /* back on the network it was on */
+        /* back on the network it was on (or any it knows), in the background so that stopping is quick */
         if (saved_connection[0])
-            sh("(sleep 1; nmcli connection up id '%s' >/dev/null 2>&1) &", saved_connection);
+            sh("(sleep 1; nmcli connection up id '%s' >/dev/null 2>&1 || nmcli device connect %s >/dev/null 2>&1) &",
+                saved_connection, wifi);
         else
             sh("(sleep 1; nmcli device connect %s >/dev/null 2>&1) &", wifi);
+        say("Wi-Fi given back to the system: it reconnects in a few seconds");
     }
 }
 
