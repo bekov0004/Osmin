@@ -253,7 +253,7 @@ const WIDGET_ICONS = {
 };
 
 const ALL_APPEARANCE_KEYS = ['panel-color', 'panel-opacity', 'corner-radius', 'background-opacity', 'shadow-strength',
-    'row-height', 'content-padding', 'widget-spacing', 'show-dividers'];
+    'row-height', 'content-padding', 'widget-spacing', 'show-dividers', 'capsule-butterfly', 'butterfly-flap', 'butterfly-flap-every'];
 
 /**
  * The settings window of Osmin. It is the window of the Osmin app (service/settings.js), and the Extensions app shows the
@@ -1513,6 +1513,15 @@ export class OsminPreferences {
         this._rule(form);
         this._toggleRow(form, settings, 'show-dividers', _('Widgets'), _('Dividers'),
             _('Thin lines between widgets.'));
+        this._rule(form);
+        this._toggleRow(form, settings, 'capsule-butterfly', _('Butterfly'), _('Butterfly in the capsule'),
+            _('The Osmin butterfly in the middle of the closed capsule. Off: a small camera circle.'));
+        this._toggleRow(form, settings, 'butterfly-flap', '', _('Flap its wings'),
+            _('Now and then the butterfly beats its wings. Its wings turn warm when something happened.'));
+        this._row(form, _('Every'), this._slider(settings, 'butterfly-flap-every', [5, 300, 5]),
+            _('Seconds between two flaps.'));
+
+        this._rule(form);
         this._toggleRow(form, settings, 'system-alerts', '', _('System alerts'),
             _('Cards for a busy processor, heat, a full disk or memory and low batteries (also of keyboards and mice).'));
 

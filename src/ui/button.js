@@ -2,7 +2,7 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 /** A flat button with an optional symbolic icon and label. */
-export function createButton({label = null, iconName = null, styleClass = '', expand = false, onClick}) {
+export function createButton({label = null, iconName = null, gicon = null, styleClass = '', expand = false, onClick}) {
     const button = new St.Button({
         style_class: `osmin-button ${styleClass}`.trim(),
         reactive: true,
@@ -19,9 +19,9 @@ export function createButton({label = null, iconName = null, styleClass = '', ex
     });
     button.set_child(box);
 
-    if (iconName) {
+    if (iconName || gicon) {
         box.add_child(new St.Icon({
-            icon_name: iconName,
+            ...(gicon ? {gicon} : {icon_name: iconName}),
             style_class: 'osmin-button-icon',
             y_align: Clutter.ActorAlign.CENTER,
         }));

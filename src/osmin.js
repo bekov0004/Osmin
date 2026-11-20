@@ -244,6 +244,9 @@ export class Osmin {
     destroy() {
         // Widgets end their activities while being destroyed: stop reacting to that first.
         this._destroying = true;
+        if (this._flapId)
+            GLib.source_remove(this._flapId);
+        this._flapId = 0;
         this._settings?.disconnectObject(this);
         this._services?.activities.disconnectObject(this);
         this._services?.camera.disconnectObject(this);
@@ -387,6 +390,22 @@ export class Osmin {
             ear.setColor(0, 0, 0, opacity);
     }
 
+    /** The butterfly of the closed capsule beats its wings every few seconds (Settings → Appearance). */
+    _syncFlapping() {
+        if (this._flapId)
+            GLib.source_remove(this._flapId);
+        this._flapId = 0;
+        if (!this._settings.get('capsule-butterfly') || !this._settings.get('butterfly-flap'))
+            return;
+        const seconds = Math.max(5, this._settings.get('butterfly-flap-every') || 30);
+        this._flapId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, seconds, () => {
+            // only where it is seen: the capsule closed (or hovered), no card over it
+            if (this._state === State.CLOSED || this._state === State.HOVER)
+                this._closedView?.flap();
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
     _onSettingChanged(key) {
         if (this._destroying || !this._actor)
             return;
@@ -399,6 +418,15 @@ export class Osmin {
             break;
         case 'collapsed-width-adjust':
             this._relayout();
+            break;
+        case 'capsule-butterfly':
+            this._closedView.setButterfly(this._settings.get('capsule-butterfly'));
+            this._syncFlapping();
+            this._relayout();
+            break;
+        case 'butterfly-flap':
+        case 'butterfly-flap-every':
+            this._syncFlapping();
             break;
         case 'size-scale':
         case 'width-mode':
@@ -617,6 +645,8 @@ export class Osmin {
         this._actor.set_child(this._content);
 
         this._closedView = new ClosedView();
+        this._closedView.setButterfly(this._settings.get('capsule-butterfly'));
+        this._syncFlapping();
         // Cards sit below the band of the top bar.
         this._cardLayer = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
