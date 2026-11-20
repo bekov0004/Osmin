@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-20
+
 ### Added
 
 - Osmin has its own logo: the island hanging from the top edge, with a butterfly in it (the small capsule that opens into a panel, like a chrysalis into a butterfly). It is the icon of the Osmin app, stands on the settings' About page and above the name in the README; the quick panel has the butterfly alone at its top (instead of the planet).
@@ -148,6 +150,7 @@ The first public release: Osmin can be installed from a zip, without cloning or 
 - The Mirror circle shrank every time the panel opened.
 - Dragging a file out of the tray is more reliable (quick flicks work, no leftover windows).
 
-[Unreleased]: https://github.com/bekov0004/Osmin/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bekov0004/Osmin/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/bekov0004/Osmin/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/bekov0004/Osmin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bekov0004/Osmin/releases/tag/v0.2.0
