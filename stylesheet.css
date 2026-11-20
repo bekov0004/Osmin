@@ -2376,3 +2376,16 @@
 
 /* The butterfly in the middle of the closed capsule */
 .osmin-butterfly { width: 32px; height: 26px; min-width: 32px; min-height: 26px; }
+
+/* The Osmin bar on the monitors without GNOME's top bar */
+.osmin-bar { background-color: black; }
+.osmin-bar-left { padding-left: 8px; }
+.osmin-bar-right { padding-right: 4px; }
+.osmin-bar-desktops { border-radius: 99px; padding: 4px 10px; margin: 4px 0; }
+.osmin-bar-desktops:hover { background-color: rgba(255, 255, 255, 0.12); }
+.osmin-bar-dots { spacing: 6px; }
+.osmin-bar-dot { width: 8px; height: 8px; border-radius: 4px; background-color: rgba(255, 255, 255, 0.45); }
+.osmin-bar-dot.active { width: 26px; background-color: white; }
+.osmin-bar-dot:hover { background-color: rgba(255, 255, 255, 0.8); }
+.osmin-bar-clock { color: white; font-weight: 700; font-size: 10.5pt; }
+.osmin-bar-item { border-radius: 99px; }

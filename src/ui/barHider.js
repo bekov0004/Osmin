@@ -79,6 +79,10 @@ export class BarHider extends Signals.EventEmitter {
         return this._shown;
     }
 
+    get box() {
+        return this._box;
+    }
+
     get monitor() {
         return Main.layoutManager.monitors[this._index] ?? null;
     }

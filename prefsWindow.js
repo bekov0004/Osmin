@@ -953,8 +953,10 @@ export class OsminPreferences {
         form.append(new Gtk.Label({label: _('Top bar'), css_classes: ['s-card-title'], xalign: 0, margin_start: 4}));
         this._row(form, _('Hide the top bar'), this._dropdown(settings, 'topbar-hide', HIDE),
             _('Hidden, it comes out when you push the pointer against the top edge of the screen, also over an app in full screen. The capsule hides and comes out with it.'));
-        this._row(form, _('On the other monitors'), this._dropdown(settings, 'osmin-bar-hide', HIDE),
-            _('The same for the monitors without GNOME\'s top bar.'));
+        this._toggleRow(form, settings, 'osmin-bar', '', _('Osmin bar on the other monitors'),
+            _('A top bar on every monitor without GNOME\'s: the desktops of that monitor, the capsule (or the clock), and the items of the top bar, whose menus open there.'));
+        this._row(form, _('Hide it'), this._dropdown(settings, 'osmin-bar-hide', HIDE),
+            _('The same choice for the other monitors (their Osmin bar, or the capsule alone).'));
         this._rule(form);
 
         this._toggleRow(form, settings, 'open-on-hover', _('Osmin'), _('Open on hover'),

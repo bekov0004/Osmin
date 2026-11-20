@@ -8,6 +8,7 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The Osmin bar: a top bar on every monitor without GNOME's (Settings → General → Top bar). On the left the desktops of that monitor (a dot switches, the free space opens the overview), in the middle its capsule or the date and time, on the right the items of GNOME's top bar (the readings, the Osmin button, network, sound, battery ...) whose menus open on that monitor. It hides on its own setting, like the top bar.
 - The top bar can hide (Settings → General → Top bar): never, when a window touches it (the default), or always. Hidden, it comes out when the pointer pushes against the top edge of the screen, also over an app in full screen, and stays while the pointer is on it, a menu of it is open or the capsule is in use; it is always there in the overview. The capsule hides and comes out with it. The monitors without GNOME's top bar have the same choice for their capsule.
 
 ### Fixed

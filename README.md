@@ -66,6 +66,7 @@ extension off brings the stock GNOME clock back.
 | **Windows** | Live window previews, snap buttons (halves, maximize, next monitor), and one-click tiling of *all* open windows: columns, rows, a grid or one main window with the rest beside it |
 | **Downloads** | Progress, size and speed of what lands in your Downloads folder |
 | **Mirror** | A round webcam preview, the camera is on only while you look |
+| **Osmin bar** | A top bar on the other monitors: their desktops, the capsule or the clock, and the items of the top bar with their menus. The top bar and the Osmin bar can hide when a window touches them, or always; push the pointer against the top edge to bring them out |
 | **AI agents** | Start Claude Code on a project and follow it live (every file and command, its answer, its cost), answer its permission questions from a card in the capsule, or open it in a terminal. Shows the Claude plan's 5-hour and weekly limits, and agents working elsewhere |
 | **Alerts** | The notifications GNOME holds, with Do Not Disturb |
 | **Settings** | A modern settings window: turn widgets on or off, reorder them, change look and gestures |
