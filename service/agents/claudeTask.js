@@ -319,7 +319,11 @@ export class ClaudeTask {
             this.tokens += (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) +
                 (usage.cache_read_input_tokens ?? 0);
             const ok = !message.is_error && message.subtype === 'success';
-            this._add({kind: 'result', ok, text: clip(message.result ?? (ok ? 'Done' : message.subtype ?? 'Error'))});
+            // the answer is usually the last message itself: then the result does not say it again
+            const said = this.transcript.at(-1);
+            const answer = String(message.result ?? (ok ? '' : message.subtype ?? 'Error'));
+            const repeated = said?.kind === 'text' && said.text.trim() === answer.trim();
+            this._add({kind: 'result', ok, text: repeated ? '' : clip(answer), answer: clip(answer).slice(0, 300)});
             this.status = ok ? 'idle' : 'failed';
             if (!ok)
                 this.error = String(message.result ?? message.subtype ?? 'error').slice(0, 300);

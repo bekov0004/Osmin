@@ -1,3 +1,7 @@
+<p align="center">
+  <img alt="Osmin logo" src="icons/dev.osmin.Osmin.svg" width="128">
+</p>
+
 <h1 align="center">Osmin</h1>
 
 <p align="center">
@@ -13,7 +17,7 @@
 
 <p align="center">
   <img alt="The collapsed capsule in the top bar" src="docs/screenshots/capsule.png"><br>
-  <img alt="The opened panel with the Osmin, Tray, LocalSend, Clipboard, Alerts and Search tabs" src="docs/screenshots/panel.png">
+  <img alt="The opened panel with the Osmin, Tray, LocalSend, Clipboard and Alerts tabs" src="docs/screenshots/panel.png">
 </p>
 
 ## What is it?
@@ -27,6 +31,21 @@ capsule, in the spirit of the iPhone's Dynamic Island.
 
 It runs entirely in your user session: no root, no system files are touched, and turning the
 extension off brings the stock GNOME clock back.
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img alt="The Command Bar: the capsule as a big search field" src="docs/screenshots/command.png"><br><b>Command Bar</b>: apps, calculator, units, clipboard, snippets</td>
+    <td align="center" width="50%"><img alt="The settings, as the Osmin app" src="docs/screenshots/settings.png"><br><b>Settings</b>: the Osmin app in the app grid</td>
+  </tr>
+  <tr>
+    <td align="center"><img alt="The agents window following a Claude Code task" src="docs/screenshots/agents.png"><br><b>AI agents</b>: run Claude Code and follow it live</td>
+    <td align="center"><img alt="A permission question of Claude Code in the capsule" src="docs/screenshots/agent-question.png"><br>Its questions come to the capsule: Allow, Always, Deny</td>
+  </tr>
+  <tr>
+    <td align="center"><img alt="The quick panel on the System page" src="docs/screenshots/quick-panel.png" width="300"><br><b>Quick panel</b>: system, network, sound, displays, windows…</td>
+    <td align="center"><img alt="A reading of the top bar opened" src="docs/screenshots/reading.png" width="300"><br><b>Top-bar readings</b>: each one opens its details</td>
+  </tr>
+</table>
 
 ## What can it do?
 

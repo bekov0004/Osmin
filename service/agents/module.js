@@ -173,7 +173,8 @@ export class AgentsModule extends Module {
                 }),
                 finished: (t, ok) => {
                     const last = [...t.transcript].reverse().find(e => e.kind === 'result' || e.kind === 'error');
-                    this.emitEvent('task-finished', {id: t.id, project: t.summary.project, ok, text: (last?.text ?? '').slice(0, 200), costUsd: t.costUsd});
+                    const text = last?.answer ?? last?.text ?? '';
+                    this.emitEvent('task-finished', {id: t.id, project: t.summary.project, ok, text: text.slice(0, 200), costUsd: t.costUsd});
                 },
             },
         });

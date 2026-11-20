@@ -6,6 +6,15 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-20
+
+### Added
+- Osmin has its own logo: the island hanging from the top edge, showing what is playing. It is the icon of the Osmin app, stands at the top of the quick panel (instead of the planet) and on the settings' About page, and above the name in the README.
+- README: new screenshots of the Command Bar, the settings app, the AI agents (window and question card), the quick panel and a top-bar reading.
+
+### Changed
+- AI agents: when Claude's last message is its answer, the "Done" box no longer repeats it.
+
 ## [0.3.0] - 2026-11-20
 
 ### Added
@@ -136,6 +145,7 @@ The first public release: Osmin can be installed from a zip, without cloning or 
 - The Mirror circle shrank every time the panel opened.
 - Dragging a file out of the tray is more reliable (quick flicks work, no leftover windows).
 
-[Unreleased]: https://github.com/bekov0004/Osmin/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bekov0004/Osmin/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/bekov0004/Osmin/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/bekov0004/Osmin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bekov0004/Osmin/releases/tag/v0.2.0
