@@ -457,9 +457,10 @@ size_t awdl_wrap_data(uint8_t *buffer, size_t size, const uint8_t *ether, size_t
     if (length < 14 || 11 + 24 + 8 + 8 + (length - 14) > size)
         return 0;
     uint8_t *p = buffer;
-    /* radiotap: TX flags (0: an acknowledgement is wanted) and at most 2 retries, so that a frame the peer misses
-     * does not hold the card's queue for long */
-    static const uint8_t rt[11] = {0x00, 0x00, 0x0b, 0x00, 0x00, 0x80, 0x02, 0x00, 0x00, 0x00, 0x02};
+    /* radiotap: TX flags NOACK (0x0008): the card sends the frame once and goes on, instead of holding its queue
+     * retrying until the peer is back (seen in captures: about one unicast frame per 0.75 s otherwise). The caller
+     * sends a second copy with the retry bit, which the peer drops as a duplicate if it got the first. */
+    static const uint8_t rt[11] = {0x00, 0x00, 0x0b, 0x00, 0x00, 0x80, 0x02, 0x00, 0x08, 0x00, 0x00};
     memcpy(p, rt, sizeof(rt));
     p += sizeof(rt);
     /* data frame, no DS bits: receiver, transmitter, BSSID */

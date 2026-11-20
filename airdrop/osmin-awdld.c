@@ -376,12 +376,27 @@ static void send_action(int subtype)
         send_raw(frame, length, &sent_af);
 }
 
+/* When each data frame (by its 802.11 sequence number) was handed to the card: the echo then says how long it took
+ * to go out. */
+static int64_t sent_at[4096];
+static int64_t latency_sum, latency_max;
+static long latency_count;
+
 static void send_ether(const uint8_t *ether, size_t length)
 {
     uint8_t frame[2600];
-    size_t n = awdl_wrap_data(frame, sizeof(frame), ether, length, sequence++);
-    if (n)
+    uint16_t seq = sequence++;
+    size_t n = awdl_wrap_data(frame, sizeof(frame), ether, length, seq);
+    if (!n)
+        return;
+    sent_at[seq & 4095] = now_us();
+    send_raw(frame, n, &sent_data);
+    /* a second copy, marked as a retry: if the first was missed this one may land; if not, it is dropped */
+    if (!(ether[0] & 1)) {
+        size_t rt = (size_t)(frame[2] | frame[3] << 8);
+        frame[rt + 1] |= 0x08;
         send_raw(frame, n, &sent_data);
+    }
 }
 
 static void enqueue(struct frame **queue, int *count, const uint8_t *data, size_t length)
@@ -501,6 +516,18 @@ static void tx_status(const uint8_t *p, size_t length)
         off += fields[i].size;
     }
     const uint8_t *f = p + rt;
+    if ((f[0] & 0x0c) == 0x08 && !(f[1] & 0x08)) {
+        uint16_t seq = (uint16_t)((f[22] | f[23] << 8) >> 4);
+        int64_t at = sent_at[seq & 4095];
+        if (at) {
+            int64_t took = now_us() - at;
+            sent_at[seq & 4095] = 0;
+            latency_sum += took;
+            latency_count++;
+            if (took > latency_max)
+                latency_max = took;
+        }
+    }
     if (flags < 0 || (f[4] & 1))
         return;                   /* broadcast and multicast are never acknowledged */
     if (flags & 0x0001)
@@ -653,6 +680,10 @@ static void describe_channel(int channel)
 /* Tunes the card (only when it is ours): 80 MHz on 5 GHz so that wide frames are heard too. */
 static void tune(int channel)
 {
+    /* the station interface must be down to change the channel, and up again afterwards: up, the card acknowledges
+     * the frames sent to its address (otherwise the Apple device repeats each one 4-6 times) */
+    if (took_card)
+        sh("ip link set %s down 2>/dev/null", wifi);
     if (channel == 149)
         sh("iw dev %s set freq 5745 80 5775 2>/dev/null || iw dev %s set channel 149", MONITOR, MONITOR);
     else if (channel == 44)
@@ -661,6 +692,26 @@ static void tune(int channel)
         char number[8];
         snprintf(number, sizeof(number), "%d", channel);
         sh("iw dev %s set channel %s 2>/dev/null", MONITOR, number);
+    }
+    if (took_card) {
+        sh("ip link set %s up 2>/dev/null", wifi);
+        /* did bringing it up move the card? */
+        char command[128], line[256];
+        int now = 0;
+        snprintf(command, sizeof(command), "iw dev %s info 2>/dev/null", MONITOR);
+        FILE *p = popen(command, "r");
+        while (p && fgets(line, sizeof(line), p)) {
+            char *at = strstr(line, "channel ");
+            if (at)
+                sscanf(at, "channel %d", &now);
+        }
+        if (p)
+            pclose(p);
+        if (now && now != channel) {
+            say("the card moved to channel %d when %s came up: keeping it down", now, wifi);
+            sh("ip link set %s down 2>/dev/null", wifi);
+            sh("iw dev %s set channel %d 2>/dev/null", MONITOR, channel);
+        }
     }
     describe_channel(channel);
 }
@@ -927,9 +978,13 @@ int main(int argc, char **argv)
             int inside = t >= start + GUARD_US && t < start + AW_US - GUARD_US;
             int anyone = 0;
             for (int i = 0; i < n_peers; i++) {
-                if (peers[i].valid && peer_here(&peers[i], seq)) {
+                if (!peers[i].valid)
+                    continue;
+                /* here by its schedule, or it just sent us something (then it is awake on our channel now) */
+                int awake = t - peers[i].heard < 30000;
+                if ((peer_here(&peers[i], seq) && inside) || awake) {
                     anyone = 1;
-                    if (inside && peers[i].queued)
+                    if (peers[i].queued)
                         flush_peer(&peers[i]);
                 }
             }
@@ -947,7 +1002,13 @@ int main(int argc, char **argv)
             if (unicast_acked || unicast_failed)
                 say("  unicast to Apple devices: %ld acknowledged (they hear us), %ld not", unicast_acked, unicast_failed);
             if (rx_dup)
-                say("  %ld repeated frames from Apple devices skipped", rx_dup);
+                say("  %ld repeated frames from Apple devices skipped (they repeat what we do not acknowledge)", rx_dup);
+            if (latency_count) {
+                say("  data frames out on the air after %lld ms on average, %lld ms at most (%ld frames)",
+                    (long long)(latency_sum / latency_count / 1000), (long long)(latency_max / 1000), latency_count);
+                latency_sum = latency_max = 0;
+                latency_count = 0;
+            }
             for (int i = 0; i < n_peers; i++) {
                 struct peer *p = &peers[i];
                 say("  %s %-38s %-12s %s frames %ld data in %ld out %ld waiting %d%s", mac_text(p->mac), p->hostname,
