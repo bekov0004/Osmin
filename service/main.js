@@ -69,7 +69,7 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         super({application_id: APPLICATION_ID, flags: Gio.ApplicationFlags.DEFAULT_FLAGS});
         // Started by the extension (OSMIN_SERVICE=1): no window at the first activation.
         this._quiet = GLib.getenv('OSMIN_SERVICE') === '1';
-        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule(), new CalendarModule(), new FilesModule(), new ArtworkModule(), new ClipboardModule(), new PowerModule(), new ToolsModule(), new FocusModule(), new SystemModule(), new DownloadsModule(), new LyricsModule(), new ProcessesModule(), new AgentsModule(), new SnippetsModule(), new CleanerModule(), new PhoneModule()];
+        this._modules = [new ServiceModule(this), new LocalSendModule(), new TodoModule(), new NotesModule(), new TimerModule(), new CalendarModule(), new FilesModule(), new ArtworkModule(), new ClipboardModule(), new PowerModule(), new ToolsModule(), new FocusModule(), new SystemModule(), new DownloadsModule(), new LyricsModule(), new ProcessesModule(), new AgentsModule(this), new SnippetsModule(), new CleanerModule(), new PhoneModule()];
         this._clients = new Map(); // unique bus name -> watch id
         this._idleId = 0;
     }
@@ -120,6 +120,25 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         }).catch(e => console.warn(`[osmin-service] cannot open the scratchpad: ${e.message}`));
     }
 
+    /** The agents window: the tasks, what one of them does (id), or a new task (newTask). */
+    openAgents({id = '', newTask = false} = {}) {
+        const agents = this._modules.find(m => m.name === 'Agents');
+        if (this._agents) {
+            this._agents.show({id, newTask});
+            return;
+        }
+        import('./agents/window.js').then(({createAgentsWindow}) => {
+            this._agents = createAgentsWindow(agents);
+            this._agents.window.connect('close-request', () => {
+                this._agents.destroy();
+                this._agents = null;
+                this._armIdle();
+                return false;
+            });
+            this._agents.show({id, newTask});
+        }).catch(e => console.warn(`[osmin-service] cannot open the agents window: ${e.message}\n${e.stack}`));
+    }
+
     /** Opened from the app grid: the window of the app. */
     vfunc_activate() {
         if (this._quiet) {
@@ -165,7 +184,8 @@ const OsminService = GObject.registerClass(class OsminService extends Gio.Applic
         this._cancelIdle();
         this._idleId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, IDLE_QUIT_S, () => {
             this._idleId = 0;
-            if (this._clients.size === 0 && !this._window && !this._scratchpad)
+            const agents = this._modules.find(m => m.name === 'Agents');
+            if (this._clients.size === 0 && !this._window && !this._scratchpad && !this._agents && !agents?.busy)
                 this.quit();
             return GLib.SOURCE_REMOVE;
         });

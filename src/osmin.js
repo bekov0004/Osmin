@@ -9,6 +9,7 @@ import {formatTime} from 'resource:///org/gnome/shell/misc/dateUtils.js';
 import {CameraState} from './services/cameraService.js';
 import {LocalSendSession} from './localsend/localSendSession.js';
 import {LocalSendView} from './localsend/localSendView.js';
+import {AgentPermissionActivity} from './agents/agentPermissionActivity.js';
 import {LocalSendReceiveActivity} from './localsend/localSendReceiveActivity.js';
 import {CardManager} from './services/cardManager.js';
 import {ClockService} from './services/clockService.js';
@@ -765,6 +766,16 @@ export class Osmin {
             }),
         });
         this._incoming = activity;
+        this._services.activities.peek(activity, {persistent: true, priority: Priority.CRITICAL, force: true, target: this});
+    }
+
+    /** A background agent task asks for permission: a card with Allow / Deny until it is answered. */
+    showAgentQuestion(request) {
+        const activity = new AgentPermissionActivity({
+            request,
+            agents: this._services.agents,
+            onDismiss: () => this._cards.hide(`activity:${activity.id}`),
+        });
         this._services.activities.peek(activity, {persistent: true, priority: Priority.CRITICAL, force: true, target: this});
     }
 

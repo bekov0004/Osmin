@@ -2,6 +2,9 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import {Module} from '../module.js';
+import {ClaudeTask, findClaude} from './claudeTask.js';
+import {openInTerminal} from './terminal.js';
+import {ClaudeUsage} from './usage.js';
 
 const POLL_MS = 8000;
 const ACTIVE_MS = 20000;        // a session written to within this long is working
@@ -40,19 +43,73 @@ const listFiles = (dir, depth) => {
  * hours and the last week used, and a note when a long task is done. The logs are only read;
  * nothing is sent anywhere and the prompts are not looked at (only the token counts and times).
  *
- * state: {agents: [{id, name, installed, working: [{project, since}], tokens5h, tokens7d, messages5h, last}]}
- * events: finished {agent, name, project, seconds}
+ * It also runs tasks: Claude Code in the background (claudeTask.js: what it does, live; more to ask; its questions
+ * about permissions, answered from Osmin) or an agent in a terminal; and it knows the plan's limits (usage.js) and
+ * the projects the agents worked in lately.
+ *
+ * state: {agents: [{id, name, installed, working: [{project, since}], tokens5h, tokens7d, messages5h, last}],
+ *         tasks: [task summaries, newest first], usage, projects: [{path, name, last}], claude: bool, codex: bool}
+ * events: finished {agent, name, project, seconds}                  a session seen in the logs went quiet
+ *         permission {id, project, requestId, tool, verb, detail}   a background task asks
+ *         task-finished {id, project, ok, text, costUsd}             a background task's turn ended
  */
 export class AgentsModule extends Module {
-    constructor() {
+    /** @param {Gio.Application} app opens the agents window */
+    constructor(app = null) {
         super('Agents');
-        this._files = new Map();   // path -> {agent, offset, entries: [[ts, tokens]], project, modified, activeSince}
+        this._app = app;
+        this._files = new Map();   // path -> {agent, offset, entries: [[ts, tokens]], project, modified, activeSince, cwd}
         this._timer = 0;
+        this._usageTimer = 0;
         this._summary = AGENTS.map(a => ({id: a.id, name: a.name, installed: false, working: [], tokens5h: 0, tokens7d: 0, messages5h: 0, last: 0}));
+        this._tasks = new Map();   // id -> ClaudeTask
+        this._listeners = new Set();
+        this._emitPending = 0;
+        this._projects = [];
+        this._usage = new ClaudeUsage(() => this._changed());
     }
 
     get state() {
-        return {agents: this._summary};
+        return {
+            agents: this._summary,
+            tasks: [...this._tasks.values()].map(t => t.summary).sort((a, b) => b.startedAt - a.startedAt),
+            usage: this._usage.state,
+            projects: this._projects,
+            claude: !!findClaude(),
+            codex: !!GLib.find_program_in_path('codex'),
+        };
+    }
+
+    get busy() {
+        return [...this._tasks.values()].some(t => t.running);
+    }
+
+    task(id) {
+        return this._tasks.get(id) ?? null;
+    }
+
+    /** The agents window follows the tasks: @returns {() => void} to stop. */
+    addListener(callback) {
+        this._listeners.add(callback);
+        return () => this._listeners.delete(callback);
+    }
+
+    /** Something changed: the window at once, the shell a moment later (once for many lines). */
+    _changed() {
+        for (const callback of this._listeners) {
+            try {
+                callback();
+            } catch (e) {
+                console.warn(`[osmin-service] agents window: ${e.message}`);
+            }
+        }
+        if (this._emitPending)
+            return;
+        this._emitPending = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+            this._emitPending = 0;
+            this.emitState();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     start() {
@@ -61,12 +118,125 @@ export class AgentsModule extends Module {
             this._poll();
             return GLib.SOURCE_CONTINUE;
         });
+        this._usage.refresh({force: true}).catch(() => {});
+        this._usageTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 300, () => {
+            this._usage.refresh().catch(() => {});
+            return GLib.SOURCE_CONTINUE;
+        });
     }
 
     stop() {
         if (this._timer)
             GLib.source_remove(this._timer);
-        this._timer = 0;
+        if (this._usageTimer)
+            GLib.source_remove(this._usageTimer);
+        if (this._emitPending)
+            GLib.source_remove(this._emitPending);
+        this._timer = this._usageTimer = this._emitPending = 0;
+        for (const task of this._tasks.values())
+            task.stop();
+    }
+
+    // --- tasks -------------------------------------------------------------------------------------------------
+
+    /**
+     * @param {{cwd: string, prompt: string, where?: 'background'|'terminal', model?: string, agent?: 'claude'|'codex'}} args
+     * @returns {{id?: string, terminal?: string}}
+     */
+    async rpc_startTask({cwd, prompt = '', where = 'background', model = '', agent = 'claude'}) {
+        cwd = String(cwd ?? '').replace(/^~(?=\/|$)/, GLib.get_home_dir());
+        if (!cwd || !GLib.file_test(cwd, GLib.FileTest.IS_DIR))
+            throw new Error(`No such folder: ${cwd}`);
+        prompt = String(prompt ?? '').trim();
+        if (agent === 'codex') {
+            const codex = GLib.find_program_in_path('codex');
+            if (!codex)
+                throw new Error('Codex is not installed');
+            return {terminal: openInTerminal(codex, cwd, prompt ? [prompt] : [])};
+        }
+        const binary = findClaude();
+        if (!binary)
+            throw new Error('Claude Code is not installed (the claude command was not found)');
+        if (where === 'terminal')
+            return {terminal: openInTerminal(binary, cwd, [...(model ? ['--model', model] : []), ...(prompt ? [prompt] : [])])};
+        if (!prompt)
+            throw new Error('What should it do?');
+        const id = GLib.uuid_string_random().slice(0, 8);
+        const task = new ClaudeTask({
+            id, cwd, prompt, model, binary,
+            listener: {
+                changed: () => this._changed(),
+                rateLimit: info => this._usage.update(info),
+                permission: (t, request) => this.emitEvent('permission', {
+                    id: t.id, project: t.summary.project, requestId: request.requestId, tool: request.tool, verb: request.verb,
+                    detail: request.detail, description: request.description,
+                }),
+                finished: (t, ok) => {
+                    const last = [...t.transcript].reverse().find(e => e.kind === 'result' || e.kind === 'error');
+                    this.emitEvent('task-finished', {id: t.id, project: t.summary.project, ok, text: (last?.text ?? '').slice(0, 200), costUsd: t.costUsd});
+                },
+            },
+        });
+        this._tasks.set(id, task);
+        this._trim();
+        task.start();
+        this._changed();
+        return {id};
+    }
+
+    _need(id) {
+        const task = this._tasks.get(id);
+        if (!task)
+            throw new Error('No such task');
+        return task;
+    }
+
+    async rpc_send({id, text}) {
+        this._need(id).send(text);
+        return {};
+    }
+
+    async rpc_answer({id, requestId, decision}) {
+        return {answered: this._need(id).answer(requestId, decision)};
+    }
+
+    async rpc_interrupt({id}) {
+        this._need(id).interrupt();
+        return {};
+    }
+
+    async rpc_stop({id}) {
+        this._need(id).stop();
+        return {};
+    }
+
+    async rpc_remove({id}) {
+        const task = this._tasks.get(id);
+        task?.stop();
+        this._tasks.delete(id);
+        this._changed();
+        return {};
+    }
+
+    async rpc_transcript({id}) {
+        return {transcript: this._need(id).transcript};
+    }
+
+    async rpc_refreshUsage() {
+        await this._usage.refresh({force: true});
+        return {usage: this._usage.state};
+    }
+
+    async rpc_openWindow({id = '', newTask = false} = {}) {
+        this._app?.openAgents?.({id, newTask});
+        return {};
+    }
+
+    /** Keeps the 20 newest tasks (the running ones always). */
+    _trim() {
+        const finished = [...this._tasks.values()].filter(t => !t.running).sort((a, b) => b.startedAt - a.startedAt);
+        for (const task of finished.slice(20))
+            this._tasks.delete(task.id);
     }
 
     _poll() {
@@ -121,6 +291,10 @@ export class AgentsModule extends Module {
                 } catch (e) {
                     continue;
                 }
+                if (typeof entry?.cwd === 'string' && entry.cwd)
+                    file.cwd = entry.cwd;
+                if (typeof entry?.sessionId === 'string')
+                    file.sessionId = entry.sessionId;
                 const usage = entry?.message?.usage ?? entry?.payload?.info?.last_token_usage ?? null;
                 const at = Date.parse(entry?.timestamp ?? '');
                 if (!usage || !Number.isFinite(at))
@@ -136,7 +310,12 @@ export class AgentsModule extends Module {
 
     _summarise(now) {
         const summary = AGENTS.map(a => ({id: a.id, name: a.name, installed: false, working: [], tokens5h: 0, tokens7d: 0, messages5h: 0, last: 0}));
+        // the sessions of Osmin's own background tasks are shown as tasks, not again as "working"
+        const ours = new Set([...this._tasks.values()].map(t => t.sessionId).filter(Boolean));
+        const projects = new Map();
         for (const [path, file] of this._files) {
+            if (file.cwd && (!projects.has(file.cwd) || projects.get(file.cwd) < file.modified))
+                projects.set(file.cwd, file.modified);
             const entry = summary.find(s => s.id === file.agent);
             entry.installed = true;
             file.entries = file.entries.filter(e => now - e[0] <= WEEK);
@@ -148,7 +327,7 @@ export class AgentsModule extends Module {
                 }
                 entry.last = Math.max(entry.last, at);
             }
-            const working = now - file.modified <= ACTIVE_MS;
+            const working = now - file.modified <= ACTIVE_MS && !ours.has(GLib.path_get_basename(path).replace(/\.jsonl$/, ''));
             if (working) {
                 if (!file.activeSince)
                     file.activeSince = file.modified;
@@ -168,6 +347,10 @@ export class AgentsModule extends Module {
             entry.installed = entry.installed || GLib.file_test(a.root, GLib.FileTest.IS_DIR);
         }
         this._summary = summary;
+        this._projects = [...projects.entries()]
+            .filter(([path]) => GLib.file_test(path, GLib.FileTest.IS_DIR))
+            .sort((a, b) => b[1] - a[1]).slice(0, 12)
+            .map(([path, last]) => ({path, name: GLib.path_get_basename(path), last}));
         this.emitState();
     }
 }

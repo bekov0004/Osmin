@@ -129,6 +129,9 @@ export class OsminHost {
                 maxItems: () => this._settings.get('clipboard-max-items'),
             }),
         };
+        // a background agent task asks: the card shows on the screen with the pointer
+        this._services.agents.connectObject('permission', (_a, request) =>
+            this._capsuleAtPointer()?.showAgentQuestion(request), this);
         this._syncCapsules();
         this._syncMenu();
         this._syncMonitor();
@@ -199,6 +202,7 @@ export class OsminHost {
             services.focus.destroy();
             services.system.destroy();
             services.downloads.destroy();
+            services.agents.disconnectObject(this);
             services.agents.destroy();
             services.lyrics.destroy();
             services.todo.destroy();

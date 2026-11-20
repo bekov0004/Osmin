@@ -2321,3 +2321,18 @@
 .osmin-reading-graph { padding: 4px 14px 6px 14px; }
 .osmin-reading-more { border-radius: 12px; padding: 8px; font-size: 9.5pt; font-weight: 600; color: rgba(255, 255, 255, 0.85); background-color: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.10); }
 .osmin-reading-more:hover { background-color: rgba(255, 255, 255, 0.13); color: white; }
+
+/* AI agents: tasks, questions, limits */
+.osmin-agent-dot { margin-top: 4px; }
+.osmin-agent-dot.waiting { background-color: #fbbf24; }
+.osmin-agent-dot.failed { background-color: #f87171; }
+.osmin-agent-dot.idle, .osmin-agent-dot.done { background-color: rgba(74, 222, 128, 0.55); }
+.osmin-agent-current { color: rgba(255, 255, 255, 0.72); font-size: 10.5px; padding-top: 2px; }
+.osmin-agent-entry { margin: 2px 0; }
+.osmin-agent-window { min-width: 58px; }
+.osmin-agent-reset { padding: 0 14px 6px 78px; font-size: 9pt; }
+.osmin-agent-ask { spacing: 6px; padding-top: 6px; padding-bottom: 6px; }
+.osmin-agent-ask-text { color: #fcd34d; font-size: 11px; font-weight: 600; }
+.osmin-agent-actions { spacing: 6px; padding-top: 4px; padding-bottom: 6px; }
+.osmin-agent-card-icon { icon-size: 16px; color: #fbbf24; padding-right: 8px; }
+.osmin-agent-card-detail { font-family: monospace; font-size: 10.5px; color: rgba(255, 255, 255, 0.8); background-color: rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 5px 8px; margin-top: 4px; }
