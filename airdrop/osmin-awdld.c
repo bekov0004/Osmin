@@ -359,6 +359,11 @@ static long backlog(void)
         lost += waiting;
         waiting = 0;
     }
+    /* ... and some given up for lost come back after all */
+    if (waiting < 0) {
+        lost += waiting;
+        waiting = 0;
+    }
     return waiting;
 }
 
@@ -981,18 +986,23 @@ int main(int argc, char **argv)
             (void)last_aw;
             int inside = t >= start + GUARD_US && t < start + AW_US - GUARD_US;
             int anyone = 0;
+            int awake_any = 0;
             for (int i = 0; i < n_peers; i++) {
                 if (!peers[i].valid)
                     continue;
-                /* here by its schedule, or it just sent us something (then it is awake on our channel now) */
-                int awake = t - peers[i].heard < 30000;
-                if ((peer_here(&peers[i], seq) && inside) || awake) {
+                if (peer_here(&peers[i], seq) && inside)
                     anyone = 1;
+                /* Unicast data only right after the device sent something: then it is surely awake on our channel and
+                 * acknowledges at once. The driver ignores NOACK and retries a unicast frame for about 0.5 s when
+                 * nobody acknowledges, holding everything behind it (seen: SYN-ACKs leaving 10-20 s late). */
+                if (t - peers[i].heard < 20000) {
+                    awake_any = 1;
                     if (peers[i].queued)
                         flush_peer(&peers[i]);
                 }
             }
-            if (anyone && inside) {
+            anyone = anyone || awake_any;
+            if (awake_any) {
                 for (int i = 0; i < n_multicast && backlog() < 24; i++)
                     send_ether(multicast[i]->data, multicast[i]->length);
                 drop_queue(multicast, &n_multicast);
